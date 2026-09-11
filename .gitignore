@@ -1,0 +1,18 @@
+.build/
+build/
+DerivedData/
+.DS_Store
+*.xcuserstate
+xcuserdata/
+.swiftpm/xcode/xcuserdata/
+.swiftpm/xcode/package.xcworkspace/xcuserdata/
+
+# Local Xcode / SPM noise
+*.swp
+*~
+.idea/
+.vscode/
+
+# Signed/notarization leftovers
+*.dSYM
+*.ipa

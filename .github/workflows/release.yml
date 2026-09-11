@@ -1,0 +1,47 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  dmg:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build DMG
+        run: ./make-dmg.sh
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: PieMenu
+          path: |
+            build/PieMenu.dmg
+            build/PieMenu.pkg
+            build/PieMenu.zip
+
+      - name: Publish GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            build/PieMenu.dmg
+            build/PieMenu.pkg
+            build/PieMenu.zip
+          fail_on_unmatched_files: true
+          body: |
+            ## Install
+            1. Download **PieMenu.dmg**
+            2. Open it and double-click **Install PieMenu**
+            3. If macOS says the installer can't be verified: **System Settings → Privacy & Security**, scroll down and click **Open Anyway**
+            4. Launch PieMenu from Applications. It asks for **Accessibility** and **Input Monitoring** — click **Open System Settings** and turn both switches on for PieMenu (needed for Command-Tab, Fn and the active apps menu)
+
+            Settings live in the menu bar icon, or launch PieMenu from Applications again.
+            No icon in the menu bar? On macOS 26 allow PieMenu under **System Settings → Menu Bar → Allow in the Menu Bar**.

@@ -1,0 +1,94 @@
+# PieMenu · SwiftLint
+# Запуск: `swiftlint lint --config .swiftlint.yml` (требует установленный swiftlint, brew install swiftlint)
+
+included:
+  - Sources
+  - Tests
+
+excluded:
+  - .build
+  - .swiftpm
+  - Sources/PieMenuLib/Services/Localization.swift  # ручной словарь переводов, особый кейс
+
+disabled_rules:
+  - trailing_whitespace          # не критично для Swift
+  - todo                         # TODO/FIXME по смыслу у нас нет, но хотим свободно оставлять заметки
+  - line_length                  # мы уже контролируем через opt_in_rules ниже
+
+opt_in_rules:
+  - array_init
+  - closure_end_indentation
+  - closure_spacing
+  - contains_over_first_not_nil
+  - empty_count
+  - empty_string
+  - explicit_init
+  - fatal_error_message
+  - first_where
+  - force_unwrapping
+  - implicit_return
+  - last_where
+  - literal_expression_end_indentation
+  - multiline_parameters
+  - overridden_super_call
+  - prohibited_super_call
+  - redundant_nil_coalescing
+  - sorted_first_last
+  - toggle_bool
+  - unneeded_parentheses_in_closure_argument
+  - unused_import
+  - yoda_condition
+
+analyzer_rules:
+  - unused_declaration
+  - unused_import
+
+# Файлы обычно длинные из-за SwiftUI views; даём слабину, но ставим жёсткий порог.
+file_length:
+  warning: 1500
+  error: 2500
+
+type_body_length:
+  warning: 700
+  error: 1200
+
+function_body_length:
+  warning: 120
+  error: 250
+
+cyclomatic_complexity:
+  warning: 14
+  error: 25
+
+identifier_name:
+  min_length:
+    warning: 2
+    error: 1
+  max_length:
+    warning: 60
+    error: 80
+  excluded:
+    - id
+    - x
+    - y
+    - z
+    - n
+    - m
+    - i
+    - j
+    - k
+    - to
+    - ok
+
+type_name:
+  min_length:
+    warning: 3
+    error: 2
+  max_length:
+    warning: 50
+    error: 80
+
+# Разрешаем короткие `{ $0 }`.
+closure_parameter_position: error
+
+reporter: "xcode"

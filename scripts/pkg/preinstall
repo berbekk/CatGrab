@@ -1,0 +1,7 @@
+#!/bin/bash
+set -euo pipefail
+
+osascript -e 'tell application "PieMenu" to quit' >/dev/null 2>&1 || true
+sleep 1
+pkill -x PieMenu >/dev/null 2>&1 || true
+exit 0

@@ -1,0 +1,14 @@
+#!/bin/bash
+set -euo pipefail
+
+APP_PATH="/Applications/PieMenu.app"
+if [ ! -d "${APP_PATH}" ]; then
+  exit 0
+fi
+
+# Снимаем карантин, чтобы Gatekeeper не блокировал приложение после установки из PKG.
+xattr -cr "${APP_PATH}" >/dev/null 2>&1 || true
+
+# Приложение намеренно не запускаем отсюда: в macOS 26 значок в строке меню привязывается
+# к процессу, который запустил приложение (StatusKit). Первый запуск должен сделать пользователь.
+exit 0

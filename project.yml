@@ -1,0 +1,43 @@
+name: PieMenu
+options:
+  bundleIdPrefix: com.piemenu
+  deploymentTarget:
+    macOS: "13.0"
+  createIntermediateGroups: true
+  groupSortPosition: top
+packages:
+  PieMenuPackage:
+    path: .
+targets:
+  PieMenu:
+    type: application
+    platform: macOS
+    sources:
+      - path: Sources/PieMenu/main.swift
+      - path: Sources/PieMenu/Resources/AppIcon.icns
+        buildPhase: resources
+      - path: Sources/PieMenu/PrivacyInfo.xcprivacy
+        buildPhase: resources
+    dependencies:
+      - package: PieMenuPackage
+        product: PieMenuLib
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.piemenu.app
+        PRODUCT_NAME: PieMenu
+        MARKETING_VERSION: "1.0.0"
+        CURRENT_PROJECT_VERSION: "1"
+        INFOPLIST_FILE: Sources/PieMenu/Info.plist
+        GENERATE_INFOPLIST_FILE: false
+        CODE_SIGN_ENTITLEMENTS: Sources/PieMenu/PieMenu.entitlements
+        CODE_SIGN_STYLE: Automatic
+        ENABLE_HARDENED_RUNTIME: YES
+        ENABLE_APP_SANDBOX: NO
+        COMBINE_HIDPI_IMAGES: YES
+        MACOSX_DEPLOYMENT_TARGET: "13.0"
+        SWIFT_VERSION: "5.9"
+        LD_RUNPATH_SEARCH_PATHS:
+          - "$(inherited)"
+          - "@executable_path/../Frameworks"
+    scheme:
+      testTargets: []
