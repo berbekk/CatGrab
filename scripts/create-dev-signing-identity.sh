@@ -5,12 +5,12 @@
 # Сертификат живёт только в вашей связке ключей и не заменяет Developer ID для распространения.
 set -euo pipefail
 
-NAME="${PIEMENU_DEV_IDENTITY_NAME:-PieMenu Dev Signing}"
+NAME="${CATGRAB_DEV_IDENTITY_NAME:-CatGrab Dev Signing}"
 KEYCHAIN="${HOME}/Library/Keychains/login.keychain-db"
-DAYS="${PIEMENU_DEV_IDENTITY_DAYS:-3650}"
+DAYS="${CATGRAB_DEV_IDENTITY_DAYS:-3650}"
 
 if security find-identity -v -p codesigning | grep -q "\"${NAME}\""; then
-  echo "Сертификат «${NAME}» уже есть. build.sh подхватит его автоматически."
+  echo "Certificate \"${NAME}\" already exists. build.sh picks it up automatically."
   exit 0
 fi
 
@@ -53,7 +53,7 @@ P12_PASS="$("${OPENSSL}" rand -hex 16)"
 security import "${TMP}/identity.p12" -k "${KEYCHAIN}" -P "${P12_PASS}" \
   -T /usr/bin/codesign -T /usr/bin/security >/dev/null
 
-echo "Сейчас macOS попросит пароль, чтобы доверять сертификату для подписи кода."
+echo "macOS will now ask for your password to trust this certificate for code signing."
 security add-trusted-cert -r trustRoot -p codeSign -k "${KEYCHAIN}" "${TMP}/cert.pem"
 
-echo "Готово: «${NAME}». Пересоберите приложение: ./install.sh"
+echo "Done: \"${NAME}\". Rebuild the app with: ./install.sh"

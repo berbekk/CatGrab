@@ -1,0 +1,21 @@
+name: Translation fix
+description: A string is wrong, awkward, or untranslated in your language
+labels: ["localization"]
+body:
+  - type: input
+    id: language
+    attributes:
+      label: Language
+      placeholder: "Deutsch / German"
+    validations:
+      required: true
+
+  - type: textarea
+    id: strings
+    attributes:
+      label: What is wrong
+      description: Where you see it, the current text, and what it should say.
+      placeholder: |
+        Settings sidebar, "Add for app" — currently "…", should be "…"
+    validations:
+      required: true

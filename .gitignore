@@ -1,18 +1,30 @@
+# Build output
 .build/
 build/
 DerivedData/
-.DS_Store
-*.xcuserstate
-xcuserdata/
-.swiftpm/xcode/xcuserdata/
-.swiftpm/xcode/package.xcworkspace/xcuserdata/
+*.dSYM
+*.dmg
 
-# Local Xcode / SPM noise
+# Generated from AppIcon.png by scripts/generate-app-icon.sh on every build
+Sources/CatGrab/Resources/AppIcon.icns
+Sources/CatGrab/Resources/AppIcon.iconset/
+
+# Xcode / SwiftPM state — open Package.swift in Xcode, no project file needed
+.swiftpm/
+*.xcodeproj/
+*.xcworkspace/
+xcuserdata/
+*.xcuserstate
+
+# macOS and editors
+.DS_Store
+.vscode/
+.idea/
 *.swp
 *~
-.idea/
-.vscode/
 
-# Signed/notarization leftovers
-*.dSYM
-*.ipa
+# Signing material — never commit
+*.p12
+*.cer
+*.provisionprofile
+*.keychain-db

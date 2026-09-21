@@ -1,0 +1,61 @@
+name: Bug report
+description: Something in CatGrab does not work as expected
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report. If this is a security issue, please use
+        [private reporting](../security/advisories/new) instead.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What did you expect, and what did you get instead?
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open Settings
+        2. ...
+        3. Press ⌃⌥Space
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: CatGrab version
+      placeholder: "1.0.0"
+    validations:
+      required: true
+
+  - type: input
+    id: macos
+    attributes:
+      label: macOS version and chip
+      placeholder: "macOS 15.1, Apple M2"
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: permissions
+    attributes:
+      label: Permissions
+      description: >
+        Check System Settings → Privacy & Security. Most hotkey problems come from one of these
+        being off.
+      options:
+        - label: Accessibility is on for CatGrab
+        - label: Input Monitoring is on for CatGrab
+
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else
+      description: Screenshots, a screen recording, or console output all help.

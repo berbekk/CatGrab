@@ -3,16 +3,19 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
-SRC="${ROOT_DIR}/Sources/PieMenu/Resources/AppIcon.png"
-ICONSET="${ROOT_DIR}/Sources/PieMenu/Resources/AppIcon.iconset"
-OUT_ICNS="${ROOT_DIR}/Sources/PieMenu/Resources/AppIcon.icns"
+SRC="${ROOT_DIR}/Sources/CatGrab/Resources/AppIcon.png"
+ICONSET="${ROOT_DIR}/Sources/CatGrab/Resources/AppIcon.iconset"
+OUT_ICNS="${ROOT_DIR}/Sources/CatGrab/Resources/AppIcon.icns"
 
 if [ ! -f "${SRC}" ]; then
   echo "Error: missing ${SRC}"
   exit 1
 fi
 
+# Иконсет — промежуточный артефакт: пересоздаём с нуля и убираем за собой.
+rm -rf "${ICONSET}"
 mkdir -p "${ICONSET}"
+trap 'rm -rf "${ICONSET}"' EXIT
 
 cat > "${ICONSET}/Contents.json" <<'EOF'
 {
@@ -45,3 +48,5 @@ sips -z 1024 1024 "${SRC}" --out "${ICONSET}/icon_512x512@2x.png" >/dev/null
 
 rm -f "${OUT_ICNS}"
 iconutil -c icns "${ICONSET}" -o "${OUT_ICNS}"
+
+echo "App icon generated: ${OUT_ICNS}"

@@ -2,15 +2,63 @@ name: CI
 
 on:
   push:
-    branches: [main, master]
+    branches: [main]
   pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   test:
-    runs-on: macos-15
+    name: Build & test
+    runs-on: macos-26
     steps:
       - uses: actions/checkout@v4
+
+      # Стекло Liquid Glass (macOS 26 API) собирается только с SDK из Xcode 26 и новее.
+      - uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - name: Toolchain
+        run: xcodebuild -version && swift --version
+
       - name: Swift tests
         run: swift test
-      - name: Release build
-        run: swift build -c release
+
+      # Собираем тот же универсальный бинарник, что и в релизе: так поломка под Intel видна сразу.
+      - name: App bundle (Apple silicon + Intel)
+        env:
+          CATGRAB_ARCHS: arm64 x86_64
+        run: ./build.sh
+
+      - name: Check bundle
+        run: |
+          plutil -lint build/CatGrab.app/Contents/Info.plist
+          test -f build/CatGrab.app/Contents/Resources/AppIcon.icns
+          test -f build/CatGrab.app/Contents/Resources/PrivacyInfo.xcprivacy
+          lipo -archs build/CatGrab.app/Contents/MacOS/CatGrab | grep -q x86_64
+          lipo -archs build/CatGrab.app/Contents/MacOS/CatGrab | grep -q arm64
+          codesign --verify --deep --strict --verbose=2 build/CatGrab.app
+
+  lint:
+    name: SwiftLint
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v4
+
+      # Стекло Liquid Glass (macOS 26 API) собирается только с SDK из Xcode 26 и новее.
+      - uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - name: Toolchain
+        run: xcodebuild -version && swift --version
+
+      - name: Install SwiftLint
+        run: brew install swiftlint
+
+      - name: Lint
+        run: swiftlint lint --strict --reporter github-actions-logging

@@ -2,16 +2,16 @@
 import PackageDescription
 
 let package = Package(
-    name: "PieMenu",
+    name: "CatGrab",
     platforms: [.macOS(.v13)],
     products: [
-        .library(name: "PieMenuLib", targets: ["PieMenuLib"]),
-        .executable(name: "PieMenu", targets: ["PieMenu"])
+        .library(name: "CatGrabLib", targets: ["CatGrabLib"]),
+        .executable(name: "CatGrab", targets: ["CatGrab"])
     ],
     targets: [
         .target(
-            name: "PieMenuLib",
-            path: "Sources/PieMenuLib",
+            name: "CatGrabLib",
+            path: "Sources/CatGrabLib",
             resources: [.process("Resources")],
             linkerSettings: [
                 .linkedFramework("Carbon"),
@@ -21,15 +21,15 @@ let package = Package(
             ]
         ),
         .executableTarget(
-            name: "PieMenu",
-            dependencies: ["PieMenuLib"],
-            path: "Sources/PieMenu",
-            exclude: ["Info.plist", "Resources", "PieMenu.entitlements", "PrivacyInfo.xcprivacy"]
+            name: "CatGrab",
+            dependencies: ["CatGrabLib"],
+            path: "Sources/CatGrab",
+            exclude: ["Info.plist", "Resources", "CatGrab.entitlements", "PrivacyInfo.xcprivacy"]
         ),
         .testTarget(
-            name: "PieMenuLibTests",
-            dependencies: ["PieMenuLib"],
-            path: "Tests/PieMenuLibTests"
+            name: "CatGrabLibTests",
+            dependencies: ["CatGrabLib"],
+            path: "Tests/CatGrabLibTests"
         )
     ]
 )

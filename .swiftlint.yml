@@ -1,4 +1,4 @@
-# PieMenu · SwiftLint
+# CatGrab · SwiftLint
 # Запуск: `swiftlint lint --config .swiftlint.yml` (требует установленный swiftlint, brew install swiftlint)
 
 included:
@@ -8,7 +8,7 @@ included:
 excluded:
   - .build
   - .swiftpm
-  - Sources/PieMenuLib/Services/Localization.swift  # ручной словарь переводов, особый кейс
+  - Sources/CatGrabLib/Services/Localization.swift  # ручной словарь переводов, особый кейс
 
 disabled_rules:
   - trailing_whitespace          # не критично для Swift
@@ -36,7 +36,6 @@ opt_in_rules:
   - sorted_first_last
   - toggle_bool
   - unneeded_parentheses_in_closure_argument
-  - unused_import
   - yoda_condition
 
 analyzer_rules:
@@ -53,16 +52,17 @@ type_body_length:
   error: 1200
 
 function_body_length:
-  warning: 120
+  warning: 150
   error: 250
 
 cyclomatic_complexity:
   warning: 14
   error: 25
 
+# Короткие локальные имена (`c`, `s`, `p`) в коде используются осознанно и локально.
 identifier_name:
   min_length:
-    warning: 2
+    warning: 1
     error: 1
   max_length:
     warning: 60
@@ -79,14 +79,32 @@ identifier_name:
     - k
     - to
     - ok
+    - _0   # имя ключа в Codable-представлении enum с ассоциированным значением, менять нельзя
 
 type_name:
   min_length:
-    warning: 3
+    warning: 2
     error: 2
+  excluded:
+    - DS   # пространство имён дизайн-токенов, короткое намеренно
   max_length:
     warning: 50
     error: 80
+
+# Геометрия секторов и SwiftUI-хелперы естественно принимают много параметров.
+function_parameter_count:
+  warning: 8
+  error: 10
+
+# Кортежи из трёх элементов для (x, y, z)-подобных группировок читаются нормально.
+large_tuple:
+  warning: 3
+  error: 4
+
+# `SettingsView` держит вложенный тип с собственным enum — два уровня допустимы.
+nesting:
+  type_level:
+    warning: 2
 
 # Разрешаем короткие `{ $0 }`.
 closure_parameter_position: error

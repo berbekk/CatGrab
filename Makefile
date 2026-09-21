@@ -1,16 +1,25 @@
-.PHONY: build install test dmg run
+.PHONY: build run install test lint dmg verify-release clean
 
-build:
+build:           ## Build build/CatGrab.app for this Mac
 	./build.sh
 
-install:
+run: build       ## Build and launch
+	open build/CatGrab.app
+
+install:         ## Build and copy to /Applications
 	./install.sh
 
-test:
+test:            ## Run unit tests
 	swift test
 
-dmg:
+lint:            ## SwiftLint, strict like CI
+	swiftlint lint --strict
+
+dmg:             ## Universal build/CatGrab.dmg for distribution
 	./make-dmg.sh
 
-run: build
-	open build/PieMenu.app
+verify-release:  ## Check build/CatGrab.dmg the way users receive it
+	./scripts/verify-release.sh
+
+clean:
+	rm -rf .build build
