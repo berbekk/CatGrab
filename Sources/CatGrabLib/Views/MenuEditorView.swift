@@ -160,6 +160,16 @@ struct MenuEditorView: View {
     /// Исключения — такая же строка, как остальные; выбранные приложения идут строками под ней.
     private var runningAppsExclusionsContent: some View {
         VStack(spacing: DS.Spacing.s) {
+            SettingsRow(localizer.text(.runningAppsLimitTitle), subtitle: localizer.text(.runningAppsLimitSubtitle)) {
+                DSPopUpPicker(
+                    selection: $menu.runningAppsLimit,
+                    options: PieMenu.runningAppsLimitOptions.map {
+                        ($0, $0 == 0 ? localizer.text(.runningAppsLimitAll) : String($0))
+                    },
+                    accessibilityLabel: localizer.text(.runningAppsLimitTitle)
+                )
+            }
+            SettingsRowDivider()
             SettingsRow(
                 localizer.text(.runningAppsExclusions),
                 subtitle: localizer.text(.runningAppsExclusionsExplainer)

@@ -32,13 +32,19 @@ final class ConfigManager: ObservableObject {
     /// Cloud sync отключён в App Store-сборке.
     var isCloudStorageAvailable: Bool { false }
 
+    /// Другая папка конфига — чтобы посмотреть на чистую установку, не трогая свои меню
+    /// (`scripts/run-fresh-install.sh`).
+    static let configDirectoryEnvironmentKey = "CATGRAB_CONFIG_DIR"
+
     private init() {
         // ~/Library/Application Support существует всегда, но падать из-за этого при запуске незачем:
         // домашний каталог — корректный запасной вариант.
         let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
             ?? FileManager.default.homeDirectoryForCurrentUser
                 .appendingPathComponent("Library/Application Support", isDirectory: true)
-        let appDir = appSupport.appendingPathComponent("CatGrab")
+        let overrideDir = ProcessInfo.processInfo.environment[Self.configDirectoryEnvironmentKey]
+            .flatMap { $0.isEmpty ? nil : URL(fileURLWithPath: $0, isDirectory: true) }
+        let appDir = overrideDir ?? appSupport.appendingPathComponent("CatGrab")
         do {
             try FileManager.default.createDirectory(at: appDir, withIntermediateDirectories: true)
         } catch {

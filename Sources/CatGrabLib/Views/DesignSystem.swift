@@ -93,6 +93,8 @@ enum DS {
         static let bodySize: CGFloat = 13
         /// Заголовок боковой колонки / экрана
         static let screenTitle = Font.system(size: 15, weight: .semibold)
+        /// Заголовок страницы знакомства
+        static let onboardingTitle = Font.system(size: 22, weight: .semibold)
         /// Подзаголовок, счётчики
         static let subtitle = Font.system(size: 11, weight: .regular)
         /// Подписи полей, подсказки, второстепенные метки

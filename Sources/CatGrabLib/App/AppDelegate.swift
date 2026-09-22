@@ -21,7 +21,8 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
     private var activeTrackpadFingerCounts: Set<Int> = []
     private var pieMenuWindow: PieMenuWindowController!
     private var settingsWindow: SettingsWindowController?
-    private var permissionsOnboardingController: PermissionsOnboardingWindowController?
+    private var onboardingController: OnboardingWindowController?
+    private var onboardingRequestObserver: NSObjectProtocol?
     private var previousApp: NSRunningApplication?
     /// Меню команд ждёт, пока команды активного приложения соберутся; `nil` — не ждёт.
     private var pendingAppCommandsToken: UUID?
@@ -40,6 +41,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         if let token = screenParametersObserver { NotificationCenter.default.removeObserver(token) }
         if let token = appActivationObserver { NSWorkspace.shared.notificationCenter.removeObserver(token) }
         if let token = appLaunchObserver { NSWorkspace.shared.notificationCenter.removeObserver(token) }
+        if let token = onboardingRequestObserver { NotificationCenter.default.removeObserver(token) }
     }
 
     public override init() {
@@ -68,7 +70,6 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
                 forKey: TooltipTiming.userDefaultsKey
             )
         }
-        AppLaunchState.applySettingsAutoOpenMigrationForExistingInstallsIfNeeded()
         RunningAppsActivationHistory.startObservingIfNeeded()
         languageSubscription = ConfigManager.shared.configurationPublisher
             .map(\.language)
@@ -106,9 +107,16 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
             queue: .main
         ) { [weak self] _ in
             Task { @MainActor [weak self] in
-                self?.presentSettingsOnceIfFirstLaunchPermissionsComplete()
                 self?.evaluateStatusItemVisibility(openSettingsIfHidden: false)
             }
+        }
+
+        onboardingRequestObserver = NotificationCenter.default.addObserver(
+            forName: .showOnboardingRequested,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor [weak self] in self?.showOnboarding(startPage: .welcome) }
         }
 
         // Права выданы в Системных настройках → сразу поднимаем HID-tap и закрываем онбординг.
@@ -120,14 +128,18 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
                 self.setupHotkeys()
                 guard snapshot.allRequiredGranted else {
                     // Универсальный доступ уже дали — следующим шагом сразу запрашиваем Мониторинг ввода.
-                    if snapshot.accessibilityTrusted, self.permissionsOnboardingController != nil {
+                    if snapshot.accessibilityTrusted, self.onboardingController?.isVisible == true {
                         PermissionsSnapshot.promptInputMonitoringIfNeeded()
                     }
                     return
                 }
-                self.permissionsOnboardingController?.finishBecausePermissionsGranted()
+                // В туре перезапуск делает последняя страница — с объяснением, зачем он.
+                if let onboarding = self.onboardingController, onboarding.isVisible {
+                    onboarding.permissionsGranted()
+                    return
+                }
                 if self.hotkeyManager.hidTapIsRunningWithoutKeyEvents {
-                    AppRelauncher.relaunch()
+                    self.relaunchToApplyPermissions(afterRelaunch: self.settingsWindow?.isVisible == true ? .openSettings : nil)
                 }
             }
 
@@ -166,29 +178,62 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         DispatchQueue.main.async { [weak self] in
-            self?.presentFirstLaunchPermissionsIfNeeded()
+            self?.resumeAfterRelaunchOrPresentOnboarding()
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + Timings.statusItemLayoutSettleDelay) { [weak self] in
             self?.evaluateStatusItemVisibility(openSettingsIfHidden: true)
         }
     }
 
-    private func presentFirstLaunchPermissionsIfNeeded() {
-        let needsAccessibility = HotkeyHIDTap.requiresAccessibility(menus: ConfigManager.shared.configuration.menus)
-        let granted = PermissionsMonitor.shared.snapshot.allRequiredGranted
-        guard AppLaunchState.shouldShowPermissionsOnboarding(
-            accessibilityGranted: granted,
-            needsAccessibility: needsAccessibility
-        ) else {
-            presentSettingsOnceIfFirstLaunchPermissionsComplete()
+    /// После перезапуска ради прав — сразу настройки: иначе непонятно, запустилось ли приложение.
+    /// Иначе — знакомство, если его ещё не было или без прав не работают заданные сочетания.
+    private func resumeAfterRelaunchOrPresentOnboarding() {
+        if let pending = AppLaunchState.afterRelaunch {
+            AppLaunchState.afterRelaunch = nil
+            ReadyBannerState.shared.isShown = pending == .openSettingsWithReadyBanner
+            openSettings()
             return
         }
-        let c = PermissionsOnboardingWindowController()
-        permissionsOnboardingController = c
-        c.present { [weak self] in
-            self?.permissionsOnboardingController = nil
-            self?.presentSettingsOnceIfFirstLaunchPermissionsComplete()
+        let needsAccessibility = HotkeyHIDTap.requiresAccessibility(menus: ConfigManager.shared.configuration.menus)
+        let granted = PermissionsMonitor.shared.snapshot.allRequiredGranted
+        guard let entry = AppLaunchState.onboardingEntry(accessibilityGranted: granted, needsAccessibility: needsAccessibility) else {
+            return
         }
+        showOnboarding(startPage: entry == .tour ? .welcome : .permissions)
+    }
+
+    private func showOnboarding(startPage: OnboardingPage) {
+        if let onboardingController, onboardingController.isVisible {
+            onboardingController.model.page = startPage
+            onboardingController.present(onClosed: {})
+            return
+        }
+        let controller = OnboardingWindowController(startPage: startPage)
+        controller.model.needsRelaunch = { [weak self] in self?.hotkeyManager?.hidTapIsRunningWithoutKeyEvents ?? false }
+        controller.model.onFinish = { [weak self, weak controller] relaunch in
+            guard let self else { return }
+            AppLaunchState.hasCompletedOnboarding = true
+            controller?.close()
+            self.onboardingController = nil
+            if relaunch {
+                self.relaunchToApplyPermissions(afterRelaunch: .openSettingsWithReadyBanner)
+            } else {
+                ReadyBannerState.shared.isShown = true
+                self.openSettings()
+            }
+        }
+        onboardingController = controller
+        controller.present { [weak self] in
+            AppLaunchState.hasCompletedOnboarding = true
+            self?.onboardingController = nil
+        }
+    }
+
+    /// WindowServer отдаёт клавиши в event tap только новому процессу: после «Мониторинга ввода»
+    /// нужен перезапуск. Что открыть после него, запоминаем заранее.
+    private func relaunchToApplyPermissions(afterRelaunch: AppLaunchState.AfterRelaunch?) {
+        AppLaunchState.afterRelaunch = afterRelaunch
+        AppRelauncher.relaunch()
     }
 
     /// macOS 26 может запретить значок («Строка меню → Разрешить в строке меню»), а на MacBook
@@ -198,16 +243,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         MenuBarIconStatus.shared.evaluate(statusItem: statusItem)
         guard let problem = MenuBarIconStatus.shared.problem else { return }
         PieLog.ui.error("status item not visible: \(String(describing: problem), privacy: .public)")
-        guard openSettingsIfHidden, permissionsOnboardingController == nil else { return }
-        openSettings()
-    }
-
-    /// После онбординга доступов, когда все требования выполнены — один раз открыть настройки.
-    private func presentSettingsOnceIfFirstLaunchPermissionsComplete() {
-        guard !AppLaunchState.hasAutoOpenedSettingsAfterPermissionsComplete else { return }
-        guard AppLaunchState.hasSeenPermissionIntro else { return }
-        guard PermissionsSnapshot.current().allRequiredGranted else { return }
-        AppLaunchState.hasAutoOpenedSettingsAfterPermissionsComplete = true
+        guard openSettingsIfHidden, onboardingController == nil else { return }
         openSettings()
     }
 
@@ -718,6 +754,11 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         image?.isTemplate = true
         return image
     }
+}
+
+extension Notification.Name {
+    /// «Показать снова» в настройках: открыть знакомство с первой страницы.
+    static let showOnboardingRequested = Notification.Name("CatGrab.showOnboardingRequested")
 }
 
 extension AppAppearance {

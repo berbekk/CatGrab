@@ -25,7 +25,8 @@ make run          # build build/CatGrab.app and launch it
 | `make dmg` | Universal `build/CatGrab.dmg`, the file users download |
 | `make verify-release` | Mount the DMG and check it the way users receive it |
 | `make site` | Preview the website from `site/` at http://localhost:8000 |
-| `scripts/run-first-launch.sh` | Launch with the permissions onboarding shown again |
+| `scripts/run-first-launch.sh` | Launch with the welcome tour shown again, on your own menus |
+| `scripts/run-fresh-install.sh` | Launch as a new user: default menus in a temporary config folder, tour from page one |
 
 ### Keeping your permissions
 

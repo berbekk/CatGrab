@@ -19,6 +19,8 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         }
     }
 
+    var isVisible: Bool { window?.isVisible ?? false }
+
     func show() {
         if window == nil {
             createWindow()

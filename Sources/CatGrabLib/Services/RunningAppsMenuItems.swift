@@ -16,6 +16,25 @@ enum RunningAppsMenuItems {
         )
     }
 
+    /// Какие из `candidates` (уже по алфавиту) показать при ограничении `limit` (0 — все): сначала
+    /// `pinned` (приложение, откуда пришли), затем по недавности из `recent`, затем те, к которым
+    /// не переходили, — по алфавиту. Порядок результата — как в `candidates`.
+    static func limited(_ candidates: [String], recent: [String], pinned: String?, limit: Int) -> [String] {
+        guard limit > 0, candidates.count > limit else { return candidates }
+        let rank = Dictionary(uniqueKeysWithValues: recent.enumerated().map { ($1, $0) })
+        let alphabetical = Dictionary(uniqueKeysWithValues: candidates.enumerated().map { ($1, $0) })
+        let chosen = candidates.sorted { a, b in
+            if a == pinned { return true }
+            if b == pinned { return false }
+            let ra = rank[a] ?? Int.max
+            let rb = rank[b] ?? Int.max
+            if ra != rb { return ra < rb }
+            return (alphabetical[a] ?? 0) < (alphabetical[b] ?? 0)
+        }.prefix(limit)
+        let keep = Set(chosen)
+        return candidates.filter { keep.contains($0) }
+    }
+
     /// Собирает секторы для меню типа «запущенные приложения».
     static func build(for menu: PieMenu) -> [PieMenuItem] {
         guard menu.kind == .runningApps else {
@@ -42,6 +61,18 @@ enum RunningAppsMenuItems {
 
         let preferredBid = RunningAppsActivationHistory.bundleIdentifierBeforeLastActivation
         let frontBid = NSWorkspace.shared.frontmostApplication?.bundleIdentifier
+        // Ограничение: остаются самые недавние, а стоят они по-прежнему по алфавиту — кольцо
+        // не перестраивается при каждом переключении, меняется только его состав.
+        let kept = Set(limited(
+            apps.compactMap(\.bundleIdentifier),
+            recent: RunningAppsActivationHistory.recentBundleIdentifiers,
+            pinned: preferredBid != frontBid ? preferredBid : nil,
+            limit: menu.runningAppsLimit
+        ))
+        apps.removeAll { app in
+            guard let bid = app.bundleIdentifier else { return true }
+            return !kept.contains(bid)
+        }
         if let preferredBid,
            preferredBid != frontBid,
            let pIdx = apps.firstIndex(where: { $0.bundleIdentifier == preferredBid }) {

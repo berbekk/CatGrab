@@ -347,9 +347,23 @@ struct ThemeMiniRing: View {
     var sectorCount = 8
     /// Толщина кольца: доля внутреннего радиуса от внешнего. У своих тем — как у сохранённого меню.
     var innerRatio = 0.44
+    /// Цвет кота в центре; `nil` — как у нового меню (чёрный).
+    var catColor: Color?
 
     /// Высота головы кота относительно её ширины (`design/cat.svg`, 99×93).
     private static let catHeadAspectRatio = 93.0 / 99.0
+
+    @Environment(\.colorScheme) private var colorScheme
+
+    /// Чёрный кот на тёмной карточке сливался с фоном: в тёмном оформлении силуэт чуть светлее
+    /// и с контуром, в светлом — тёмный с лёгким контуром, как у самого кольца.
+    private var headFill: Color {
+        catColor ?? (colorScheme == .dark ? Color(white: 0.2) : Color(white: 0.12))
+    }
+
+    private var headOutline: Color {
+        colorScheme == .dark ? Color.white.opacity(0.32) : Color.black.opacity(0.18)
+    }
 
     var body: some View {
         GeometryReader { geo in
@@ -376,7 +390,8 @@ struct ThemeMiniRing: View {
             }
             // Голова кота вместо простого кружка в центре — узнаваемый силуэт, как в самом меню.
             CatSVGHeadShape()
-                .fill(Color(white: 0.12))
+                .fill(headFill)
+                .overlay(CatSVGHeadShape().stroke(headOutline, lineWidth: 0.8))
                 .frame(width: inner * 1.5, height: inner * 1.5 * Self.catHeadAspectRatio)
                 .position(center)
         }
@@ -391,7 +406,8 @@ extension ThemeMiniRing {
             scheme: look.colorScheme,
             intensity: look.liquidGlass.tintOpacity,
             clearGlass: look.liquidGlass.variant == .clear,
-            innerRatio: min(0.8, max(0.2, look.innerRadius / max(1, look.menuRadius)))
+            innerRatio: min(0.8, max(0.2, look.innerRadius / max(1, look.menuRadius))),
+            catColor: Color(hex: look.catColorHex)
         )
     }
 }

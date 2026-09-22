@@ -100,6 +100,7 @@ struct SettingsView: View {
                     .frame(maxHeight: .infinity)
                     .ignoresSafeArea(edges: .top)
                 VStack(spacing: 0) {
+                    ReadyBanner(hotkey: PieMenu.mainTemplateMenu(from: config.menus)?.hotkey ?? .empty)
                     MenuBarIconHiddenBanner()
                     detail
                         .frame(maxWidth: .infinity, maxHeight: .infinity)

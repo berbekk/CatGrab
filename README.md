@@ -78,7 +78,8 @@ any other app.
 
 ### Permissions
 
-CatGrab then asks for two permissions. Click **Open System Settings** and turn **CatGrab** on in each:
+CatGrab then opens a short tour: try the ring, pick a hotkey, and on the last pages grant two
+permissions. Click **Allow** and turn **CatGrab** on in each:
 
 | Permission | Why |
 | --- | --- |

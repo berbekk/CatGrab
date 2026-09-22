@@ -41,6 +41,13 @@ struct PermissionsSettingsView: View {
                         }
                         SettingsRowDivider()
                         openAtLoginRow
+                        SettingsRowDivider()
+                        SettingsRow(localizer.text(.welcomeTourRow)) {
+                            Button(localizer.text(.welcomeTourShow)) {
+                                NotificationCenter.default.post(name: .showOnboardingRequested, object: nil)
+                            }
+                            .buttonStyle(DSFieldButtonStyle(width: DS.Sizing.settingsControlWidth))
+                        }
                     }
                 }
 

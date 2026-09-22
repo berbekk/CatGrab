@@ -10,7 +10,19 @@ struct MenuPreviewView: View {
     var onAddItem: (() -> Void)?
     /// Набор команд одного приложения (`menu` — меню команд этого набора): в центре — само приложение.
     var appSetBundleId: String?
+    /// Кнопки подсказок и фона над превью; в знакомстве их нет — там только само кольцо.
+    var showsEditorChrome = true
+    /// Показательное перетаскивание в знакомстве: сектор `index` нарисован сдвинутым на `angleOffset`
+    /// радиан, как будто его тянут; конфиг не меняется.
+    var demoDrag: DemoDrag?
+    /// Показательный поворот в знакомстве: добавка к повороту меню только для рисования.
+    var demoRotationOffsetDegrees: Double = 0
     @EnvironmentObject private var localizer: LocalizationStore
+
+    struct DemoDrag: Equatable {
+        let index: Int
+        let angleOffset: Double
+    }
 
     @State private var draggedItemId: UUID?
     @State private var dragAngle: Double = 0
@@ -83,7 +95,7 @@ struct MenuPreviewView: View {
     }
 
     private var rotationRadians: Double {
-        menu.rotationDegrees * .pi / 180
+        (menu.rotationDegrees + demoRotationOffsetDegrees) * .pi / 180
     }
 
     private func isOptionKeyDown() -> Bool {
@@ -118,6 +130,12 @@ struct MenuPreviewView: View {
 
     private var displayRadius: Double { menu.effectiveMenuRadius }
     private var contentSize: CGFloat { displayRadius * 2 + 30 }
+
+    /// Во сколько раз уменьшить кольцо, чтобы оно с полями поместилось в `size`; больше 1 не растёт.
+    static func fittingScale(for menu: PieMenu, in size: CGSize) -> CGFloat {
+        let contentSize = CGFloat(menu.effectiveMenuRadius * 2 + 30)
+        return min(1.0, size.width / contentSize, size.height / contentSize)
+    }
     private func startAngle(for index: Int) -> Double {
         PieSectorLayout.sectorAngles(
             index: index,
@@ -150,29 +168,6 @@ struct MenuPreviewView: View {
         )
     }
 
-    private func reorderDropIndex(for angle: Double) -> Int {
-        let n = max(1, previewSectorCount)
-        var delta = angle - dragStartAngle
-        while delta > .pi { delta -= 2 * .pi }
-        while delta < -.pi { delta += 2 * .pi }
-        let offset = Int(round(delta / sectorAngle))
-        return ((dragStartSectorIndex + offset) % n + n) % n
-    }
-
-    private var dropIndex: Int {
-        reorderDropIndex(for: dragAngle)
-    }
-
-    private func displayItemsDuringDrag(dropIndex: Int) -> [PieMenuItem] {
-        var sorted = previewItems
-        guard let id = draggedItemId,
-              let fromPos = sorted.firstIndex(where: { $0.id == id }),
-              fromPos != dropIndex,
-              dropIndex < sorted.count else { return sorted }
-        sorted.swapAt(fromPos, dropIndex)
-        return sorted
-    }
-
     @State private var hoveredSectorIndex: Int?
     /// Последний сектор под курсором — лапка остаётся на нём, когда курсор уходит с кольца,
     /// вместо того чтобы прыгать на первый сектор.
@@ -188,31 +183,33 @@ struct MenuPreviewView: View {
     var body: some View {
         VStack(spacing: 0) {
             ZStack {
-                if showsBackdrop {
+                if showsBackdrop && showsEditorChrome {
                     PreviewBackdrop(split: backdropSplit)
                 }
 
                 wheelCanvas
 
-                if showsBackdrop {
+                if showsBackdrop && showsEditorChrome {
                     PreviewBackdropHandle(split: $backdropSplit)
                 }
 
                 // Подсказки — по кнопке: текстом поверх превью на них наезжали секторы крупного кольца.
-                HStack(alignment: .top, spacing: DS.Spacing.s) {
-                    hintsButton
-                    PreviewToolbarButton(
-                        icon: "circle.lefthalf.filled",
-                        isActive: showsBackdrop,
-                        help: localizer.text(.previewBackdropHelp)
-                    ) {
-                        showsBackdrop.toggle()
+                if showsEditorChrome {
+                    HStack(alignment: .top, spacing: DS.Spacing.s) {
+                        hintsButton
+                        PreviewToolbarButton(
+                            icon: "circle.lefthalf.filled",
+                            isActive: showsBackdrop,
+                            help: localizer.text(.previewBackdropHelp)
+                        ) {
+                            showsBackdrop.toggle()
+                        }
+                        Spacer(minLength: 0)
                     }
-                    Spacer(minLength: 0)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                    .padding(.horizontal, DS.Spacing.s)
+                    .padding(.top, DS.Spacing.s)
                 }
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-                .padding(.horizontal, DS.Spacing.s)
-                .padding(.top, DS.Spacing.s)
             }
             .frame(maxHeight: .infinity)
 
@@ -238,7 +235,7 @@ struct MenuPreviewView: View {
 
     private var wheelCanvas: some View {
         GeometryReader { geo in
-            let scale = min(1.0, geo.size.width / contentSize, geo.size.height / contentSize)
+            let scale = Self.fittingScale(for: menu, in: geo.size)
             let cx = geo.size.width / 2
             let cy = geo.size.height / 2
             let drawRadius = displayRadius * scale
@@ -246,7 +243,8 @@ struct MenuPreviewView: View {
             let drawIconDist = drawInnerRadius + (drawRadius - drawInnerRadius) * menu.iconDistance
             let drawCornerRadius = min(CGFloat(DS.Pie.sectorCornerRadius) * scale, CGFloat(drawRadius * 0.11))
             let currentDropIndex = dropIndex
-            let itemsToShow = draggedItemId != nil
+            let activeDrag = effectiveDrag
+            let itemsToShow = activeDrag != nil
                 ? displayItemsDuringDrag(dropIndex: currentDropIndex)
                 : previewItems
             let isGhost: Bool = {
@@ -296,14 +294,15 @@ struct MenuPreviewView: View {
                             if let hex = item.iconColor, let c = Color(hex: hex) { return c }
                             return segmentColor
                         }()
-                        let isDraggingThis = draggedItemId == item.id
+                        let isDraggingThis = activeDrag?.itemId == item.id
+                        let dragAngleNow = activeDrag?.angle ?? 0
                         let isSelected = !isGhost && selectedItemId == item.id
                         let isHovered = hoveredSectorIndex == index && !isDraggingThis
                         let slotStart = startAngle(for: index)
                         let slotEnd = endAngle(for: index)
                         let halfSector = sectorAngle / 2
-                        let drawStart = isDraggingThis ? dragAngle - halfSector : slotStart
-                        let drawEnd = isDraggingThis ? dragAngle + halfSector : slotEnd
+                        let drawStart = isDraggingThis ? dragAngleNow - halfSector : slotStart
+                        let drawEnd = isDraggingThis ? dragAngleNow + halfSector : slotEnd
                         let sectorShape = PieSectorShape(
                             startAngle: drawStart,
                             endAngle: drawEnd,
@@ -311,7 +310,7 @@ struct MenuPreviewView: View {
                             outerRadius: drawRadius,
                             cornerRadius: drawCornerRadius
                         )
-                        let midAngle = isDraggingThis ? dragAngle : (slotStart + slotEnd) / 2
+                        let midAngle = isDraggingThis ? dragAngleNow : (slotStart + slotEnd) / 2
                         let ringWidth = max(1, drawRadius - drawInnerRadius)
                         let shortcutSizeRatio =
                             PieMenu.clampedShortcutDigitSizeScale(menu.shortcutDigitSizeScale)
@@ -444,10 +443,15 @@ struct MenuPreviewView: View {
                 // Лапка у каждого сектора, как в самом кольце: появляется на месте, а не скользит
                 // от соседа. Без наведения держится на выбранном или последнем секторе — по ней
                 // настраивают размер и положение лапки в «Параметрах».
-                if menu.pawDecorationEnabled, draggedItemId == nil {
-                    ForEach(Array(itemsToShow.enumerated()), id: \.element.id) { index, _ in
-                        let isPawHere = index == pawPreviewSectorIndex
-                        let midAngle = (startAngle(for: index) + endAngle(for: index)) / 2
+                // В показательном перетаскивании лапа держит сам сектор и едет вместе с ним;
+                // при настоящем перетаскивании лапы нет, как и раньше.
+                if menu.pawDecorationEnabled, activeDrag == nil || demoDrag != nil {
+                    ForEach(Array(itemsToShow.enumerated()), id: \.element.id) { index, item in
+                        let isDraggedItem = activeDrag?.itemId == item.id
+                        let isPawHere = activeDrag == nil ? index == pawPreviewSectorIndex : isDraggedItem
+                        let midAngle = isDraggedItem
+                            ? (activeDrag?.angle ?? 0)
+                            : (startAngle(for: index) + endAngle(for: index)) / 2
                         CatPawGrabView(
                             size: pawSize,
                             grabProgress: isPawHere ? 1 : 0,
@@ -467,7 +471,7 @@ struct MenuPreviewView: View {
 
                 // Подпись под курсором — как в самом кольце: по ней видно, что выключает переключатель
                 // в «Параметрах», и как читаются названия секторов.
-                if menu.showsHoverLabel, draggedItemId == nil, !isGhost,
+                if menu.showsHoverLabel, activeDrag == nil, !isGhost,
                    let hovered = hoveredSectorIndex, hovered < itemsToShow.count,
                    let text = previewHoverLabel(for: itemsToShow[hovered], at: hovered) {
                     let label = PieHoverLabel(text: text)
@@ -753,8 +757,8 @@ extension MenuPreviewView {
 
     /// Угол сектора с учётом перетаскивания: перетаскиваемый едет за курсором.
     private func drawAngles(index: Int, itemId: UUID) -> (start: Double, end: Double) {
-        guard draggedItemId == itemId else { return (startAngle(for: index), endAngle(for: index)) }
-        return (dragAngle - sectorAngle / 2, dragAngle + sectorAngle / 2)
+        guard let drag = effectiveDrag, drag.itemId == itemId else { return (startAngle(for: index), endAngle(for: index)) }
+        return (drag.angle - sectorAngle / 2, drag.angle + sectorAngle / 2)
     }
 
     /// Стекло всех секторов — в одном контейнере, как в самом меню. Поодиночке адаптивное стекло
@@ -952,4 +956,59 @@ private struct MenuPreviewPreview: View {
 
 #Preview("MenuPreview") {
     MenuPreviewPreview()
+}
+
+// MARK: - Перетаскивание сектора
+
+extension MenuPreviewView {
+    /// Что сейчас тянут: жест пользователя или показательное движение из знакомства.
+    private struct DragState {
+        let itemId: UUID
+        let angle: Double
+        let startAngle: Double
+        let startSectorIndex: Int
+    }
+
+    private var effectiveDrag: DragState? {
+        if let demoDrag {
+            let items = previewItems
+            guard demoDrag.index >= 0, demoDrag.index < items.count else { return nil }
+            var mid = (startAngle(for: demoDrag.index) + endAngle(for: demoDrag.index)) / 2
+            if mid > .pi { mid -= 2 * .pi }
+            if mid < -.pi { mid += 2 * .pi }
+            return DragState(
+                itemId: items[demoDrag.index].id,
+                angle: mid + demoDrag.angleOffset,
+                startAngle: mid,
+                startSectorIndex: demoDrag.index
+            )
+        }
+        guard let draggedItemId else { return nil }
+        return DragState(itemId: draggedItemId, angle: dragAngle, startAngle: dragStartAngle, startSectorIndex: dragStartSectorIndex)
+    }
+
+    /// На какое место кольца попадёт сектор, если отпустить его под углом `angle`.
+    private func reorderDropIndex(for angle: Double) -> Int {
+        let n = max(1, previewSectorCount)
+        var delta = angle - (effectiveDrag?.startAngle ?? dragStartAngle)
+        while delta > .pi { delta -= 2 * .pi }
+        while delta < -.pi { delta += 2 * .pi }
+        let offset = Int(round(delta / sectorAngle))
+        return (((effectiveDrag?.startSectorIndex ?? dragStartSectorIndex) + offset) % n + n) % n
+    }
+
+    private var dropIndex: Int {
+        reorderDropIndex(for: effectiveDrag?.angle ?? dragAngle)
+    }
+
+    /// Пункты в том порядке, как они выглядят во время перетаскивания: тянутый уже на новом месте.
+    private func displayItemsDuringDrag(dropIndex: Int) -> [PieMenuItem] {
+        var sorted = previewItems
+        guard let id = effectiveDrag?.itemId,
+              let fromPos = sorted.firstIndex(where: { $0.id == id }),
+              fromPos != dropIndex,
+              dropIndex < sorted.count else { return sorted }
+        sorted.swapAt(fromPos, dropIndex)
+        return sorted
+    }
 }

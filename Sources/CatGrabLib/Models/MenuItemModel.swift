@@ -279,8 +279,10 @@ struct HotkeyConfig: Codable, Equatable {
         ("F7", 98), ("F8", 100), ("F9", 101), ("F10", 109), ("F11", 103), ("F12", 111)
     ]
 
+    /// ⇧1 для нового меню «Main». Сочетание перехватывается целиком, поэтому «!» в этой раскладке
+    /// печататься не будет, пока сочетание не сменят: в туре поле хоткея — на второй странице.
     static var defaultHotkey: HotkeyConfig {
-        HotkeyConfig(keyCode: 49, carbonModifiers: 6144)
+        HotkeyConfig(keyCode: 18, carbonModifiers: CarbonModifiers.shift)
     }
 
     static var empty: HotkeyConfig {
@@ -446,6 +448,8 @@ struct PieMenu: Codable, Identifiable, Equatable {
     var kind: PieMenuKind
     /// Bundle ID приложений, которые не показывать в меню запущенных (даже если открыты).
     var runningAppsExcludedBundleIds: [String]
+    /// Сколько приложений показывать в меню запущенных: самые недавние; 0 — все.
+    var runningAppsLimit: Int
     /// Для динамических меню: включено ли меню (хоткей и жест не срабатывают, пока выключено).
     /// Имя поля осталось от времён, когда динамическое меню было одно, — так его хранит конфиг.
     var runningAppsMenuEnabled: Bool
@@ -672,6 +676,16 @@ struct PieMenu: Codable, Identifiable, Equatable {
         return minInnerRadius...upper
     }
 
+    /// Шесть недавних приложений: столько помещается в кольцо, не мельча, и обычно столько и держат
+    /// в работе. Больше — секторы сужаются и меню читается хуже, чем сам ⌘Tab.
+    static let defaultRunningAppsLimit = 6
+    /// Что предлагает список в настройках; 0 — без ограничения.
+    static let runningAppsLimitOptions = [4, 6, 8, 10, 12, 0]
+
+    static func clampedRunningAppsLimit(_ value: Int) -> Int {
+        value <= 0 ? 0 : min(max(value, PieMenuItem.minItemCount), PieMenu.quickSelectLabels.count)
+    }
+
     /// Уникальные bundle ID для исключений (меню «запущенные приложения»), без учёта регистра.
     static func deduplicatedRunningAppsExcludedBundleIds(_ ids: [String]) -> [String] {
         var seen = Set<String>()
@@ -697,6 +711,7 @@ struct PieMenu: Codable, Identifiable, Equatable {
          items: [PieMenuItem] = [],
          kind: PieMenuKind = .standard,
          runningAppsExcludedBundleIds: [String] = [],
+         runningAppsLimit: Int = PieMenu.defaultRunningAppsLimit,
          runningAppsMenuEnabled: Bool = true,
          trackpadFingerCount: Int = 0,
          menuRadius: Double = defaultMenuRadius,
@@ -731,6 +746,7 @@ struct PieMenu: Codable, Identifiable, Equatable {
         self.items = items
         self.kind = kind
         self.runningAppsExcludedBundleIds = runningAppsExcludedBundleIds
+        self.runningAppsLimit = Self.clampedRunningAppsLimit(runningAppsLimit)
         self.runningAppsMenuEnabled = runningAppsMenuEnabled
         self.trackpadFingerCount = trackpadFingerCount
         self.menuRadius = menuRadius
@@ -823,6 +839,9 @@ struct PieMenu: Codable, Identifiable, Equatable {
         runningAppsExcludedBundleIds = Self.deduplicatedRunningAppsExcludedBundleIds(
             try container.decodeIfPresent([String].self, forKey: .runningAppsExcludedBundleIds) ?? []
         )
+        runningAppsLimit = Self.clampedRunningAppsLimit(
+            try container.decodeIfPresent(Int.self, forKey: .runningAppsLimit) ?? Self.defaultRunningAppsLimit
+        )
         runningAppsMenuEnabled = try container.decodeIfPresent(Bool.self, forKey: .runningAppsMenuEnabled) ?? true
         trackpadFingerCount = try container.decodeIfPresent(Int.self, forKey: .trackpadFingerCount) ?? 0
         appCommandsDefaultEntries = Self.resolvedAppCommandsDefaultEntries(
@@ -856,6 +875,7 @@ struct PieMenu: Codable, Identifiable, Equatable {
         try container.encode(items, forKey: .items)
         try container.encode(kind, forKey: .kind)
         try container.encode(runningAppsExcludedBundleIds, forKey: .runningAppsExcludedBundleIds)
+        try container.encode(runningAppsLimit, forKey: .runningAppsLimit)
         try container.encode(runningAppsMenuEnabled, forKey: .runningAppsMenuEnabled)
         try container.encode(trackpadFingerCount, forKey: .trackpadFingerCount)
         try container.encode(menuRadius, forKey: .menuRadius)
@@ -1005,6 +1025,7 @@ struct PieMenu: Codable, Identifiable, Equatable {
         case items
         case kind
         case runningAppsExcludedBundleIds
+        case runningAppsLimit
         case runningAppsMenuEnabled
         case trackpadFingerCount
         case menuRadius

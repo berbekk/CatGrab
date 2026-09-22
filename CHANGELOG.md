@@ -6,6 +6,27 @@ All notable changes to CatGrab are documented here. The format follows
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-09-22
+
+### Added
+
+- A welcome tour on first launch: the real ring to play with, the hotkey to try or change, two pages
+  where the cat's paw shows a sector moving and the ring turning before you try the gestures
+  yourself, the two built-in menus, a starting palette, then the permissions — and a final page that
+  says what to press. Reopen it any time from Settings → General → Welcome tour.
+- A hint under the Glass switch explaining Regular versus Clear.
+- The default hotkey of a new Main menu is ⇧1. It is easy to press and easy to change on the tour's
+  second page; note that it takes over “!” until it is changed.
+- Active apps: “Apps in the ring” limits the menu to the most recently used apps (6 by default;
+  4 to 12 or all). The app you came from is always first, the rest stay alphabetical.
+
+### Fixed
+
+- After the relaunch that applies Input Monitoring nothing appeared, so it was unclear whether CatGrab
+  was running at all. Settings now open right after that relaunch with a banner naming the hotkey.
+- The cat in theme cards was invisible on dark cards; it now has a readable silhouette and, for your
+  own themes, the theme's cat colour.
+
 ## [1.1.0] - 2026-09-22
 
 The ring now tells you what it is about to do, works from the keyboard, and opens faster.
@@ -95,6 +116,7 @@ First public release.
 - Backup and restore of the whole configuration as JSON, with migration of older files.
 - Universal build for Apple silicon and Intel, distributed as a DMG.
 
-[Unreleased]: https://github.com/berbekk/CatGrab/compare/v1.1.0...HEAD
+[Unreleased]: https://github.com/berbekk/CatGrab/compare/v1.2.0...HEAD
+[1.2.0]: https://github.com/berbekk/CatGrab/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/berbekk/CatGrab/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/berbekk/CatGrab/releases/tag/v1.0.0
