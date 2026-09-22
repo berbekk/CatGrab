@@ -6,6 +6,8 @@ All notable changes to CatGrab are documented here. The format follows
 
 ## [Unreleased]
 
+## [1.2.1] - 2026-09-22
+
 ### Fixed
 
 - Active apps: on a quick repeated ⌘Tab the icon and paw of a sector could glide in from another
@@ -123,7 +125,8 @@ First public release.
 - Backup and restore of the whole configuration as JSON, with migration of older files.
 - Universal build for Apple silicon and Intel, distributed as a DMG.
 
-[Unreleased]: https://github.com/berbekk/CatGrab/compare/v1.2.0...HEAD
+[Unreleased]: https://github.com/berbekk/CatGrab/compare/v1.2.1...HEAD
+[1.2.1]: https://github.com/berbekk/CatGrab/compare/v1.2.0...v1.2.1
 [1.2.0]: https://github.com/berbekk/CatGrab/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/berbekk/CatGrab/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/berbekk/CatGrab/releases/tag/v1.0.0
