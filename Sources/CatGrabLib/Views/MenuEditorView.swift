@@ -9,20 +9,17 @@ struct MenuEditorView: View {
     /// Число пальцев → название другого меню, которое сейчас открывается этим касанием.
     var trackpadFingerCountOwners: [Int: String]
     @Binding var showAppearancePanel: Bool
-    /// Остальные меню (id и название) для копирования видимых настроек.
-    var otherMenuApplyTargets: [(UUID, String)]
-    var onApplySharedSettingsToMenuIds: (Set<UUID>) -> Void
+    /// Свои темы — чтобы «Оформление» назвало тему меню.
+    var customThemes: [CustomMenuTheme] = []
+    /// Удалить меню; `nil` — встроенное меню, удалять нечего.
+    var onDelete: (() -> Void)?
+    /// Копия меню рядом с этим; `nil` — встроенное меню.
+    var onDuplicate: (() -> Void)?
+    /// Другое меню с тем же сочетанием — предупредить, что сработает то, что выше в списке.
+    var hotkeyConflictMenuName: String?
     @EnvironmentObject private var localizer: LocalizationStore
 
     @State private var selectedItemId: UUID?
-    @State private var showApplyTargetsSheet = false
-    @State private var applyTargetsSelection: Set<UUID> = []
-
-    private var showingInspector: Bool {
-        selectedItemId != nil
-    }
-
-    private static let inspectorDrawerWidth: CGFloat = 340
 
     var body: some View {
         VStack(spacing: 0) {
@@ -33,60 +30,104 @@ struct MenuEditorView: View {
         }
         .padding(.top, DS.Spacing.s)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .animation(.spring(response: 0.28, dampingFraction: 0.82), value: showingInspector)
         .background(DS.Colors.canvasTop)
-        .sheet(isPresented: $showApplyTargetsSheet) {
-            ApplySharedMenuSettingsSheet(
-                targets: otherMenuApplyTargets,
-                selectedIds: $applyTargetsSelection,
-                onConfirm: { onApplySharedSettingsToMenuIds(applyTargetsSelection) },
-                onDismiss: { showApplyTargetsSheet = false }
-            )
-            .environmentObject(localizer)
+        // Инспектор и «Параметры» выезжают в одно место — открытие одного закрывает другое.
+        .onChange(of: selectedItemId) { id in
+            if id != nil { showAppearancePanel = false }
+        }
+        .onChange(of: showAppearancePanel) { visible in
+            if visible { selectedItemId = nil }
         }
     }
 
     // MARK: - Menu Settings
 
-    /// У каждого меню сверху одна и та же карточка «хоткей + жест»: как меню открывается, настраивается
-    /// в самом меню. Строки — общие `SettingsRow`, контролы справа одной ширины.
+    /// У каждого меню сверху одно и то же: шапка с названием (и «Удалить меню» справа), под ней
+    /// карточка «хоткей + жест + оформление». Строки — общие `SettingsRow`, контролы справа одной ширины.
     private var menuSettingsSection: some View {
-        VStack(alignment: .leading, spacing: DS.Spacing.s) {
-            switch menu.kind {
-            case .standard:
-                DSSectionHeader(title: localizer.text(.menuOpeningSection))
+        VStack(alignment: .leading, spacing: DS.Spacing.m) {
+            PageTitleRow(title: menu.displayName(localizer)) {
+                MenuIconTile(menu: menu)
+            } trailing: {
+                HStack(spacing: DS.Spacing.s) {
+                    if let onDuplicate {
+                        Button(action: onDuplicate) {
+                            Label(localizer.text(.duplicateMenu), systemImage: "plus.square.on.square")
+                        }
+                        .buttonStyle(DSFieldButtonStyle())
+                    }
+                    if let onDelete {
+                        Button(role: .destructive, action: onDelete) {
+                            Label(localizer.text(.deleteMenu), systemImage: "trash")
+                        }
+                        .buttonStyle(DSFieldButtonStyle(isDestructive: true))
+                    }
+                }
+            }
+
+            VStack(alignment: .leading, spacing: DS.Spacing.s) {
                 SettingsCard {
                     VStack(spacing: DS.Spacing.s) {
                         hotkeyRow
                         SettingsRowDivider()
                         trackpadGestureRow
+                        SettingsRowDivider()
+                        appearanceRow
+                        if menu.isRunningAppsMenu {
+                            SettingsRowDivider()
+                            runningAppsExclusionsContent
+                        }
                     }
                 }
-            case .runningApps:
-                DSSectionHeader(title: localizer.text(.runningAppsSection))
-                SettingsCard {
-                    VStack(spacing: DS.Spacing.s) {
-                        hotkeyRow
-                        SettingsRowDivider()
-                        trackpadGestureRow
-                        SettingsRowDivider()
-                        runningAppsExclusionsContent
-                    }
+                if menu.isAppCommandsMenu {
+                    appCommandsFootnote
                 }
-            case .appCommands:
-                DSSectionHeader(title: localizer.text(.appCommandsSection))
-                SettingsCard {
-                    VStack(spacing: DS.Spacing.s) {
-                        hotkeyRow
-                        SettingsRowDivider()
-                        trackpadGestureRow
-                    }
+                if let hotkeyConflictMenuName {
+                    hotkeyConflictFootnote(otherMenuName: hotkeyConflictMenuName)
+                } else if !menu.isDynamicMenu {
+                    howToOpenFootnote
                 }
-                appCommandsFootnote
             }
         }
         .padding(.horizontal, DS.Spacing.l)
+        .padding(.top, DS.Spacing.m)
         .padding(.bottom, DS.Spacing.m)
+    }
+
+    /// Само взаимодействие — зажать, повести, отпустить — нигде в приложении не показано;
+    /// одна строка под сочетанием говорит, как меню открывают и как выбирают сектор.
+    private var howToOpenFootnote: some View {
+        Text(localizer.text(.howToOpenHint))
+            .font(DS.Typography.label)
+            .foregroundStyle(.secondary)
+            .fixedSize(horizontal: false, vertical: true)
+            .padding(.horizontal, DS.Spacing.m)
+    }
+
+    /// Одно сочетание у двух меню: второе молча не откроется — лучше сказать об этом здесь.
+    private func hotkeyConflictFootnote(otherMenuName: String) -> some View {
+        Label {
+            Text(String(format: localizer.text(.hotkeyConflictFormat), otherMenuName))
+        } icon: {
+            Image(systemName: "exclamationmark.triangle")
+        }
+        .font(DS.Typography.label)
+        .foregroundStyle(Color.orange)
+        .fixedSize(horizontal: false, vertical: true)
+        .padding(.horizontal, DS.Spacing.m)
+    }
+
+    /// Тема меню и вход в панель «Параметры» — рядом с остальными настройками меню.
+    private var appearanceRow: some View {
+        SettingsRow(localizer.text(.appearanceRowTitle)) {
+            MenuStyleField(
+                menu: menu,
+                customThemes: customThemes,
+                isActive: showAppearancePanel,
+                onQuickApply: { menu.applyTheme($0) },
+                action: { showAppearancePanel.toggle() }
+            )
+        }
     }
 
     private var hotkeyRow: some View {
@@ -206,78 +247,53 @@ struct MenuEditorView: View {
 
     private var previewSection: some View {
         sectionBlock(title: localizer.text(.previewAndFineTuning)) {
-            GeometryReader { geo in
-                ZStack(alignment: .trailing) {
-                    MenuPreviewView(
-                        menu: $menu,
-                        selectedItemId: $selectedItemId,
-                        hapticFeedbackEnabled: hapticFeedbackEnabled,
-                        isAppearancePanelVisible: showAppearancePanel,
-                        onToggleAppearancePanel: { showAppearancePanel.toggle() },
-                        onAddItem: menu.isDynamicMenu ? nil : addItem,
-                        applySharedStyleActions: otherMenuApplyTargets.isEmpty
-                            ? nil
-                            : (
-                                applyToAll: { onApplySharedSettingsToMenuIds(Set(otherMenuApplyTargets.map(\.0))) },
-                                chooseTargets: {
-                                    applyTargetsSelection = []
-                                    showApplyTargetsSheet = true
-                                }
-                            )
-                    )
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-
-                    if showingInspector {
-                        Color.clear
-                            .contentShape(Rectangle())
-                            .onTapGesture { selectedItemId = nil }
-                    }
-
-                    selectedItemEditor(maxWidth: min(Self.inspectorDrawerWidth, geo.size.width * 0.46))
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .animation(.spring(response: 0.28, dampingFraction: 0.82), value: showingInspector)
+            if menu.isAppCommandsMenu {
+                CommandSetEditorPane(
+                    menu: $menu,
+                    bundleIdentifier: nil,
+                    hapticFeedbackEnabled: hapticFeedbackEnabled,
+                    showAppearancePanel: $showAppearancePanel
+                )
+            } else {
+                itemsPreview
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
     }
 
-    @ViewBuilder
-    private func selectedItemEditor(maxWidth: CGFloat) -> some View {
-        if let id = selectedItemId,
-           let index = menu.items.firstIndex(where: { $0.id == id }) {
-            let inspectorRadius = DS.Radius.card
+    private var itemsPreview: some View {
+        MenuPreviewView(
+            menu: $menu,
+            selectedItemId: $selectedItemId,
+            hapticFeedbackEnabled: hapticFeedbackEnabled,
+            isAppearancePanelVisible: showAppearancePanel,
+            onAddItem: menu.isDynamicMenu ? nil : addItem
+        )
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .sideDrawer(itemInspector)
+    }
+
+    /// Инспектор выбранного сектора — в левой панели окна, как «Параметры».
+    private var itemInspector: SideDrawerContent? {
+        guard let id = selectedItemId, let index = menu.items.firstIndex(where: { $0.id == id }) else { return nil }
+        return SideDrawerContent(id: id, onClose: closeInspector) {
             ItemEditorView(
                 item: Binding(
-                    get: { menu.items[index] },
-                    set: { menu.items[index] = $0 }
+                    get: { menu.items.first { $0.id == id } ?? menu.items[min(index, menu.items.count - 1)] },
+                    set: { item in
+                        if let i = menu.items.firstIndex(where: { $0.id == id }) { menu.items[i] = item }
+                    }
                 ),
-                onClose: { selectedItemId = nil },
+                themeColor: themeColor(forItemAt: index),
+                themeColors: menu.colorScheme.sampleColors,
+                iconThemeColor: iconThemeColor(forItemAt: index),
+                onClose: closeInspector,
                 onDelete: removeSelectedItem
             )
-            .frame(width: max(260, maxWidth))
-            .clipShape(RoundedRectangle(cornerRadius: inspectorRadius, style: .continuous))
-            .background(
-                RoundedRectangle(cornerRadius: inspectorRadius, style: .continuous)
-                    .fill(
-                        LinearGradient(
-                            colors: [DS.Colors.panelTop, DS.Colors.panelBottom],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        )
-                    )
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: inspectorRadius, style: .continuous)
-                    .strokeBorder(DS.Colors.stroke, lineWidth: DS.Border.hairline)
-            )
-            .padding(DS.Spacing.m)
-            .id(id)
-            .transition(.asymmetric(
-                insertion: .move(edge: .trailing).combined(with: .opacity),
-                removal: .move(edge: .trailing).combined(with: .opacity)
-            ))
         }
+    }
+
+    private func closeInspector() {
+        selectedItemId = nil
     }
 
     private func sectionBlock<Content: View>(
@@ -298,11 +314,24 @@ struct MenuEditorView: View {
         .padding(.bottom, DS.Spacing.l)
     }
 
+    /// Цвет темы на месте сектора — по порядку секторов, как его раскрасит кольцо.
+    private func themeColor(forItemAt index: Int) -> String {
+        let sorted = menu.items.sorted { $0.sectorIndex < $1.sectorIndex }
+        let position = sorted.firstIndex { $0.id == menu.items[index].id } ?? 0
+        return menu.colorScheme.color(at: position, count: sorted.count)
+    }
+
+    /// Цвет иконки по теме: белый при «Белых иконках», иначе цвет сектора (свой или из темы).
+    private func iconThemeColor(forItemAt index: Int) -> String {
+        if menu.iconStyle == .white { return "#FFFFFF" }
+        let item = menu.items[index]
+        return item.usesThemeColor ? themeColor(forItemAt: index) : item.color
+    }
+
     // MARK: - Actions
 
     private func addItem() {
-        let usedIndices = Set(menu.items.map { $0.sectorIndex })
-        let nextIndex = (0...).first { !usedIndices.contains($0) } ?? menu.items.count
+        let nextIndex = menu.nextFreeSectorIndex
         let item = PieMenuItem(
             title: localizer.text(.newItem),
             icon: PieMenuItem.randomUnassignedSymbol(avoiding: Set(menu.items.map(\.icon))),
@@ -339,9 +368,7 @@ private struct MenuEditorPreview: View {
             hapticFeedbackEnabled: $hapticFeedbackEnabled,
             trackpadFingerCount: $trackpadFingerCount,
             trackpadFingerCountOwners: [:],
-            showAppearancePanel: $showPanel,
-            otherMenuApplyTargets: [],
-            onApplySharedSettingsToMenuIds: { _ in }
+            showAppearancePanel: $showPanel
         )
             .frame(width: 800, height: 600)
             .preferredColorScheme(.dark)

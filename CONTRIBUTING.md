@@ -24,6 +24,7 @@ make run          # build build/CatGrab.app and launch it
 | `make lint` | SwiftLint in `--strict` mode, like CI (`brew install swiftlint`) |
 | `make dmg` | Universal `build/CatGrab.dmg`, the file users download |
 | `make verify-release` | Mount the DMG and check it the way users receive it |
+| `make site` | Preview the website from `site/` at http://localhost:8000 |
 | `scripts/run-first-launch.sh` | Launch with the permissions onboarding shown again |
 
 ### Keeping your permissions
@@ -48,6 +49,7 @@ Sources/CatGrabLib/     All logic and UI, in a library so tests can import it
 Tests/CatGrabLibTests/  Unit tests
 design/                 Vector artwork the icon and SwiftUI shapes come from
 scripts/                Icon rendering, signing helpers, release checks
+site/                   The website (one self-contained index.html), deployed to GitHub Pages
 ```
 
 - **Models** are `Codable` and versioned. If you change the shape of `PieConfiguration` or

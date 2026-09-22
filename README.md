@@ -12,7 +12,7 @@ your app, shortcut, window command or snippet fires. No trip to the Dock, no dig
 [![macOS 13+](https://img.shields.io/badge/macOS-13%2B-blue)](#requirements)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
-**[Download CatGrab.dmg](https://github.com/berbekk/CatGrab/releases/latest)** · [Русский](README.ru.md) · [Changelog](CHANGELOG.md)
+**[Download CatGrab.dmg](https://github.com/berbekk/CatGrab/releases/latest)** · [Website](https://berbekk.github.io/CatGrab/) · [Русский](README.ru.md) · [Changelog](CHANGELOG.md)
 
 <br>
 
@@ -33,10 +33,15 @@ your app, shortcut, window command or snippet fires. No trip to the Dock, no dig
 - **App commands.** One hotkey opens the commands of the app you are in: move the window to a half of
   the screen, fill or center it, full screen, quit. Give any app its own set — anything from its menu
   bar — and the same hotkey shows Figma's commands in Figma and Xcode's in Xcode.
-- **Quick select.** While a menu is open, press the digit or letter shown on a sector.
+- **Always readable.** The sector under the pointer shows its name and what it will do — the site,
+  the key combination, the first words of the snippet. Near a screen edge the ring stays fully on
+  screen and pulls the pointer to its center, so the same flick works everywhere.
+- **Quick select.** While a menu is open, press the digit or letter shown on a sector, or use the
+  arrow keys, Tab and Return.
 - **Icons from anywhere:** SF Symbols, emoji, website favicons, your own image or text.
-- **Make it yours:** glass sectors, colours, size, rotation, icon distance — and a cat in the middle
-  whose eyes follow the pointer.
+- **Make it yours:** 24 colour themes to start from — palettes, gradients, single colours — then
+  fine-tune the colours, intensity, glass and icons, or give any sector its own colour. Size,
+  rotation and a cat in the middle whose eyes follow the pointer. Settings come in light or dark.
 - **13 languages**, and backup/restore of your whole setup as one JSON file.
 
 <p align="center">
@@ -160,6 +165,11 @@ make install   # builds and copies CatGrab.app to /Applications
 `make build` builds into `build/` without installing, `make test` runs the tests. See
 [CONTRIBUTING.md](CONTRIBUTING.md) for the project layout and how to keep permissions between
 rebuilds, and [RELEASING.md](RELEASING.md) for publishing a release.
+
+## Author
+
+Made by **Kudriash Vasiliy** — [Telegram](https://t.me/berbekk) · [GitHub](https://github.com/berbekk).
+Questions, ideas and bug reports are welcome in [issues](https://github.com/berbekk/CatGrab/issues/new/choose).
 
 ## License
 

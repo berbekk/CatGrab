@@ -25,6 +25,7 @@ enum PieMenuItemPasteboard {
             icon: template.icon,
             action: template.action,
             color: template.color,
+            usesThemeColor: template.usesThemeColor,
             iconColor: template.iconColor,
             sectorIndex: sectorIndex,
             customShortcut: template.customShortcut

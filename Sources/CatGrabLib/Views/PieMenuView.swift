@@ -19,29 +19,33 @@ struct PieMenuView: View {
     var shortcutDigitInsetRightScale: Double = PieMenu.defaultShortcutDigitInsetRightScale
     var shortcutDigitOpacity: Double = PieMenu.defaultShortcutDigitOpacity
     var shortcutDigitColorHex: String = PieMenu.defaultShortcutDigitColorHex
+    var catColorHex: String = PieMenu.defaultCatColorHex
+    var pawColorHex: String = PieMenu.defaultPawColorHex
     /// См. `MouseTrackingOverlay.innerCircleHighlightsFirstSector`.
     var innerCircleHighlightsFirstSector: Bool = false
     /// В полноэкранном оверлее без интерактивного стекла стабильнее отрисовка секторов (Liquid Glass).
     var sectorGlassInteractive: Bool = false
-    /// Пропустить анимацию появления: меню рисуется в финальном состоянии сразу.
-    /// Используется для меню «запущенные приложения», чтобы переключение между приложениями
-    /// ощущалось мгновенно, без ожидания scale/opacity‑перехода.
-    var appearsInstantly: Bool = false
     /// Меню «Команды приложения»: команда для каждого пункта `items`, в том же порядке.
     /// `nil` — обычное меню.
     var commands: [PieSubAction]?
     /// Чьи команды показаны: иконка этого приложения встаёт в центр вместо кота.
     var commandsAppBundleId: String?
+    /// Подпись каждого пункта для показа под курсором; `nil` — подписи выключены у этого меню.
+    var hoverLabels: [PieHoverLabelText?]?
+    /// Секторы, которые сейчас нельзя выбрать: приглушены, клик и отпускание хоткея на них — ничего.
+    var disabledIndices: Set<Int> = []
     @ObservedObject var highlightState: PieMenuHighlightState
+    /// Появление и взгляд кота; в превью и на макетах — свой объект, сразу появившийся.
+    @ObservedObject var presentation: PieMenuPresentation
     var hapticFeedbackEnabled: Bool = true
     var onItemSelected: ((PieMenuItem) -> Void)?
     var onCommandSelected: ((PieSubAction) -> Void)?
-    var onHoverChanged: ((PieMenuItem?) -> Void)?
     var onDismiss: (() -> Void)?
 
-    @State private var appeared = false
-    @State private var pointerForEyes: CGPoint = .zero
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private var appeared: Bool { presentation.appeared }
+    private var pointerForEyes: CGPoint { presentation.pointer }
 
     private var sectorCount: Int {
         max(1, items.count)
@@ -88,6 +92,13 @@ struct PieMenuView: View {
     private func command(at index: Int) -> PieSubAction? {
         guard let commands, index >= 0, index < commands.count else { return nil }
         return commands[index]
+    }
+
+    /// Приглушить сектор: недоступная команда или приложение, которого нет. У обычного меню `nil` —
+    /// пустой сектор сам решает по действию; у меню команд пустое действие — норма, а не пустой сектор.
+    private func appearsDisabled(at index: Int) -> Bool? {
+        if disabledIndices.contains(index) { return true }
+        return commands != nil ? false : nil
     }
 
     /// Кольцо секторов. На macOS 26 каждый сектор — отдельный `Glass.regular`, а такое стекло адаптивно:
@@ -140,7 +151,8 @@ struct PieMenuView: View {
                     shortcutDigitInsetRightScale: shortcutDigitInsetRightScale,
                     shortcutDigitOpacity: shortcutDigitOpacity,
                     shortcutDigitColorHex: shortcutDigitColorHex,
-                    appearsDisabled: command(at: index).map { !$0.isEnabled },
+                    pawColorHex: pawColorHex,
+                    appearsDisabled: appearsDisabled(at: index),
                     layer: layer
                 )
                 .frame(width: radius * 2, height: radius * 2)
@@ -155,6 +167,9 @@ struct PieMenuView: View {
             let side = hubAppIconSize
             let iconCenter = CGPoint(x: center.x, y: center.y + CatHoldingAppIconView.centeringOffset(iconSide: side))
             let head = CatHoldingAppIconView.headCenterOffset(iconSide: side)
+            // Анимация взгляда стоит на самой мордочке, до позиции и масштаба: дерево живёт между
+            // показами, и иначе смена центра кольца ехала бы той же пружиной — кот «прилетал» с места
+            // прошлого показа.
             CatHoldingAppIconView(
                 bundleIdentifier: bundleId,
                 iconSide: side,
@@ -162,15 +177,14 @@ struct PieMenuView: View {
                     pointer: pointerForEyes,
                     hubCenter: CGPoint(x: iconCenter.x + head.width, y: iconCenter.y + head.height),
                     hubDiameter: CatHoldingAppIconView.headWidth(iconSide: side)
-                )
+                ),
+                headColor: Color(hex: catColorHex) ?? .black,
+                pawColor: Color(hex: pawColorHex) ?? .black
             )
-            .scaleEffect(appeared ? 1.0 : 0.6)
+            .animation(DS.Motion.respectReducing(DS.Motion.catGaze, reduce: reduceMotion), value: pointerForEyes)
+            .scaleEffect(appeared ? 1.0 : DS.Pie.entranceScale)
             .opacity(appeared ? 1.0 : 0.0)
             .position(iconCenter)
-            .animation(
-                DS.Motion.respectReducing(.spring(response: 0.09, dampingFraction: 0.78), reduce: reduceMotion),
-                value: pointerForEyes
-            )
         } else {
             PieCenterCatEyesView(
                 diameter: catArtDiameter,
@@ -178,27 +192,24 @@ struct PieMenuView: View {
                     pointer: pointerForEyes,
                     hubCenter: center,
                     hubDiameter: catArtDiameter
-                )
+                ),
+                headColor: Color(hex: catColorHex) ?? .black
             )
-            .scaleEffect(appeared ? 1.0 : 0.6)
+            .animation(DS.Motion.respectReducing(DS.Motion.catGaze, reduce: reduceMotion), value: pointerForEyes)
+            .scaleEffect(appeared ? 1.0 : DS.Pie.entranceScale)
             .opacity(appeared ? 1.0 : 0.0)
             .position(center)
-            .animation(
-                DS.Motion.respectReducing(.spring(response: 0.09, dampingFraction: 0.78), reduce: reduceMotion),
-                value: pointerForEyes
-            )
         }
     }
 
-    /// Подпись выделенной команды снаружи кольца: значка мало, чтобы различать похожие команды.
-    /// Сменяется коротким наплывом на месте, а не летает за курсором.
-    private func commandLabel(bounds: CGSize) -> some View {
+    /// Подпись выделенного сектора снаружи кольца: название и что выполнится. Значка мало, чтобы
+    /// различать похожие секторы. Сменяется коротким наплывом на месте, а не летает за курсором.
+    private func hoverLabel(bounds: CGSize) -> some View {
         ZStack {
-            if let index = highlightState.highlightedIndex, let action = command(at: index) {
-                PieSubActionLabel(action: action)
+            if let index = highlightState.highlightedIndex, let label = hoverLabelView(at: index) {
+                label
                     .position(
-                        PieSubActionLabel.position(
-                            for: action,
+                        label.position(
                             angle: (startAngle(for: index) + endAngle(for: index)) / 2,
                             ringOuterRadius: radius,
                             menuCenter: menuCenter,
@@ -214,13 +225,23 @@ struct PieMenuView: View {
         .animation(.easeOut(duration: 0.1), value: highlightState.highlightedIndex)
     }
 
+    private func hoverLabelView(at index: Int) -> PieHoverLabel? {
+        guard let hoverLabels, index >= 0, index < items.count else { return nil }
+        if let action = command(at: index) {
+            return PieHoverLabel(action: action)
+        }
+        guard index < hoverLabels.count, let text = hoverLabels[index] else { return nil }
+        return PieHoverLabel(text: text, isEnabled: !disabledIndices.contains(index))
+    }
+
     private func select(_ item: PieMenuItem) {
+        guard let index = items.firstIndex(where: { $0.id == item.id }),
+              !disabledIndices.contains(index) else { return }
         guard commands != nil else {
             onItemSelected?(item)
             return
         }
-        guard let index = items.firstIndex(where: { $0.id == item.id }),
-              let action = command(at: index), action.isEnabled else { return }
+        guard let action = command(at: index), action.isEnabled else { return }
         onCommandSelected?(action)
     }
 
@@ -233,16 +254,17 @@ struct PieMenuView: View {
                     .contentShape(Rectangle())
                     .onTapGesture { onDismiss?() }
 
+                // Без `compositingGroup`: группа рисовала бы стекло за кадром при каждой смене
+                // обводки или лапки; за 100 мс появления раздельная прозрачность слоёв незаметна.
                 sectorRing
-                    .compositingGroup()
-                    .scaleEffect(appeared ? 1.0 : 0.6)
+                    .scaleEffect(appeared ? 1.0 : DS.Pie.entranceScale)
                     .opacity(appeared ? 1.0 : 0.0)
                     .position(center)
 
                 hub(center: center)
 
-                if commands != nil {
-                    commandLabel(bounds: geo.size)
+                if hoverLabels != nil {
+                    hoverLabel(bounds: geo.size)
                 }
 
                 MouseTrackingOverlay(
@@ -253,18 +275,13 @@ struct PieMenuView: View {
                     rotationDegrees: rotationDegrees,
                     items: items,
                     innerCircleHighlightsFirstSector: innerCircleHighlightsFirstSector,
-                    hapticFeedbackEnabled: hapticFeedbackEnabled,
-                    onPointerLocationUpdate: { pointerForEyes = $0 },
+                    onPointerLocationUpdate: { presentation.pointer = $0 },
                     onHover: { index in
-                        if index == nil {
-                            highlightState.highlightedIndex = nil
-                        } else {
-                            withAnimation(DS.Motion.respectReducing(.spring(response: 0.2, dampingFraction: 0.75), reduce: reduceMotion)) {
-                                highlightState.highlightedIndex = index
-                            }
+                        // Уход с сектора — той же пружиной, что и вход: без транзакции стекло прыгало
+                        // бы к исходному размеру мгновенно, а обводка ещё четверть секунды сжималась.
+                        withAnimation(DS.Motion.respectReducing(DS.Motion.sectorHighlight, reduce: reduceMotion)) {
+                            highlightState.select(index, hapticFeedbackEnabled: index != nil && hapticFeedbackEnabled)
                         }
-                        let item = index.flatMap { $0 < items.count ? items[$0] : nil }
-                        onHoverChanged?(item)
                     },
                     onSelect: { item in
                         select(item)
@@ -274,16 +291,16 @@ struct PieMenuView: View {
             }
         }
         .ignoresSafeArea()
-        .onAppear {
-            pointerForEyes = menuCenter
-            if appearsInstantly {
-                appeared = true
-            } else {
-                withAnimation(DS.Motion.respectReducing(.easeOut(duration: 0.12), reduce: reduceMotion)) {
-                    appeared = true
-                }
-            }
-        }
+    }
+}
+
+extension PieMenuPresentation {
+    /// Для превью: кольцо уже на месте.
+    static func settled(pointer: CGPoint) -> PieMenuPresentation {
+        let presentation = PieMenuPresentation()
+        presentation.appeared = true
+        presentation.pointer = pointer
+        return presentation
     }
 }
 
@@ -298,7 +315,9 @@ struct PieMenuView: View {
         liquidGlass: .default,
         menuCenter: CGPoint(x: 250, y: 250),
         sectorGlassInteractive: true,
-        highlightState: PieMenuHighlightState()
+        hoverLabels: PieConfiguration.defaultConfig.menus[0].items.map { $0.hoverLabel(language: .english) },
+        highlightState: PieMenuHighlightState(),
+        presentation: .settled(pointer: CGPoint(x: 250, y: 250))
     )
     .frame(width: 500, height: 500)
     .preferredColorScheme(.dark)

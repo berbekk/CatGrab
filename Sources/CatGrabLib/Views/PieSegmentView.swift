@@ -32,6 +32,7 @@ struct PieSegmentView: View {
     var shortcutDigitInsetRightScale: Double = PieMenu.defaultShortcutDigitInsetRightScale
     var shortcutDigitOpacity: Double = PieMenu.defaultShortcutDigitOpacity
     var shortcutDigitColorHex: String = PieMenu.defaultShortcutDigitColorHex
+    var pawColorHex: String = PieMenu.defaultPawColorHex
     /// Показать сектор приглушённым, как пустой. `nil` — по действию пункта. Команды приложения рисуются
     /// этим же видом, а их недоступность от действия пункта не зависит.
     var appearsDisabled: Bool?
@@ -66,7 +67,7 @@ struct PieSegmentView: View {
     }
 
     private var sectorFillOpacityFactor: Double {
-        isUnassignedAction ? DS.Pie.unassignedSectorFillOpacityFactor : 1
+        appearsDisabled == true ? DS.Pie.disabledSectorFillOpacityFactor : 1
     }
 
     private var iconContentOpacity: Double {
@@ -82,12 +83,7 @@ struct PieSegmentView: View {
     }
 
     private var iconRenderSize: Double {
-        isHovered ? iconSize + 4 : iconSize
-    }
-
-    /// Во сколько раз увеличивается сектор под курсором.
-    private var hoverScale: CGFloat {
-        isHovered ? 1.04 : 1.0
+        isHovered ? iconSize + DS.Pie.highlightIconGrowth : iconSize
     }
 
     private var ringWidth: Double {
@@ -156,13 +152,16 @@ struct PieSegmentView: View {
         Color(hex: shortcutDigitColorHex) ?? .white
     }
 
+    private var pawColor: Color {
+        (Color(hex: pawColorHex) ?? .black).opacity(0.96)
+    }
+
     var body: some View {
         GeometryReader { geo in
             let center = CGPoint(x: geo.size.width / 2, y: geo.size.height / 2)
 
             ZStack {
                 if drawsGlass {
-                    // Масштаб передаётся внутрь, а не через `.scaleEffect`: см. `PieSectorFillView.scale`.
                     PieSectorFillView(
                         startAngle: startAngle,
                         endAngle: endAngle,
@@ -172,17 +171,13 @@ struct PieSegmentView: View {
                         tintColor: segmentColor,
                         fillOpacityFactor: sectorFillOpacityFactor,
                         glassSettings: liquidGlass,
-                        interactiveGlass: glassInteractive,
-                        scale: hoverScale
+                        interactiveGlass: glassInteractive
                     )
                 }
                 if drawsContent {
-                    Group {
-                        sectorHighlight
-                        sectorBorder
-                    }
-                    .scaleEffect(hoverScale)
-
+                    sectorEmphasis
+                    sectorHighlight
+                    sectorBorder
                     sectorContent(center: center)
                 }
             }
@@ -196,7 +191,7 @@ struct PieSegmentView: View {
                 )
             )
         }
-        .animation(.spring(response: 0.25, dampingFraction: 0.7), value: isHovered)
+        .animation(DS.Motion.sectorHighlight, value: isHovered)
     }
 
     /// Иконка, цифра быстрого выбора и лапка — всё, что лежит поверх заливки сектора.
@@ -248,7 +243,7 @@ struct PieSegmentView: View {
             CatPawGrabView(
                 size: pawSize,
                 grabProgress: isHovered ? 1 : 0,
-                pawColor: .black.opacity(0.96)
+                pawColor: pawColor
             )
             .rotationEffect(.radians(midAngle + .pi / 2))
             .scaleEffect(isHovered ? 1 : 0.84)
@@ -258,6 +253,19 @@ struct PieSegmentView: View {
                 y: center.y + CGFloat(sin(midAngle)) * pawRadialDistanceFromCenter
             )
         }
+    }
+
+    /// Плотнее цвет у выбранного сектора — слоем поверх стекла, а не его тоном: стекло остаётся
+    /// неизменным, и контейнер не перерисовывает всё кольцо при каждом наведении.
+    private var sectorEmphasis: some View {
+        PieSectorShape(
+            startAngle: startAngle,
+            endAngle: endAngle,
+            innerRadius: innerRadius,
+            outerRadius: radius,
+            cornerRadius: sectorCornerRadius
+        )
+        .fill(segmentColor.opacity(isHovered ? DS.Pie.highlightTintBoost * sectorFillOpacityFactor : 0))
     }
 
     private var sectorHighlight: some View {
@@ -271,7 +279,7 @@ struct PieSegmentView: View {
         .fill(
             RadialGradient(
                 colors: isHovered
-                    ? [Color.white.opacity(0.1), .clear]
+                    ? [Color.white.opacity(DS.Pie.highlightInnerGlowOpacity), .clear]
                     : [.clear, .clear],
                 center: .center,
                 startRadius: innerRadius,
@@ -281,7 +289,7 @@ struct PieSegmentView: View {
     }
 
     private var sectorBorder: some View {
-        let lineWidth = isHovered ? 1.4 : 0.7
+        let lineWidth = isHovered ? DS.Pie.highlightBorderWidth : 0.7
         let m = sectorBorderOpacityMultiplier
         return PieSectorShape(
             startAngle: startAngle,
@@ -290,7 +298,7 @@ struct PieSegmentView: View {
             outerRadius: radius,
             cornerRadius: sectorCornerRadius
         )
-        .stroke(Color.white.opacity((isHovered ? 0.4 : 0.24) * m), lineWidth: lineWidth)
+        .stroke(Color.white.opacity((isHovered ? DS.Pie.highlightBorderOpacity : 0.24) * m), lineWidth: lineWidth)
         .overlay(
             PieSectorShape(
                 startAngle: startAngle,

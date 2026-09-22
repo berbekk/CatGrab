@@ -1,7 +1,12 @@
 import SwiftUI
 
 /// Заливка сектора: Liquid Glass (macOS 26+) или непрозрачный фон на более старых системах.
-struct PieSectorFillView: View, Animatable {
+///
+/// Стекло при наведении не меняется вовсе — ни форма, ни тон. Любая перемена у элемента внутри
+/// `GlassEffectContainer` (особенно у первого) заставляет контейнер перерисовать и заново оценить
+/// всё стекло: кольцо тёмно моргало при быстрых переходах, а масштаб фигуры ещё и отставал от
+/// обводки. Выделение рисуется отдельным слоем поверх (`PieSegmentView.sectorEmphasis`).
+struct PieSectorFillView: View {
     let startAngle: Double
     let endAngle: Double
     let innerRadius: Double
@@ -15,23 +20,10 @@ struct PieSectorFillView: View, Animatable {
     let glassSettings: LiquidGlassSettings
     /// Для оверлея редактора обычно отключают, чтобы не дублировать системную реакцию на курсор.
     var interactiveGlass: Bool = true
-    /// Увеличение сектора при наведении. Масштабируется сама фигура, а не view: внутри
-    /// `GlassEffectContainer` стекло строится по фигуре и не видит `.scaleEffect` предков —
-    /// обводка увеличивалась, а стекло оставалось на месте.
-    var scale: CGFloat = 1
-
-    /// Через `Animatable` SwiftUI пересчитывает `body` на каждом кадре пружины,
-    /// и стекло получает промежуточную фигуру, а не прыгает сразу к конечному размеру.
-    var animatableData: CGFloat {
-        get { scale }
-        set { scale = newValue }
-    }
 
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
-    /// Фигура строится вокруг центра кольца (`rect.mid`), поэтому масштаб от `.center`
-    /// совпадает с прежним `.scaleEffect` на кадре сектора.
-    private var shape: ScaledShape<PieSectorShape> {
+    private var shape: PieSectorShape {
         PieSectorShape(
             startAngle: startAngle,
             endAngle: endAngle,
@@ -39,7 +31,6 @@ struct PieSectorFillView: View, Animatable {
             outerRadius: outerRadius,
             cornerRadius: cornerRadius
         )
-        .scale(scale)
     }
 
     private var clampedFactor: Double {
@@ -50,6 +41,10 @@ struct PieSectorFillView: View, Animatable {
         max(0, min(1, glassSettings.tintOpacity))
     }
 
+    private var tintAlpha: Double {
+        min(1, tintOpacity * clampedFactor)
+    }
+
     var body: some View {
         Group {
             if reduceTransparency {
@@ -58,11 +53,12 @@ struct PieSectorFillView: View, Animatable {
                 // Секторы держатся только на цвете, поэтому здесь заливка полностью сплошная.
                 ZStack {
                     shape.fill(DS.Colors.field)
-                    shape.fill(tintColor.opacity(DS.Pie.reduceTransparencyTintAlpha * clampedFactor))
+                    shape.fill(tintColor.opacity(min(1, DS.Pie.reduceTransparencyTintAlpha * clampedFactor)))
                 }
             } else if #available(macOS 26.0, *) {
-                let tintAlpha = tintOpacity * clampedFactor
-                let glass = Glass.regular.tint(tintColor.opacity(tintAlpha))
+                // «Прозрачное» — `Glass.clear`: рабочий стол под кольцом читается сильнее.
+                let base: Glass = glassSettings.variant == .clear ? .clear : .regular
+                let glass = base.tint(tintColor.opacity(tintAlpha))
                 shape
                     .fill(Color.clear)
                     .glassEffect(
@@ -72,7 +68,8 @@ struct PieSectorFillView: View, Animatable {
             } else {
                 ZStack {
                     shape.fill(.ultraThinMaterial)
-                    shape.fill(tintColor.opacity(tintOpacity * clampedFactor))
+                        .opacity(glassSettings.variant == .clear ? 0.55 : 1)
+                    shape.fill(tintColor.opacity(tintAlpha))
                 }
             }
         }

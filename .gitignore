@@ -5,6 +5,9 @@ DerivedData/
 *.dSYM
 *.dmg
 
+# Website images, copied from docs/screenshots and design by `make site` and the Pages workflow
+site/assets/
+
 # Generated from AppIcon.png by scripts/generate-app-icon.sh on every build
 Sources/CatGrab/Resources/AppIcon.icns
 Sources/CatGrab/Resources/AppIcon.iconset/

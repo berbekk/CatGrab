@@ -4,12 +4,27 @@ enum AppLaunchState {
     /// Если `CATGRAB_FIRST_LAUNCH=1`, окно доступов показывается всегда (для проверок из терминала).
     private static let forceFirstLaunchEnvironmentKey = "CATGRAB_FIRST_LAUNCH"
     private static let hasSeenPermissionIntroKey = "pie.hasSeenPermissionIntro"
+    private static let hasPromptedAccessibilityKey = "pie.hasPromptedAccessibility"
+    private static let hasPromptedInputMonitoringKey = "pie.hasPromptedInputMonitoring"
     private static let hasAutoOpenedSettingsAfterPermissionsKey = "pie.hasAutoOpenedSettingsAfterPermissions"
     private static let settingsAutoOpenMigrationDoneKey = "pie.settingsAutoOpenAfterPermissionsMigrationDone"
 
     static var hasSeenPermissionIntro: Bool {
         get { UserDefaults.standard.bool(forKey: hasSeenPermissionIntroKey) }
         set { UserDefaults.standard.set(newValue, forKey: hasSeenPermissionIntroKey) }
+    }
+
+    /// Системный диалог запроса показывается только один раз на приложение — второй раз macOS
+    /// его не покажет, даже если доступ так и не дали. Отмечаем, что он уже был, чтобы кнопка
+    /// в настройках не ждала его и сразу вела в System Settings.
+    static var hasPromptedAccessibility: Bool {
+        get { UserDefaults.standard.bool(forKey: hasPromptedAccessibilityKey) }
+        set { UserDefaults.standard.set(newValue, forKey: hasPromptedAccessibilityKey) }
+    }
+
+    static var hasPromptedInputMonitoring: Bool {
+        get { UserDefaults.standard.bool(forKey: hasPromptedInputMonitoringKey) }
+        set { UserDefaults.standard.set(newValue, forKey: hasPromptedInputMonitoringKey) }
     }
 
     /// Один раз: автоматически открыть окно настроек после первого получения всех нужных доступов.

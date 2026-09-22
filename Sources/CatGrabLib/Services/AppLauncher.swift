@@ -38,7 +38,10 @@ struct AppLauncher {
     }
 
     private static func openURL(_ urlString: String) {
-        guard let url = URL(string: urlString) else { return }
+        guard let url = URLNormalizer.url(from: urlString) else {
+            PieLog.launcher.error("open url: not a valid address")
+            return
+        }
         NSWorkspace.shared.open(url)
     }
 }

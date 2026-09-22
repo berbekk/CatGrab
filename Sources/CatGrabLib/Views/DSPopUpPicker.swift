@@ -26,9 +26,7 @@ struct DSPopUpPicker<Value: Hashable>: View {
                     .lineLimit(1)
                     .truncationMode(.tail)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                Image(systemName: "chevron.up.chevron.down")
-                    .font(.system(size: 10, weight: .semibold))
-                    .foregroundStyle(.secondary)
+                SidebarAppMenuPickerChevronLabel()
             }
             .padding(.horizontal, DS.Spacing.fieldInsetHorizontal)
             .allowsHitTesting(false)
@@ -52,9 +50,17 @@ struct DSPopUpPicker<Value: Hashable>: View {
 }
 
 /// Прозрачная область над подписью списка: по клику показывает `NSMenu`.
-private struct PopUpMenuHost: NSViewRepresentable {
+/// Подпись под ней рисует SwiftUI — так шеврон и текст выглядят одинаково во всех полях
+/// (у SwiftUI `Menu` подпись перерисовывает AppKit со своим размером и цветом символа).
+struct PopUpMenuHost: NSViewRepresentable {
     var titles: [String]
+    /// `nil` — меню готовых вариантов без текущего: открывается под полем, как pull-down.
     var selectedIndex: Int?
+    /// SF Symbol слева у пункта — по индексу пункта.
+    var symbols: [Int: String] = [:]
+    /// Перед этими пунктами — разделитель.
+    var separatorsBefore: Set<Int> = []
+    var toolTip: String?
     var accessibilityLabel: String
     var onSelect: (Int) -> Void
     var onHover: (Bool) -> Void
@@ -69,6 +75,9 @@ private struct PopUpMenuHost: NSViewRepresentable {
     func updateNSView(_ view: PopUpMenuHostView, context: Context) {
         view.titles = titles
         view.selectedIndex = selectedIndex
+        view.symbols = symbols
+        view.separatorsBefore = separatorsBefore
+        view.toolTip = toolTip
         view.onSelect = onSelect
         view.onHover = onHover
         view.setAccessibilityLabel(accessibilityLabel)
@@ -76,9 +85,11 @@ private struct PopUpMenuHost: NSViewRepresentable {
     }
 }
 
-private final class PopUpMenuHostView: NSView {
+final class PopUpMenuHostView: NSView {
     var titles: [String] = []
     var selectedIndex: Int?
+    var symbols: [Int: String] = [:]
+    var separatorsBefore: Set<Int> = []
     var onSelect: ((Int) -> Void)?
     var onHover: ((Bool) -> Void)?
 
@@ -119,15 +130,29 @@ private final class PopUpMenuHostView: NSView {
         menu.autoenablesItems = false
         menu.font = .systemFont(ofSize: NSFont.systemFontSize)
         for (index, title) in titles.enumerated() {
+            if separatorsBefore.contains(index) {
+                menu.addItem(.separator())
+            }
             let item = NSMenuItem(title: title, action: #selector(itemChosen(_:)), keyEquivalent: "")
             item.target = self
             item.tag = index
             item.state = index == selectedIndex ? .on : .off
+            item.setAlwaysVisibleImage(symbols[index].flatMap { NSImage(systemSymbolName: $0, accessibilityDescription: nil) })
             menu.addItem(item)
         }
         let inset = Self.menuTitleInset - DS.Spacing.fieldInsetHorizontal
         menu.minimumWidth = bounds.width + inset
-        let selected = selectedIndex.flatMap { menu.item(at: $0) }
+        guard let selectedIndex,
+              let selected = menu.items.first(where: { !$0.isSeparatorItem && $0.tag == selectedIndex }) else {
+            // Выбранного нет — под полем, правым краем к правому краю области.
+            let gap: CGFloat = 4
+            let origin = NSPoint(
+                x: bounds.width - menu.size.width,
+                y: isFlipped ? bounds.height + gap : -gap
+            )
+            menu.popUp(positioning: nil, at: origin, in: self)
+            return
+        }
         // Верх выбранного пункта — на верх подписи: пункт меню ниже поля, поэтому центрируем по высоте.
         let itemHeight: CGFloat = 22
         let y = isFlipped

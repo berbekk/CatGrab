@@ -10,6 +10,7 @@ private enum TooltipTiming {
 @MainActor
 public final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem!
+    private var statusAboutItem: NSMenuItem?
     private var statusSettingsItem: NSMenuItem?
     private var statusQuitItem: NSMenuItem?
     private var settingsMenuItem: NSMenuItem?
@@ -19,17 +20,18 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Какой жест сейчас слушаем — чтобы не переподключаться к трекпадам на каждое сохранение настроек.
     private var activeTrackpadFingerCounts: Set<Int> = []
     private var pieMenuWindow: PieMenuWindowController!
-    private var snippetPreviewPopover: SnippetPreviewPopoverController?
     private var settingsWindow: SettingsWindowController?
     private var permissionsOnboardingController: PermissionsOnboardingWindowController?
     private var previousApp: NSRunningApplication?
     /// Меню команд ждёт, пока команды активного приложения соберутся; `nil` — не ждёт.
     private var pendingAppCommandsToken: UUID?
     private var appActivationObserver: NSObjectProtocol?
+    private var appLaunchObserver: NSObjectProtocol?
     private var configurationObserver: NSObjectProtocol?
     private var didBecomeActiveObserver: NSObjectProtocol?
     private var screenParametersObserver: NSObjectProtocol?
     private var languageSubscription: AnyCancellable?
+    private var appearanceSubscription: AnyCancellable?
     private var permissionsSubscription: AnyCancellable?
 
     deinit {
@@ -37,6 +39,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         if let token = didBecomeActiveObserver { NotificationCenter.default.removeObserver(token) }
         if let token = screenParametersObserver { NotificationCenter.default.removeObserver(token) }
         if let token = appActivationObserver { NSWorkspace.shared.notificationCenter.removeObserver(token) }
+        if let token = appLaunchObserver { NSWorkspace.shared.notificationCenter.removeObserver(token) }
     }
 
     public override init() {
@@ -73,6 +76,12 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
             .sink { language in
                 LocalizationStore.shared.language = language
             }
+        appearanceSubscription = ConfigManager.shared.configurationPublisher
+            .map(\.appearance)
+            .removeDuplicates()
+            .sink { appearance in
+                NSApp.appearance = appearance.nsAppearance
+            }
         setupMainMenu()
         NSApp.setActivationPolicy(.accessory)
         setupStatusBar()
@@ -87,6 +96,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
             Task { @MainActor [weak self] in
                 self?.refreshLocalizedTitles()
                 self?.setupHotkeys()
+                self?.prewarmMenuAssets()
             }
         }
 
@@ -128,6 +138,23 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         ) { [weak self] notification in
             guard let app = notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication else { return }
             Task { @MainActor [weak self] in self?.prefetchAppCommands(for: app) }
+        }
+
+        // Установленное только что приложение: сектор с ним перестаёт быть приглушённым.
+        appLaunchObserver = NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didLaunchApplicationNotification,
+            object: nil,
+            queue: .main
+        ) { notification in
+            guard let app = notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication,
+                  let bundleId = app.bundleIdentifier else { return }
+            AppIconResolver.shared.noteLaunched(bundleIdentifier: bundleId)
+        }
+
+        // Кольцо и иконки готовятся заранее, после того как приложение уже запустилось и показало значок.
+        DispatchQueue.main.async { [weak self] in
+            self?.prewarmMenuAssets()
+            self?.prewarmPieMenu()
         }
 
         screenParametersObserver = NotificationCenter.default.addObserver(
@@ -197,9 +224,10 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
 
         let aboutItem = NSMenuItem(
             title: MenuTitles.about(appName: appName, language: localizer.language),
-            action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)),
+            action: #selector(showAbout),
             keyEquivalent: ""
         )
+        aboutItem.target = self
         appMenu.addItem(aboutItem)
         appMenu.addItem(NSMenuItem.separator())
 
@@ -326,15 +354,24 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
 
         let menu = NSMenu()
         let localizer = LocalizationStore.shared
+        let aboutItem = NSMenuItem(
+            title: MenuTitles.about(appName: "CatGrab", language: localizer.language),
+            action: #selector(showAbout),
+            keyEquivalent: ""
+        )
+        aboutItem.target = self
+        aboutItem.setAlwaysVisibleImage(Self.statusMenuItemIcon("info.circle"))
+        statusAboutItem = aboutItem
+        menu.addItem(aboutItem)
         let settingsItem = NSMenuItem(title: localizer.text(.statusSettings), action: #selector(openSettings), keyEquivalent: "")
         settingsItem.target = self
-        settingsItem.image = NSImage(systemSymbolName: "gearshape.fill", accessibilityDescription: localizer.text(.statusSettings))
+        settingsItem.setAlwaysVisibleImage(Self.statusMenuItemIcon("gearshape"))
         statusSettingsItem = settingsItem
         menu.addItem(settingsItem)
         menu.addItem(NSMenuItem.separator())
         let quitItem = NSMenuItem(title: localizer.text(.statusQuit), action: #selector(quitApp), keyEquivalent: "")
         quitItem.target = self
-        quitItem.image = NSImage(systemSymbolName: "rectangle.portrait.and.arrow.right", accessibilityDescription: localizer.text(.statusQuit))
+        quitItem.setAlwaysVisibleImage(Self.statusMenuItemIcon("power"))
         statusQuitItem = quitItem
         menu.addItem(quitItem)
         statusItem.menu = menu
@@ -342,6 +379,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func refreshLocalizedTitles() {
         let localizer = LocalizationStore.shared
+        statusAboutItem?.title = MenuTitles.about(appName: "CatGrab", language: localizer.language)
         statusSettingsItem?.title = localizer.text(.statusSettings)
         statusQuitItem?.title = localizer.text(.statusQuit)
         // Главное меню пересобираем целиком — дешевле, чем следить за каждым пунктом.
@@ -358,29 +396,35 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
             self?.pieMenuWindow.hide()
             self?.performAppCommand(action)
         }
-        pieMenuWindow.onHoverChanged = { [weak self] item in
-            self?.updateSnippetPreview(for: item)
-        }
-        pieMenuWindow.onHide = { [weak self] in
-            self?.snippetPreviewPopover?.hide()
-        }
     }
 
-    /// Показывает бабл с превью текста сниппета под иконкой приложения в меню‑баре.
-    /// Для всех прочих типов действий скрывает его.
-    private func updateSnippetPreview(for item: PieMenuItem?) {
-        guard let item, case .snippet(let text) = item.action else {
-            snippetPreviewPopover?.hide()
-            return
+    /// Окно кольца и его SwiftUI-дерево собираются заранее, чтобы первый хоткей не ждал их создания.
+    private func prewarmPieMenu() {
+        let menus = ConfigManager.shared.configuration.menus
+        guard let menu = PieMenu.mainTemplateMenu(from: menus) ?? menus.first(where: { !$0.isDynamicMenu }) else { return }
+        pieMenuWindow.prewarm(menu: menu)
+    }
+
+    /// Иконки приложений и картинки секторов всех меню — в кэш, пока меню никто не открывает.
+    private func prewarmMenuAssets() {
+        let configuration = ConfigManager.shared.configuration
+        var bundleIdentifiers: [String] = []
+        var filePaths: [String] = []
+        func collect(icon: String, action: MenuAction?) {
+            if let bundleId = action?.bundleIdentifier { bundleIdentifiers.append(bundleId) }
+            if icon.hasPrefix("app:") { bundleIdentifiers.append(String(icon.dropFirst(4))) }
+            if icon.hasPrefix("file:") { filePaths.append(String(icon.dropFirst(5))) }
         }
-        if snippetPreviewPopover == nil {
-            snippetPreviewPopover = SnippetPreviewPopoverController()
+        for menu in configuration.menus {
+            for item in menu.items { collect(icon: item.icon, action: item.action) }
+            for entry in menu.appCommandsDefaultEntries { collect(icon: entry.resolvedIcon, action: entry.action) }
         }
-        snippetPreviewPopover?.show(
-            text: text,
-            caption: LocalizationStore.shared.text(.actionTypeSnippet),
-            anchor: statusItem
-        )
+        for set in configuration.appSubMenus {
+            bundleIdentifiers.append(set.bundleIdentifier)
+            for entry in set.entries { collect(icon: entry.resolvedIcon, action: entry.action) }
+        }
+        AppIconResolver.shared.prewarm(bundleIdentifiers: bundleIdentifiers)
+        FileIconCache.shared.prewarm(paths: filePaths)
     }
 
     private func setupHotkeys() {
@@ -505,6 +549,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func restoreAndExecute(item: PieMenuItem) {
+        PieLog.launcher.debug("execute: \(item.title, privacy: .public)")
         // Переключение на приложение, ссылка и системное действие сами выводят вперёд своё окно.
         // Если сначала вернуть фокус прежнему приложению, а через паузу переключиться, экран дёргается дважды.
         guard item.action.needsPreviousAppFocus, let app = previousApp else {
@@ -525,6 +570,10 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
 
     /// Команда сама решает, куда отдать фокус: оставить его в приложении или вернуть туда, где был пользователь.
     private func performAppCommand(_ action: PieSubAction) {
+        if case .customAction(let item) = action.kind {
+            restoreAndExecute(item: item)
+            return
+        }
         let previous = previousApp
         previousApp = nil
         PieSubActionRunner.perform(action, previousApp: previous)
@@ -597,9 +646,14 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
                     return
                 }
             }
+            let configuration = ConfigManager.shared.configuration
             self.pieMenuWindow.show(
-                menu: ConfigManager.shared.configuration.appCommandsMenu(menu, for: bundleId),
-                appCommands: PieMenuWindowController.AppCommands(bundleIdentifier: bundleId, actions: actions)
+                menu: configuration.appCommandsMenu(menu, for: bundleId),
+                appCommands: PieMenuWindowController.AppCommands(
+                    bundleIdentifier: bundleId,
+                    actions: actions,
+                    entries: configuration.appSubMenu(for: bundleId)?.entries ?? configuration.defaultAppCommands
+                )
             )
             self.armModifierReleaseDismissal(triggerHotkey)
         }
@@ -638,11 +692,41 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         settingsWindow?.show()
     }
 
+    /// Стандартное окно «О программе» с автором и ссылками. У приложения в строке меню нет Дока,
+    /// поэтому сначала выводим его вперёд — иначе окно откроется под другими.
+    @objc private func showAbout() {
+        NSApp.activate(ignoringOtherApps: true)
+        NSApp.orderFrontStandardAboutPanel(options: [
+            .credits: AppInfo.aboutPanelCredits(localizer: LocalizationStore.shared)
+        ])
+    }
+
     @objc private func quitApp() {
         NSApp.terminate(nil)
     }
 
     private static func statusBarIconImage() -> NSImage {
         StatusBarIcon.make()
+    }
+
+    /// Иконка пункта меню строки меню: контурная, одного размера и веса у всех пунктов.
+    /// Шаблонная — подстраивается под подсветку и тему.
+    private static func statusMenuItemIcon(_ symbolName: String) -> NSImage? {
+        let config = NSImage.SymbolConfiguration(pointSize: 13, weight: .regular)
+        let image = NSImage(systemSymbolName: symbolName, accessibilityDescription: nil)?
+            .withSymbolConfiguration(config)
+        image?.isTemplate = true
+        return image
+    }
+}
+
+extension AppAppearance {
+    /// `nil` — окна следуют системной теме.
+    var nsAppearance: NSAppearance? {
+        switch self {
+        case .system: return nil
+        case .light: return NSAppearance(named: .aqua)
+        case .dark: return NSAppearance(named: .darkAqua)
+        }
     }
 }

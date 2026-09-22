@@ -29,6 +29,13 @@ make dmg             # universal build/CatGrab.dmg
 make verify-release  # mounts it and checks layout, version, architectures and signature
 ```
 
+## The website
+
+`site/index.html` is published to <https://berbekk.github.io/CatGrab/> by
+[`.github/workflows/pages.yml`](.github/workflows/pages.yml) on every push that touches it. Turn it on
+once: **Settings → Pages → Build and deployment → Source: GitHub Actions**. Preview locally with
+`make site`.
+
 ## Signing (optional)
 
 The workflow picks the best of three levels based on which repository secrets exist

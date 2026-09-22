@@ -3,44 +3,70 @@ import Foundation
 
 /// Команды активного приложения в виде пунктов кольца — для меню «Команды приложения».
 enum AppCommandsMenuItems {
-    /// Иконки команд белые: цвет сектора уже различает соседей, а белый значок читается на любом из них.
-    static let iconColorHex = "#FFFFFF"
-
-    /// Пункт для каждой команды, в том же порядке. Цвета секторов — из общей палитры, как у остальных меню,
-    /// а «Завершить» — предупреждающий красный, чтобы его не спутать с безобидными соседями.
-    static func build(actions: [PieSubAction], bundleIdentifier: String) -> [PieMenuItem] {
+    /// Пункт для каждой команды, в том же порядке. Команды разрешаются из набора один к одному
+    /// (недоступные остаются на месте приглушёнными), поэтому цвета и клавиша берутся у команды
+    /// набора с тем же номером.
+    static func build(
+        actions: [PieSubAction],
+        entries: [AppSubMenuEntry],
+        bundleIdentifier: String
+    ) -> [PieMenuItem] {
         actions.enumerated().map { index, action in
-            PieMenuItem(
+            item(
                 id: stableID("\(bundleIdentifier)|\(index)|\(action.id)"),
                 title: action.title,
                 icon: action.icon,
-                action: .unassigned,
-                color: sectorColor(index: index, isDestructive: action.isDestructive),
-                iconColor: iconColorHex,
-                sectorIndex: index
+                entry: index < entries.count ? entries[index] : nil,
+                index: index,
+                action: sectorAction(for: index < entries.count ? entries[index] : nil)
             )
         }
     }
 
-    /// Превью в настройках — набор по умолчанию. Настоящие команды зависят от того, какое приложение
-    /// активно в момент вызова, а в настройках активен сам CatGrab. id сектора — id команды: так
-    /// перетаскивание в превью находит, что переставлять.
+    /// Превью в настройках. Настоящие команды зависят от того, какое приложение активно в момент
+    /// вызова, а в настройках активен сам CatGrab. id сектора — id команды: так выбор и перетаскивание
+    /// в превью находят, что менять.
     static func previewItems(entries: [AppSubMenuEntry]) -> [PieMenuItem] {
         entries.enumerated().map { index, entry in
-            PieMenuItem(
+            item(
                 id: entry.id,
                 title: entry.kind.rawValue,
                 icon: entry.resolvedIcon,
-                action: .openURL(url: ""),
-                color: sectorColor(index: index, isDestructive: entry.kind == .quitApp),
-                iconColor: iconColorHex,
-                sectorIndex: index
+                entry: entry,
+                index: index,
+                action: entry.kind == .action ? sectorAction(for: entry) : .openURL(url: "")
             )
         }
     }
 
-    private static func sectorColor(index: Int, isDestructive: Bool) -> String {
-        isDestructive ? DS.Pie.destructiveSubSectorTintHex : PieMenuItem.paletteColor(for: index)
+    /// Сектор без своего цвета берёт цвет темы по месту (`PieMenu.themed`), как пункт обычного меню.
+    private static func item(
+        id: UUID,
+        title: String,
+        icon: String,
+        entry: AppSubMenuEntry?,
+        index: Int,
+        action: MenuAction
+    ) -> PieMenuItem {
+        let ownColor = entry?.color
+        return PieMenuItem(
+            id: id,
+            title: title,
+            icon: icon,
+            action: action,
+            color: ownColor ?? PieMenuItem.paletteColor(for: index),
+            usesThemeColor: ownColor == nil,
+            iconColor: entry?.iconColor,
+            sectorIndex: index,
+            customShortcut: entry?.customShortcut
+        )
+    }
+
+    /// Выполняется сектор через команды (`PieSubAction`), а действие у пункта — чтобы кольцо нарисовало
+    /// иконку приложения у сектора «Открыть приложение», как в обычном меню.
+    private static func sectorAction(for entry: AppSubMenuEntry?) -> MenuAction {
+        guard let entry, entry.kind == .action else { return .unassigned }
+        return entry.action ?? .unassigned
     }
 
     /// Стабильный id: SwiftUI не должен пересоздавать секторы при каждом показе.

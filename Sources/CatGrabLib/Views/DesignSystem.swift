@@ -28,8 +28,17 @@ enum DS {
         static let centerHubDiameterRatio: CGFloat = 0.688
         /// Доля диаметра кота от `innerRadius * 2` в центре кольца (`PieMenuView`, превью настроек).
         static let centerCatArtDiameterFactor: CGFloat = 0.58
-        /// Сектор без назначенного действия — слабее заливка стекла/тинта.
-        static let unassignedSectorFillOpacityFactor: Double = 0.52
+        /// Выделенный сектор не растёт (см. `PieSectorFillView`) — выбор читается по цвету, обводке,
+        /// иконке и лапке, поэтому каждый из этих сигналов чуть сильнее, чем был при росте.
+        static let highlightTintBoost: Double = 0.3
+        static let highlightBorderWidth: CGFloat = 1.6
+        static let highlightBorderOpacity: Double = 0.55
+        static let highlightInnerGlowOpacity: Double = 0.14
+        static let highlightIconGrowth: Double = 5
+        /// Команда, недоступная сейчас в приложении (нет окна, пункт выключен), — слабее заливка стекла.
+        /// Пустой сектор обычного меню заливку не теряет: цвет темы у него такой же, как у соседей,
+        /// а пустоту видно по приглушённой иконке и обводке.
+        static let disabledSectorFillOpacityFactor: Double = 0.52
         /// Иконка в пустом секторе визуально вторична.
         static let unassignedIconOpacity: Double = 0.48
         /// Бейдж цифры быстрого выбора для пустого сектора.
@@ -40,14 +49,25 @@ enum DS {
         /// материалы отключаются целиком, и цвет — единственное, что отличает секторы друг от друга,
         /// поэтому тинт кладём заметно плотнее, чем поверх стекла (там опору контрасту даёт сам блюр).
         static let reduceTransparencyTintAlpha: Double = 0.9
+        /// Откуда кольцо «выезжает» при появлении: чуть меньше себя. От 0.6, как раньше, оно заметно
+        /// набухало и казалось медленнее, чем есть; от 0.88 — на месте уже на первом кадре.
+        static let entranceScale: CGFloat = 0.88
         /// Команда «Завершить» в меню команд окрашена предупреждающе, чтобы не спутать с безобидными соседями.
-        static let destructiveSubSectorTintHex = "#FF453B"
+        static let destructiveSubSectorTintHex = AppSubMenuEntry.destructiveColorHex
         static let destructiveSubSectorIcon = Color(red: 1, green: 0.55, blue: 0.5)
     }
 
     enum Motion {
         /// Выезжающие панели (внешний вид меню, инспектор элемента).
         static let slidePanelSpring = Animation.spring(response: 0.28, dampingFraction: 0.82)
+        /// Появление кольца по хоткею. Короче кадра мысли: меню должно «уже быть там», а не приезжать.
+        static let pieEntrance = Animation.easeOut(duration: 0.1)
+        /// Выделение сектора: одна пружина и на вход, и на уход курсора, и у стекла, и у обводки.
+        /// Стекло в `GlassEffectContainer` анимируется по транзакции, обводка — по модификатору;
+        /// разные кривые (или отсутствие транзакции на уходе) расслаивали сектор на заливку и контур.
+        static let sectorHighlight = Animation.spring(response: 0.22, dampingFraction: 0.74)
+        /// Зрачки кота следом за курсором.
+        static let catGaze = Animation.spring(response: 0.09, dampingFraction: 0.78)
 
         /// Заменяет любую анимацию на отсутствующую, если включён Reduce Motion.
         /// Использовать в местах, где важна accessibility: `animation(DS.Motion.respectReducing(.spring(...), reduce: reduce), value: ...)`.
@@ -348,6 +368,64 @@ private struct DSFieldButtonBody: View {
                 .foregroundStyle(isDestructive ? Color.red : Color.primary)
                 .dsFieldChrome(isHovered: isHovered && isEnabled)
         }
+    }
+}
+
+// MARK: - Segmented control
+
+/// Переключатель из 2–4 вариантов, видимых сразу: вкладки панели, режим раскраски, вид стекла.
+/// Облик — как у полей (`dsFieldChrome`), выбранный вариант поднят заливкой.
+struct DSSegmented<Value: Hashable>: View {
+    @Binding var selection: Value
+    let options: [(value: Value, title: String)]
+    /// Для VoiceOver, когда видимой подписи над переключателем нет.
+    var accessibilityLabel: String?
+
+    var body: some View {
+        let segments = HStack(spacing: 2) {
+            ForEach(options.indices, id: \.self) { index in
+                let option = options[index]
+                DSSegment(title: option.title, isSelected: option.value == selection) {
+                    selection = option.value
+                }
+            }
+        }
+        .padding(2)
+        .dsFieldChrome(isHovered: false)
+        .accessibilityElement(children: .contain)
+        if let accessibilityLabel {
+            segments.accessibilityLabel(Text(accessibilityLabel))
+        } else {
+            segments
+        }
+    }
+}
+
+private struct DSSegment: View {
+    let title: String
+    let isSelected: Bool
+    let action: () -> Void
+    @State private var isHovered = false
+
+    var body: some View {
+        Button(action: action) {
+            Text(title)
+                .font(DS.Typography.control)
+                .foregroundStyle(isSelected ? Color.primary : Color.secondary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.85)
+                .frame(maxWidth: .infinity)
+                .frame(height: DS.Sizing.fieldHeight - 6)
+                .background(
+                    RoundedRectangle(cornerRadius: DS.Radius.s, style: .continuous)
+                        .fill(isSelected ? Color.primary.opacity(0.13) : Color.primary.opacity(isHovered ? 0.05 : 0))
+                )
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(DSPlainButtonStyle())
+        .onHover { isHovered = $0 }
+        .animation(.easeInOut(duration: 0.12), value: isSelected)
+        .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
     }
 }
 

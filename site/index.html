@@ -1,0 +1,1292 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>CatGrab</title>
+<meta name="description" content="CatGrab is a free, open-source radial launcher for macOS: apps, links, shortcuts and window commands on a ring around your pointer.">
+<meta property="og:title" content="CatGrab — a radial launcher for macOS">
+<meta property="og:description" content="Hold a hotkey or tap the trackpad, flick toward what you want, let go.">
+<meta property="og:image" content="https://berbekk.github.io/CatGrab/assets/settings.png">
+<meta property="og:type" content="website">
+<meta name="theme-color" content="#100D17">
+<link rel="icon" href="assets/icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600&family=Unbounded:wght@500;600;700&display=swap">
+<style>
+:root {
+  --night: #100D17;
+  --den: #171320;
+  --fur: #211C2C;
+  --line: rgba(244, 240, 248, .09);
+  --line-2: rgba(244, 240, 248, .17);
+  --text: #F4F0F8;
+  --muted: #A89FB8;
+  --faint: #6F6780;
+  --amber: #FFC940;
+  --amber-ink: #2B1F00;
+  --display: "Unbounded", ui-rounded, "SF Pro Rounded", system-ui, sans-serif;
+  --body: "Golos Text", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --keys: ui-rounded, "SF Pro Rounded", system-ui, -apple-system, sans-serif;
+  --gutter: clamp(16px, 4vw, 40px);
+  color-scheme: dark;
+}
+html { background: var(--night); scroll-behavior: smooth; }
+body {
+  margin: 0;
+  background: var(--night);
+  color: var(--text);
+  font: 400 17px/1.6 var(--body);
+  -webkit-font-smoothing: antialiased;
+  padding-inline: var(--gutter);
+  overflow-x: hidden;
+}
+a { color: inherit; }
+img { max-width: 100%; display: block; }
+.wrap { max-width: 1180px; margin-inline: auto; }
+h1, h2, h3 { font-family: var(--display); font-weight: 600; letter-spacing: -.02em; text-wrap: balance; margin: 0; }
+p { margin: 0; }
+.visually-hidden { position: absolute !important; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+:focus-visible { outline: 2px solid var(--amber); outline-offset: 3px; }
+
+/* ——— Bar ——— */
+.bar {
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 20;
+  margin-inline: calc(var(--gutter) * -1); padding-inline: var(--gutter);
+  background: rgba(16, 13, 23, .74);
+  backdrop-filter: saturate(1.4) blur(16px); -webkit-backdrop-filter: saturate(1.4) blur(16px);
+  border-bottom: 1px solid var(--line);
+}
+.bar .wrap { display: flex; align-items: center; gap: 20px; height: 62px; }
+.brand { display: flex; align-items: center; gap: 10px; text-decoration: none; font: 600 17px var(--display); letter-spacing: -.01em; }
+.brand svg { width: 30px; height: 30px; }
+.nav { display: flex; gap: 22px; margin-left: 12px; }
+.nav a { color: var(--muted); text-decoration: none; font-size: 15px; }
+.nav a:hover { color: var(--text); }
+.bar-end { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+.lang { display: inline-flex; border: 1px solid var(--line-2); border-radius: 10px; padding: 2px; }
+.lang button {
+  all: unset; cursor: pointer; font: 600 12px var(--body); letter-spacing: .06em;
+  padding: 5px 9px; border-radius: 8px; color: var(--muted);
+}
+.lang button[aria-pressed="true"] { background: var(--fur); color: var(--text); }
+.lang button:focus-visible { outline: 2px solid var(--amber); }
+.icon-link { display: inline-grid; place-items: center; width: 36px; height: 36px; border-radius: 10px; color: var(--muted); }
+.icon-link:hover { color: var(--text); background: var(--fur); }
+.icon-link svg { width: 20px; height: 20px; }
+
+/* ——— Buttons & keys ——— */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 10px;
+  height: 50px; padding: 0 22px; border-radius: 15px; font: 600 16px var(--body);
+  text-decoration: none; cursor: pointer; border: 0; white-space: nowrap;
+  transition: transform .15s ease, background .15s ease, border-color .15s ease;
+}
+.btn svg { width: 19px; height: 19px; }
+.btn:active { transform: translateY(1px); }
+.btn.primary { background: var(--amber); color: var(--amber-ink); box-shadow: 0 10px 30px -12px rgba(255, 201, 64, .6); }
+.btn.primary:hover { background: #FFD466; }
+.btn.ghost { background: transparent; color: var(--text); border: 1px solid var(--line-2); }
+.btn.ghost:hover { border-color: rgba(244, 240, 248, .35); }
+.btn.small { height: 38px; padding: 0 14px; border-radius: 11px; font-size: 14px; }
+.key {
+  display: inline-flex; align-items: center; justify-content: center; gap: .15em;
+  min-width: 1.95em; height: 1.95em; padding: 0 .5em; border-radius: .5em;
+  font: 600 .8em/1 var(--keys); color: var(--text);
+  background: linear-gradient(#302a3c, #231e2e);
+  border: 1px solid rgba(255, 255, 255, .13);
+  box-shadow: 0 2px 0 rgba(0, 0, 0, .55), inset 0 1px 0 rgba(255, 255, 255, .08);
+  vertical-align: .05em;
+}
+.key.lit { background: var(--amber); color: var(--amber-ink); border-color: transparent; box-shadow: 0 2px 0 #a37a0f; }
+
+/* ——— Hero ——— */
+.hero { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.08fr); gap: clamp(28px, 5vw, 64px); align-items: center; padding-block: clamp(40px, 7vw, 88px) clamp(56px, 8vw, 104px); }
+.eyebrow { font: 600 12.5px var(--body); letter-spacing: .14em; text-transform: uppercase; color: var(--amber); }
+.hero h1 { font-size: clamp(40px, 6.2vw, 78px); line-height: .98; font-weight: 700; margin-top: 18px; }
+.hero h1 em { font-style: normal; color: var(--amber); }
+.lede { color: var(--muted); font-size: clamp(17px, 1.6vw, 19.5px); max-width: 34em; margin-top: 22px; }
+.cta-row { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 30px; }
+.fine { color: var(--faint); font-size: 14px; margin-top: 18px; }
+
+/* Desktop stage */
+.desk {
+  position: relative; width: 100%; aspect-ratio: 16 / 12.4; border-radius: 26px; overflow: hidden;
+  background:
+    radial-gradient(circle at 18% 14%, rgba(0, 122, 255, .42), transparent 42%),
+    radial-gradient(circle at 88% 26%, rgba(255, 45, 85, .30), transparent 44%),
+    radial-gradient(circle at 62% 100%, rgba(255, 204, 0, .20), transparent 48%),
+    radial-gradient(circle at 0% 100%, rgba(175, 82, 222, .30), transparent 45%),
+    linear-gradient(160deg, #1D1733, #0F0C19);
+  border: 1px solid var(--line-2);
+  box-shadow: 0 40px 90px -40px rgba(0, 0, 0, .9);
+  touch-action: manipulation;
+}
+.menubar {
+  position: absolute; inset: 0 0 auto 0; height: 26px; display: flex; align-items: center; gap: 16px;
+  padding: 0 14px; font: 500 12px var(--body); color: rgba(244, 240, 248, .82);
+  background: rgba(8, 6, 14, .45); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); z-index: 2;
+}
+.menubar b { font-weight: 600; }
+.menubar .mb-end { margin-left: auto; display: flex; align-items: center; gap: 12px; }
+.menubar .mb-cat { width: 20px; height: 18px; display: grid; place-items: center; border-radius: 5px; background: rgba(255, 255, 255, .16); }
+.menubar .mb-cat svg { width: 14px; height: 13px; }
+.ring-wrap {
+  position: absolute; height: 78%; width: auto; aspect-ratio: 1; max-width: 92%;
+  left: var(--x, 50%); top: var(--y, 52%); transform: translate(-50%, -50%);
+  transition: left .32s cubic-bezier(.2, .8, .2, 1), top .32s cubic-bezier(.2, .8, .2, 1);
+}
+.ring-wrap.pop { animation: pop .28s cubic-bezier(.2, .9, .3, 1.25); }
+@keyframes pop { from { transform: translate(-50%, -50%) scale(.6); opacity: 0; } }
+.desk-hints {
+  position: absolute; left: 14px; bottom: 14px; right: 14px; display: flex; flex-wrap: wrap; gap: 6px 8px;
+  font-size: 12.5px; color: rgba(244, 240, 248, .72); z-index: 2; pointer-events: none;
+}
+.desk-hints > span { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border-radius: 999px; background: rgba(8, 6, 14, .5); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
+.toast {
+  position: absolute; left: 50%; top: 40px; transform: translate(-50%, -8px); z-index: 3;
+  padding: 8px 14px; border-radius: 12px; font: 500 13.5px var(--body); white-space: nowrap;
+  background: rgba(20, 16, 30, .82); border: 1px solid var(--line-2); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  opacity: 0; transition: opacity .2s ease, transform .2s ease; pointer-events: none; max-width: calc(100% - 28px); overflow: hidden; text-overflow: ellipsis;
+}
+.toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+/* ——— Ring (SVG) ——— */
+.ring { width: 100%; height: 100%; overflow: visible; display: block; cursor: pointer; touch-action: none; border-radius: 50%; }
+.ring .sector { transition: transform .22s cubic-bezier(.3, .7, .3, 1.35); }
+.ring .sector.on { transform: scale(1.045); }
+.ring .sector.fire { animation: fire .42s ease; }
+@keyframes fire { 35% { transform: scale(1.12); } }
+.ring .paw { transition: transform .3s cubic-bezier(.3, .8, .3, 1.12), opacity .2s; }
+.ring .digit { font: 600 11px var(--keys); fill: rgba(255, 255, 255, .6); }
+.ring .pupil { transition: transform .08s linear; }
+.ring:focus-visible { outline: 2px solid var(--amber); outline-offset: 8px; }
+
+/* ——— Chapters ——— */
+.chapter { scroll-margin-top: 72px; border-top: 1px solid var(--line); padding-block: clamp(64px, 9vw, 120px); }
+.split { display: grid; grid-template-columns: minmax(0, .92fr) minmax(0, 1.08fr); gap: clamp(28px, 5vw, 72px); align-items: center; }
+.split.flip > .copy { order: 2; }
+.copy h2 { font-size: clamp(28px, 3.5vw, 44px); line-height: 1.08; margin-top: 14px; }
+.copy > p { color: var(--muted); margin-top: 18px; max-width: 32em; font-size: 17.5px; }
+.ticks { list-style: none; padding: 0; margin: 22px 0 0; display: grid; gap: 10px; }
+.ticks li { display: flex; gap: 12px; color: var(--muted); font-size: 16px; }
+.ticks svg { flex: none; width: 20px; height: 20px; color: var(--amber); margin-top: 3px; }
+.ticks b { color: var(--text); font-weight: 600; }
+.stage {
+  position: relative; border-radius: 26px; overflow: hidden; border: 1px solid var(--line);
+  background: radial-gradient(120% 80% at 50% 0%, #211B2E 0%, #151120 60%, #120F1A 100%);
+}
+.stage-pad { padding: clamp(18px, 3vw, 30px); }
+.head-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: clamp(20px, 4vw, 56px); align-items: end; margin-bottom: clamp(28px, 4vw, 44px); }
+.head-row h2 { font-size: clamp(28px, 3.5vw, 44px); line-height: 1.08; margin-top: 14px; }
+.head-row p { color: var(--muted); font-size: 17.5px; }
+
+/* Actions */
+.actions-demo { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, .9fr); gap: 8px; align-items: center; }
+.actions-demo .ring-box { aspect-ratio: 1; width: 100%; max-width: 380px; justify-self: center; }
+.detail { padding: 8px 6px 8px 0; }
+.detail .d-icon { width: 46px; height: 46px; border-radius: 13px; display: grid; place-items: center; color: #fff; }
+.detail .d-icon svg { width: 24px; height: 24px; }
+.detail h3 { font-size: 20px; margin-top: 16px; line-height: 1.2; }
+.detail .d-example { display: inline-flex; margin-top: 12px; padding: 5px 10px; border-radius: 9px; background: rgba(255, 255, 255, .06); border: 1px solid var(--line); font: 500 14px var(--keys); color: var(--text); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.detail p { color: var(--muted); margin-top: 12px; font-size: 15.5px; }
+
+/* Trigger */
+.trigger-demo { display: grid; grid-template-rows: auto auto; gap: 18px; justify-items: center; padding-block: 26px 22px; }
+.trigger-demo .mini-ring { width: min(62%, 250px); aspect-ratio: 1; transition: transform .28s cubic-bezier(.2, .9, .3, 1.25), opacity .25s, filter .25s; }
+.trigger-demo .mini-ring.hide { transform: scale(.82); opacity: .28; filter: saturate(.3); pointer-events: none; }
+.trigger-controls { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); gap: 16px; width: 100%; align-items: stretch; }
+.keys-card, .pad-card { border-radius: 18px; background: rgba(255, 255, 255, .035); border: 1px solid var(--line); padding: 14px; display: grid; gap: 10px; align-content: start; }
+.card-label { font-size: 12.5px; color: var(--muted); letter-spacing: .02em; }
+.keys-line { display: flex; flex-wrap: wrap; gap: 6px; }
+.keys-line button { all: unset; cursor: pointer; font-size: 18px; border-radius: .5em; }
+.keys-line button:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
+.pad {
+  position: relative; height: 104px; border-radius: 14px; cursor: pointer;
+  background: linear-gradient(180deg, #2A2436, #221D2D); border: 1px solid rgba(255, 255, 255, .1);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .06);
+}
+.pad:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
+.pad .dot { position: absolute; width: 20px; height: 20px; border-radius: 50%; background: rgba(255, 201, 64, .85); box-shadow: 0 0 0 6px rgba(255, 201, 64, .18); transform: translate(-50%, -50%) scale(.3); opacity: 0; }
+.pad .dot.tap { animation: tap .55s ease-out; }
+@keyframes tap { 20% { opacity: 1; transform: translate(-50%, -50%) scale(1); } 100% { opacity: 0; transform: translate(-50%, -50%) scale(1.25); } }
+.pad-hint { position: absolute; inset: 0; display: grid; place-items: center; font-size: 13px; color: var(--faint); pointer-events: none; }
+.seg { display: inline-flex; background: rgba(0, 0, 0, .25); border: 1px solid var(--line); border-radius: 10px; padding: 2px; gap: 2px; }
+.seg button { all: unset; cursor: pointer; padding: 4px 10px; border-radius: 8px; font: 600 13px var(--body); color: var(--muted); }
+.seg button[aria-pressed="true"] { background: var(--fur); color: var(--text); }
+.seg button:focus-visible { outline: 2px solid var(--amber); }
+
+/* Switcher */
+.switch-demo { display: grid; justify-items: center; gap: 16px; padding-block: 24px 26px; }
+.switch-demo .ring-box { width: min(78%, 380px); aspect-ratio: 1; }
+.switch-bar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; justify-content: center; }
+.switch-name { font: 600 15px var(--display); min-width: 7em; text-align: center; }
+
+/* Commands */
+.cmd-layout { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); gap: clamp(16px, 3vw, 28px); align-items: center; }
+.desk.small { aspect-ratio: 16 / 10; border-radius: 18px; }
+.area { position: absolute; inset: 26px 0 0 0; }
+.win {
+  position: absolute; left: 12%; top: 10%; width: 56%; height: 64%; border-radius: 11px; overflow: hidden;
+  background: #2A2435; border: 1px solid rgba(255, 255, 255, .12); box-shadow: 0 24px 50px -20px rgba(0, 0, 0, .8);
+  transition: left .45s cubic-bezier(.2, .8, .2, 1), top .45s cubic-bezier(.2, .8, .2, 1), width .45s cubic-bezier(.2, .8, .2, 1), height .45s cubic-bezier(.2, .8, .2, 1), opacity .3s, transform .3s, border-radius .3s;
+}
+.win.gone { opacity: 0; transform: scale(.92); }
+.win .tb { height: 22px; display: flex; align-items: center; gap: 6px; padding: 0 9px; background: rgba(255, 255, 255, .05); border-bottom: 1px solid rgba(255, 255, 255, .06); }
+.win .tb i { width: 9px; height: 9px; border-radius: 50%; background: #FF5F57; }
+.win .tb i:nth-child(2) { background: #FEBC2E; }
+.win .tb i:nth-child(3) { background: #28C840; }
+.win .tb span { margin-left: 8px; font-size: 10.5px; color: rgba(244, 240, 248, .6); }
+.win .body { padding: 12px; display: grid; gap: 8px; }
+.win .body div { height: 8px; border-radius: 4px; background: rgba(255, 255, 255, .09); }
+.win .body div:nth-child(1) { width: 70%; background: rgba(255, 201, 64, .5); }
+.win .body div:nth-child(3) { width: 85%; }
+.win .body div:nth-child(4) { width: 55%; }
+.frame-ghost { position: absolute; border: 2px dashed rgba(255, 201, 64, .85); background: rgba(255, 201, 64, .08); border-radius: 11px; opacity: 0; transition: all .22s ease; pointer-events: none; }
+.frame-ghost.show { opacity: 1; }
+.desk.small.fullscreen .menubar { transform: translateY(-100%); }
+.desk.small .menubar { transition: transform .3s; }
+.cmd-side { display: grid; gap: 16px; justify-items: center; }
+.cmd-side .ring-box { width: min(100%, 320px); aspect-ratio: 1; }
+.cmd-caption { font-size: 14px; color: var(--muted); text-align: center; min-height: 3em; }
+.cmd-caption b { color: var(--text); font-weight: 600; }
+
+/* Customizer */
+.custom-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, .95fr); gap: clamp(16px, 3vw, 36px); align-items: center; }
+.custom-layout .ring-box { width: min(100%, 420px); aspect-ratio: 1; justify-self: center; }
+.controls { display: grid; gap: 16px; }
+.ctl { display: grid; gap: 8px; }
+.ctl-row { display: flex; justify-content: space-between; font-size: 14.5px; }
+.ctl-row output { font: 600 13px var(--keys); color: var(--muted); font-variant-numeric: tabular-nums; }
+input[type="range"] { -webkit-appearance: none; appearance: none; width: 100%; height: 22px; background: transparent; cursor: pointer; }
+input[type="range"]::-webkit-slider-runnable-track { height: 5px; border-radius: 3px; background: linear-gradient(90deg, var(--amber) var(--p, 50%), rgba(255, 255, 255, .12) var(--p, 50%)); }
+input[type="range"]::-moz-range-track { height: 5px; border-radius: 3px; background: rgba(255, 255, 255, .12); }
+input[type="range"]::-moz-range-progress { height: 5px; border-radius: 3px; background: var(--amber); }
+input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 20px; height: 20px; border-radius: 50%; background: #fff; margin-top: -7.5px; box-shadow: 0 2px 8px rgba(0, 0, 0, .5); }
+input[type="range"]::-moz-range-thumb { width: 20px; height: 20px; border: 0; border-radius: 50%; background: #fff; box-shadow: 0 2px 8px rgba(0, 0, 0, .5); }
+.toggles { display: flex; flex-wrap: wrap; gap: 10px 22px; }
+.switch { display: inline-flex; align-items: center; gap: 10px; cursor: pointer; font-size: 14.5px; }
+.switch input { appearance: none; -webkit-appearance: none; width: 38px; height: 22px; border-radius: 11px; background: rgba(255, 255, 255, .16); position: relative; cursor: pointer; transition: background .2s; margin: 0; }
+.switch input::after { content: ""; position: absolute; left: 2px; top: 2px; width: 18px; height: 18px; border-radius: 50%; background: #fff; transition: transform .2s; }
+.switch input:checked { background: var(--amber); }
+.switch input:checked::after { transform: translateX(16px); }
+.accents { display: grid; grid-template-columns: repeat(6, 28px); justify-content: space-between; gap: 10px 6px; max-width: 360px; }
+.accents button { all: unset; cursor: pointer; width: 22px; height: 22px; border-radius: 50%; padding: 3px; box-shadow: 0 0 0 2px transparent; transition: box-shadow .15s; }
+.accents button i { display: block; width: 100%; height: 100%; border-radius: 50%; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .2); }
+.accents button:hover { box-shadow: 0 0 0 2px rgba(244, 240, 248, .25); }
+.accents button[aria-pressed="true"] { box-shadow: 0 0 0 2px var(--text); }
+.accents button:focus-visible { outline: 2px solid var(--amber); outline-offset: 3px; }
+.ctl-label { font-size: 14.5px; }
+.shot { margin-top: clamp(28px, 4vw, 44px); display: grid; grid-template-columns: minmax(0, .8fr) minmax(0, 1.6fr); gap: clamp(18px, 3vw, 40px); align-items: center; }
+.shot p { color: var(--muted); font-size: 16px; }
+.shot h3 { font-size: 20px; margin-bottom: 10px; }
+.shot img { border-radius: 16px; border: 1px solid var(--line-2); box-shadow: 0 30px 70px -30px rgba(0, 0, 0, .9); }
+
+/* Details */
+.details { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 250px), 1fr)); gap: 14px; }
+.tile { padding: 22px; border-radius: 20px; background: var(--den); border: 1px solid var(--line); display: grid; gap: 10px; align-content: start; }
+.tile .t-icon { width: 38px; height: 38px; border-radius: 11px; display: grid; place-items: center; background: rgba(255, 201, 64, .12); color: var(--amber); }
+.tile .t-icon svg { width: 20px; height: 20px; }
+.tile h3 { font-size: 16.5px; line-height: 1.3; }
+.tile p { color: var(--muted); font-size: 15px; }
+.tile .demo-line { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; min-height: 32px; }
+.hello { font: 600 22px var(--display); color: var(--text); transition: opacity .25s; min-height: 32px; display: flex; align-items: center; }
+.glyphs { display: flex; gap: 8px; align-items: center; }
+.glyphs span { width: 32px; height: 32px; border-radius: 9px; display: grid; place-items: center; background: rgba(255, 255, 255, .06); font: 600 13px var(--keys); }
+.glyphs svg { width: 17px; height: 17px; }
+
+/* Install */
+.steps { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; counter-reset: step; }
+.steps li { position: relative; padding: 24px 22px 22px; border-radius: 20px; background: var(--den); border: 1px solid var(--line); counter-increment: step; }
+.steps li::before { content: counter(step); display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; background: var(--amber); color: var(--amber-ink); font: 700 15px var(--display); margin-bottom: 16px; }
+.steps h3 { font-size: 17px; line-height: 1.3; }
+.steps p { color: var(--muted); font-size: 15px; margin-top: 8px; }
+.gate { margin-top: 14px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; }
+.gate > div { padding: 22px; border-radius: 20px; border: 1px dashed var(--line-2); }
+.gate h3 { font-size: 17px; }
+.gate p, .gate li { color: var(--muted); font-size: 15px; }
+.gate ul { margin: 10px 0 0; padding-left: 1.1em; display: grid; gap: 6px; }
+.gate b { color: var(--text); font-weight: 600; }
+.cmdline { margin-top: 12px; display: flex; align-items: center; gap: 8px; padding: 6px 6px 6px 14px; border-radius: 12px; background: #0B0911; border: 1px solid var(--line); }
+.cmdline code { flex: 1; min-width: 0; overflow-x: auto; white-space: nowrap; font: 500 13px ui-monospace, SFMono-Regular, Menlo, monospace; color: #E9E3F1; scrollbar-width: none; }
+.final { margin-top: clamp(40px, 6vw, 72px); display: grid; justify-items: center; text-align: center; gap: 16px; }
+.final h2 { font-size: clamp(30px, 4.4vw, 54px); }
+.final .fine { margin-top: 0; }
+
+/* Footer */
+footer { border-top: 1px solid var(--line); padding-block: 36px 48px; color: var(--faint); font-size: 14px; }
+footer .wrap { display: flex; flex-wrap: wrap; gap: 14px 28px; align-items: center; justify-content: space-between; }
+footer nav { display: flex; flex-wrap: wrap; gap: 8px 20px; }
+footer a { color: var(--muted); text-decoration: none; }
+footer a:hover { color: var(--text); }
+footer .foot-about { display: flex; flex-direction: column; gap: 6px; }
+
+/* ——— Responsive ——— */
+@media (max-width: 940px) {
+  .hero, .split, .head-row, .cmd-layout, .custom-layout, .shot, .gate { grid-template-columns: minmax(0, 1fr); }
+  .split.flip > .copy { order: 0; }
+  .nav { display: none; }
+}
+@media (max-width: 700px) {
+  .steps { grid-template-columns: minmax(0, 1fr); }
+  .actions-demo, .trigger-controls { grid-template-columns: minmax(0, 1fr); }
+  .actions-demo .ring-box { max-width: 300px; }
+  .bar .github-link { display: none; }
+  .desk { aspect-ratio: 1 / 1.05; }
+}
+@media (max-width: 420px) {
+  .bar .btn.small { padding: 0 10px; }
+  .brand span { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition: none !important; animation: none !important; scroll-behavior: auto !important; }
+}
+</style>
+</head>
+<body>
+
+<header class="bar">
+  <div class="wrap">
+    <a class="brand" href="#top" aria-label="CatGrab">
+      <svg viewBox="0 0 64 64" aria-hidden="true"><rect x="2" y="2" width="60" height="60" rx="16" fill="#F4F0F8"/><g transform="translate(11 14) scale(.425)"><use href="#cat-head" fill="#0B0A0F"/><circle cx="29.5" cy="46" r="13.5" fill="#F6F2F2"/><circle cx="31" cy="44.5" r="7" fill="#0B0A0F"/><circle cx="72.5" cy="46" r="13.5" fill="#F6F2F2"/><circle cx="74" cy="44.5" r="7" fill="#0B0A0F"/></g></svg>
+      <span>CatGrab</span>
+    </a>
+    <nav class="nav" aria-label="Sections">
+      <a href="#features" data-i18n="nav.features">Features</a>
+      <a href="#install" data-i18n="nav.install">Install</a>
+    </nav>
+    <div class="bar-end">
+      <div class="lang" role="group" aria-label="Language">
+        <button type="button" data-lang="en" aria-pressed="true">EN</button>
+        <button type="button" data-lang="ru" aria-pressed="false">RU</button>
+      </div>
+      <a class="icon-link github-link" href="https://github.com/berbekk/CatGrab" target="_blank" rel="noopener" aria-label="GitHub" data-icon="github"></a>
+      <a class="btn primary small" href="https://github.com/berbekk/CatGrab/releases/latest" target="_blank" rel="noopener" data-i18n="cta.download">Download</a>
+    </div>
+  </div>
+</header>
+
+<main class="wrap" id="top">
+
+  <section class="hero">
+    <div>
+      <p class="eyebrow" data-i18n="hero.eyebrow">Radial launcher for macOS · free &amp; open source</p>
+      <h1 data-i18n-html="hero.title">Grab anything<br>in <em>one flick.</em></h1>
+      <p class="lede" data-i18n="hero.lede">CatGrab puts your apps, links, shortcuts and window commands on a ring around your pointer. Hold a hotkey or tap the trackpad, flick toward what you want, let go.</p>
+      <div class="cta-row">
+        <a class="btn primary" href="https://github.com/berbekk/CatGrab/releases/latest" target="_blank" rel="noopener"><span data-icon="download"></span><span data-i18n="hero.download">Download for Mac</span></a>
+        <a class="btn ghost" href="https://github.com/berbekk/CatGrab" target="_blank" rel="noopener"><span data-icon="github"></span><span data-i18n="hero.github">Source on GitHub</span></a>
+      </div>
+      <p class="fine" data-i18n="hero.fine">macOS 13 or newer · Apple silicon &amp; Intel · MIT license</p>
+    </div>
+
+    <div class="desk" id="heroDesk">
+      <div class="menubar" aria-hidden="true">
+        <b>Finder</b><span data-i18n="mb.file">File</span><span data-i18n="mb.edit">Edit</span><span data-i18n="mb.view">View</span>
+        <span class="mb-end"><span class="mb-cat"><svg viewBox="0 0 99 93"><use href="#cat-head" fill="#fff"/></svg></span><span id="clock">9:41</span></span>
+      </div>
+      <div class="toast" id="heroToast" role="status" aria-live="polite"></div>
+      <div class="ring-wrap" id="heroRingWrap"><svg class="ring" id="heroRing" tabindex="0"></svg></div>
+      <div class="desk-hints" aria-hidden="true">
+        <span data-i18n="hint.point">Point at a sector · click to fire</span>
+        <span><span class="key">1</span>–<span class="key">6</span> <span data-i18n="hint.digits">quick select</span></span>
+        <span data-i18n-html="hint.space">hold <span class="key">Space</span> to summon it here</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="chapter" id="features">
+    <div class="split">
+      <div class="copy">
+        <p class="eyebrow" data-i18n="actions.eyebrow">Six kinds of action</p>
+        <h2 data-i18n="actions.title">Every sector does one thing — you decide which.</h2>
+        <p data-i18n="actions.text">Launch an app, open a link, press a shortcut for you, run a macOS action or paste a snippet. Point at the ring to see what each kind does.</p>
+      </div>
+      <div class="stage stage-pad">
+        <div class="actions-demo">
+          <div class="ring-box"><svg class="ring" id="actionsRing" tabindex="0" aria-label="Action types"></svg></div>
+          <div class="detail" aria-live="polite">
+            <div class="d-icon" id="dIcon"></div>
+            <h3 id="dTitle"></h3>
+            <span class="d-example" id="dExample"></span>
+            <p id="dText"></p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="chapter">
+    <div class="split flip">
+      <div class="copy">
+        <p class="eyebrow" data-i18n="trigger.eyebrow">Hotkey or trackpad</p>
+        <h2 data-i18n="trigger.title">Summon it the way your hands already are.</h2>
+        <p data-i18n="trigger.text">Give every menu its own key combination — even a bare fn press — or a light tap with three, four or five fingers. The ring opens under the pointer, wherever it is.</p>
+        <ul class="ticks">
+          <li><span data-icon="check"></span><span data-i18n-html="trigger.t1"><b>Any combination.</b> ⌃⌥Space, ⌘Tab, a single F-key or just fn.</span></li>
+          <li><span data-icon="check"></span><span data-i18n-html="trigger.t2"><b>Tap, don't click.</b> macOS swipes and pinches keep working.</span></li>
+          <li><span data-icon="check"></span><span data-i18n-html="trigger.t3"><b>One trigger, one menu.</b> Each menu remembers its own.</span></li>
+        </ul>
+      </div>
+      <div class="stage stage-pad">
+        <div class="trigger-demo">
+          <div class="mini-ring hide" id="triggerRingBox"><svg class="ring" id="triggerRing" aria-label="Menu"></svg></div>
+          <div class="trigger-controls">
+            <div class="keys-card">
+              <span class="card-label" data-i18n="trigger.keys">Press the hotkey</span>
+              <div class="keys-line" id="keysLine">
+                <button type="button" data-combo="main" aria-label="Control Option Space"><span class="key">⌃</span> <span class="key">⌥</span> <span class="key">Space</span></button>
+              </div>
+              <div class="keys-line">
+                <button type="button" data-combo="fn" aria-label="fn"><span class="key">fn</span></button>
+              </div>
+            </div>
+            <div class="pad-card">
+              <div class="ctl-row"><span class="card-label" data-i18n="trigger.pad">Tap the trackpad</span>
+                <span class="seg" id="fingerSeg">
+                  <button type="button" data-f="3" aria-pressed="false">3</button>
+                  <button type="button" data-f="4" aria-pressed="true">4</button>
+                  <button type="button" data-f="5" aria-pressed="false">5</button>
+                </span>
+              </div>
+              <div class="pad" id="pad" tabindex="0" role="button" aria-label="Trackpad"><span class="pad-hint" data-i18n="trigger.padHint">tap here</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="chapter">
+    <div class="split">
+      <div class="copy">
+        <p class="eyebrow" data-i18n="switch.eyebrow">Active apps</p>
+        <h2 data-i18n="switch.title">⌘Tab, but round.</h2>
+        <p data-i18n="switch.text">A built-in ring of everything that's running. Flick to an app and CatGrab brings it forward — on its own Space, with minimized windows back from the Dock.</p>
+        <ul class="ticks">
+          <li><span data-icon="check"></span><span data-i18n-html="switch.t1"><b>Muscle memory friendly.</b> Keep ⌘ held and press Tab to step around the ring.</span></li>
+          <li><span data-icon="check"></span><span data-i18n-html="switch.t2"><b>Your order.</b> The last app you used sits first; hide the ones you never switch to.</span></li>
+        </ul>
+      </div>
+      <div class="stage">
+        <div class="switch-demo">
+          <div class="ring-box"><svg class="ring" id="switchRing" tabindex="0" aria-label="Running apps"></svg></div>
+          <div class="switch-bar">
+            <button type="button" class="btn ghost small" id="tabBtn"><span class="key">⌘</span> <span class="key">Tab</span></button>
+            <span class="switch-name" id="switchName" aria-live="polite"></span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="chapter">
+    <div class="head-row">
+      <div>
+        <p class="eyebrow" data-i18n="cmd.eyebrow">App commands</p>
+        <h2 data-i18n="cmd.title">The commands of the app in front — on one hotkey.</h2>
+      </div>
+      <p data-i18n="cmd.text">Out of the box: the halves of the screen, each on its own side of the ring, plus fill, center, full screen and quit. Give an app its own set from its menu bar, and the same hotkey shows Figma's commands in Figma and Xcode's in Xcode.</p>
+    </div>
+    <div class="stage stage-pad">
+      <div class="cmd-layout">
+        <div class="desk small" id="cmdDesk">
+          <div class="menubar" aria-hidden="true"><b id="cmdApp">Notes</b><span data-i18n="mb.file">File</span><span data-i18n="mb.edit">Edit</span><span data-i18n="mb.window">Window</span><span class="mb-end"><span class="mb-cat"><svg viewBox="0 0 99 93"><use href="#cat-head" fill="#fff"/></svg></span></span></div>
+          <div class="area" id="cmdArea">
+            <div class="frame-ghost" id="frameGhost"></div>
+            <div class="win" id="win"><div class="tb"><i></i><i></i><i></i><span id="winTitle">Notes</span></div><div class="body"><div></div><div></div><div></div><div></div></div></div>
+          </div>
+        </div>
+        <div class="cmd-side">
+          <span class="seg" id="appSeg" role="group" aria-label="App in front">
+            <button type="button" data-app="any" aria-pressed="true" data-i18n="cmd.any">Any app</button>
+            <button type="button" data-app="figma" aria-pressed="false">Figma</button>
+            <button type="button" data-app="xcode" aria-pressed="false">Xcode</button>
+          </span>
+          <div class="ring-box"><svg class="ring" id="cmdRing" tabindex="0" aria-label="App commands"></svg></div>
+          <p class="cmd-caption" id="cmdCaption" aria-live="polite"></p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="chapter">
+    <div class="head-row">
+      <div>
+        <p class="eyebrow" data-i18n="custom.eyebrow">Make it yours</p>
+        <h2 data-i18n="custom.title">Tune the ring until it feels like part of your Mac.</h2>
+      </div>
+      <p data-i18n="custom.text">Size, the hole in the middle, rotation, glass, icons, colours, the paw and the digits — every menu keeps its own look. Try it:</p>
+    </div>
+    <div class="stage stage-pad">
+      <div class="custom-layout">
+        <div class="ring-box"><svg class="ring" id="customRing" tabindex="0" aria-label="Your ring"></svg></div>
+        <div class="controls">
+          <div class="ctl"><div class="ctl-row"><label for="cSize" data-i18n="custom.size">Size</label><output id="oSize"></output></div><input type="range" id="cSize" min="70" max="115" value="100"></div>
+          <div class="ctl"><div class="ctl-row"><label for="cHole" data-i18n="custom.hole">Hole</label><output id="oHole"></output></div><input type="range" id="cHole" min="26" max="56" value="42"></div>
+          <div class="ctl"><div class="ctl-row"><label for="cRot" data-i18n="custom.rotation">Rotation</label><output id="oRot"></output></div><input type="range" id="cRot" min="-45" max="45" step="0.5" value="0"></div>
+          <div class="ctl"><span class="ctl-label" data-i18n="custom.color">Theme</span><div class="accents" id="accents" role="group" aria-label="Theme"></div></div>
+          <div class="ctl"><div class="ctl-row"><label for="cTint" data-i18n="custom.tint">Intensity</label><output id="oTint"></output></div><input type="range" id="cTint" min="10" max="75" value="38"></div>
+          <div class="toggles">
+            <label class="switch"><input type="checkbox" id="cPaw" checked><span data-i18n="custom.paw">Paw</span></label>
+            <label class="switch"><input type="checkbox" id="cDigits" checked><span data-i18n="custom.digits">Digits</span></label>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="shot">
+      <div>
+        <h3 data-i18n="custom.shotTitle">One tidy settings window.</h3>
+        <p data-i18n="custom.shotText">Every menu, its hotkey and gesture, and a live preview you can drag to reorder — the same ring you just played with.</p>
+      </div>
+      <img src="assets/settings.png" width="1120" height="760" loading="lazy" alt="CatGrab settings window with the menu list, hotkey and trackpad gesture, and a live preview of the ring" data-i18n-alt="custom.shotAlt">
+    </div>
+  </section>
+
+  <section class="chapter">
+    <div class="head-row">
+      <div>
+        <p class="eyebrow" data-i18n="details.eyebrow">The small things</p>
+        <h2 data-i18n="details.title">Details that make it stick.</h2>
+      </div>
+      <p data-i18n="details.text">The parts you only notice after a week — and then can't do without.</p>
+    </div>
+    <div class="details">
+      <article class="tile"><div class="t-icon" data-icon="keyboard"></div><h3 data-i18n="d.quick">Quick select</h3><div class="demo-line"><span class="key">1</span><span class="key">2</span><span class="key">3</span><span class="key">A</span><span class="key">S</span></div><p data-i18n="d.quickText">Every sector wears a digit or a letter. Press it instead of aiming.</p></article>
+      <article class="tile"><div class="t-icon" data-icon="sparkles"></div><h3 data-i18n="d.icons">Icons from anywhere</h3><div class="demo-line glyphs"><span data-icon="compass"></span><span>😺</span><span data-icon="globe"></span><span data-icon="image"></span><span>Aa</span></div><p data-i18n="d.iconsText">SF Symbols, emoji, a website's favicon, your own image or a couple of letters.</p></article>
+      <article class="tile"><div class="t-icon" data-icon="languages"></div><h3 data-i18n="d.lang">13 languages</h3><div class="demo-line hello" id="hello" lang="en">Hello</div><p data-i18n="d.langText">From English and Русский to हिन्दी, العربية and 日本語 — switch any time in Settings.</p></article>
+      <article class="tile"><div class="t-icon" data-icon="archive"></div><h3 data-i18n="d.backup">Backup in one file</h3><div class="demo-line"><span class="key">config.json</span></div><p data-i18n="d.backupText">Export every menu to JSON and bring it to your next Mac.</p></article>
+      <article class="tile"><div class="t-icon" data-icon="shield-check"></div><h3 data-i18n="d.private">Stays on your Mac</h3><p data-i18n="d.privateText">No account, no telemetry, no analytics. The only request fetches a website icon, and only when you ask for one.</p></article>
+      <article class="tile"><div class="t-icon" data-icon="cpu"></div><h3 data-i18n="d.chip">Apple silicon &amp; Intel</h3><p data-i18n="d.chipText">One universal app for macOS 13 Ventura and everything since.</p></article>
+      <article class="tile"><div class="t-icon" data-icon="hand"></div><h3 data-i18n="d.a11y">Kind to every setup</h3><p data-i18n="d.a11yText">Respects Reduce Transparency and Reduce Motion, and every control speaks to VoiceOver.</p></article>
+      <article class="tile"><div class="t-icon" data-icon="github"></div><h3 data-i18n="d.oss">Open source</h3><p data-i18n="d.ossText">MIT licensed and written in Swift and SwiftUI. Read it, build it, make it better.</p></article>
+    </div>
+  </section>
+
+  <section class="chapter" id="install">
+    <div class="head-row">
+      <div>
+        <p class="eyebrow" data-i18n="install.eyebrow">Install</p>
+        <h2 data-i18n="install.title">Up and running in a minute.</h2>
+      </div>
+      <p data-i18n="install.text">No account, no installer, nothing running in the background except the cat in your menu bar.</p>
+    </div>
+    <ol class="steps">
+      <li><h3 data-i18n="s1">Download CatGrab.dmg</h3><p data-i18n="s1t">From the latest release on GitHub. It's about 4 MB.</p></li>
+      <li><h3 data-i18n="s2">Drag it into Applications</h3><p data-i18n="s2t">Then open CatGrab from there, like any other app.</p></li>
+      <li><h3 data-i18n="s3">Allow two permissions</h3><p data-i18n="s3t">Accessibility presses keys and moves windows; Input Monitoring hears your hotkeys.</p></li>
+    </ol>
+    <div class="gate">
+      <div>
+        <h3 data-i18n="gate.title">The first launch needs one confirmation</h3>
+        <p style="margin-top:10px" data-i18n="gate.text">CatGrab isn't notarized by Apple — that takes a paid developer account — so macOS asks you to confirm it once.</p>
+        <ul>
+          <li data-i18n-html="gate.m15"><b>macOS 15 and newer:</b> System Settings → Privacy &amp; Security → scroll down → <b>Open Anyway</b>.</li>
+          <li data-i18n-html="gate.m13"><b>macOS 13–14:</b> Control-click CatGrab in Applications → <b>Open</b>.</li>
+        </ul>
+      </div>
+      <div>
+        <h3 data-i18n="gate.term">Prefer Terminal?</h3>
+        <p style="margin-top:10px" data-i18n="gate.termText">This removes the “downloaded from the internet” mark from CatGrab only:</p>
+        <div class="cmdline"><code id="cmd">xattr -dr com.apple.quarantine /Applications/CatGrab.app</code><button type="button" class="btn ghost small" id="copyBtn" data-i18n="gate.copy">Copy</button></div>
+      </div>
+    </div>
+    <div class="final">
+      <h2 data-i18n="final.title">Let the cat do the reaching.</h2>
+      <a class="btn primary" href="https://github.com/berbekk/CatGrab/releases/latest" target="_blank" rel="noopener"><span data-icon="download"></span><span data-i18n="final.cta">Download CatGrab</span></a>
+      <p class="fine" data-i18n="final.fine">Free · about 4 MB · macOS 13+ · Apple silicon &amp; Intel</p>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="foot-about">
+      <span data-i18n="foot.text">CatGrab is free and open source under the MIT license. Not affiliated with Apple.</span>
+      <span class="foot-author"><span data-i18n="foot.author">Made by Kudriash Vasiliy</span> ·
+        <a href="https://t.me/berbekk" target="_blank" rel="noopener">Telegram</a> ·
+        <a href="https://github.com/berbekk" target="_blank" rel="noopener">GitHub</a></span>
+    </div>
+    <nav aria-label="Links">
+      <a href="https://github.com/berbekk/CatGrab" target="_blank" rel="noopener">GitHub</a>
+      <a href="https://github.com/berbekk/CatGrab/releases" target="_blank" rel="noopener" data-i18n="foot.releases">Releases</a>
+      <a href="https://github.com/berbekk/CatGrab/blob/main/CHANGELOG.md" target="_blank" rel="noopener" data-i18n="foot.changelog">Changelog</a>
+      <a href="https://github.com/berbekk/CatGrab/issues/new/choose" target="_blank" rel="noopener" data-i18n="foot.issue">Report a problem</a>
+    </nav>
+  </div>
+</footer>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <g id="cat-head">
+      <path d="M62.9443 17.7817C71.3823 4.69493 82.5023 -2.58303 90.4189 0.844176C97.5994 3.95285 97.2199 21.9127 94.1777 39.4662C96.6536 44.0141 98.0224 49.0135 98.0225 54.2612C98.0225 75.271 76.0797 92.303 49.0117 92.3032C21.9435 92.3032 0 75.271 0 54.2612C5.28279e-05 49.6182 1.07235 45.1697 3.03418 41.0561C-0.24872 23.0352 -0.862363 4.12037 6.52441 0.922301C14.4723 -2.51843 25.6488 4.83069 34.0986 18.0151C38.8011 16.8505 43.8117 16.2202 49.0117 16.2202C53.8521 16.2202 58.5279 16.767 62.9443 17.7817Z"/>
+    </g>
+  </defs>
+</svg>
+
+<script>
+(() => {
+  "use strict";
+  // Icons: Lucide (https://lucide.dev), ISC License.
+  const ICONS = {"app-window": "<rect x=\"2\" y=\"4\" width=\"20\" height=\"16\" rx=\"2\" /> <path d=\"M10 4v4\" /> <path d=\"M2 8h20\" /> <path d=\"M6 4v4\" />", "archive": "<rect width=\"20\" height=\"5\" x=\"2\" y=\"3\" rx=\"1\" /> <path d=\"M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8\" /> <path d=\"M10 12h4\" />", "arrow-right": "<path d=\"M5 12h14\" /> <path d=\"m12 5 7 7-7 7\" />", "bug": "<path d=\"m8 2 1.88 1.88\" /> <path d=\"M14.12 3.88 16 2\" /> <path d=\"M9 7.13v-1a3.003 3.003 0 1 1 6 0v1\" /> <path d=\"M12 20c-3.3 0-6-2.7-6-6v-3a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v3c0 3.3-2.7 6-6 6\" /> <path d=\"M12 20v-9\" /> <path d=\"M6.53 9C4.6 8.8 3 7.1 3 5\" /> <path d=\"M6 13H2\" /> <path d=\"M3 21c0-2.1 1.7-3.9 3.8-4\" /> <path d=\"M20.97 5c0 2.1-1.6 3.8-3.5 4\" /> <path d=\"M22 13h-4\" /> <path d=\"M17.2 17c2.1.1 3.8 1.9 3.8 4\" />", "calendar": "<path d=\"M8 2v4\" /> <path d=\"M16 2v4\" /> <rect width=\"18\" height=\"18\" x=\"3\" y=\"4\" rx=\"2\" /> <path d=\"M3 10h18\" />", "check": "<path d=\"M20 6 9 17l-5-5\" />", "circle-dashed": "<path d=\"M10.1 2.182a10 10 0 0 1 3.8 0\" /> <path d=\"M13.9 21.818a10 10 0 0 1-3.8 0\" /> <path d=\"M17.609 3.721a10 10 0 0 1 2.69 2.7\" /> <path d=\"M2.182 13.9a10 10 0 0 1 0-3.8\" /> <path d=\"M20.279 17.609a10 10 0 0 1-2.7 2.69\" /> <path d=\"M21.818 10.1a10 10 0 0 1 0 3.8\" /> <path d=\"M3.721 6.391a10 10 0 0 1 2.7-2.69\" /> <path d=\"M6.391 20.279a10 10 0 0 1-2.69-2.7\" />", "clipboard-paste": "<path d=\"M15 2H9a1 1 0 0 0-1 1v2c0 .6.4 1 1 1h6c.6 0 1-.4 1-1V3c0-.6-.4-1-1-1Z\" /> <path d=\"M8 4H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2M16 4h2a2 2 0 0 1 2 2v2M11 14h10\" /> <path d=\"m17 10 4 4-4 4\" />", "code-xml": "<path d=\"m18 16 4-4-4-4\" /> <path d=\"m6 8-4 4 4 4\" /> <path d=\"m14.5 4-5 16\" />", "command": "<path d=\"M15 6v12a3 3 0 1 0 3-3H6a3 3 0 1 0 3 3V6a3 3 0 1 0-3 3h12a3 3 0 1 0-3-3\" />", "compass": "<path d=\"m16.24 7.76-1.804 5.411a2 2 0 0 1-1.265 1.265L7.76 16.24l1.804-5.411a2 2 0 0 1 1.265-1.265z\" /> <circle cx=\"12\" cy=\"12\" r=\"10\" />", "component": "<path d=\"M15.536 11.293a1 1 0 0 0 0 1.414l2.376 2.377a1 1 0 0 0 1.414 0l2.377-2.377a1 1 0 0 0 0-1.414l-2.377-2.377a1 1 0 0 0-1.414 0z\" /> <path d=\"M2.297 11.293a1 1 0 0 0 0 1.414l2.377 2.377a1 1 0 0 0 1.414 0l2.377-2.377a1 1 0 0 0 0-1.414L6.088 8.916a1 1 0 0 0-1.414 0z\" /> <path d=\"M8.916 17.912a1 1 0 0 0 0 1.415l2.377 2.376a1 1 0 0 0 1.414 0l2.377-2.376a1 1 0 0 0 0-1.415l-2.377-2.376a1 1 0 0 0-1.414 0z\" /> <path d=\"M8.916 4.674a1 1 0 0 0 0 1.414l2.377 2.376a1 1 0 0 0 1.414 0l2.377-2.376a1 1 0 0 0 0-1.414l-2.377-2.377a1 1 0 0 0-1.414 0z\" />", "cpu": "<rect width=\"16\" height=\"16\" x=\"4\" y=\"4\" rx=\"2\" /> <rect width=\"6\" height=\"6\" x=\"9\" y=\"9\" rx=\"1\" /> <path d=\"M15 2v2\" /> <path d=\"M15 20v2\" /> <path d=\"M2 15h2\" /> <path d=\"M2 9h2\" /> <path d=\"M20 15h2\" /> <path d=\"M20 9h2\" /> <path d=\"M9 2v2\" /> <path d=\"M9 20v2\" />", "download": "<path d=\"M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4\" /> <polyline points=\"7 10 12 15 17 10\" /> <line x1=\"12\" x2=\"12\" y1=\"15\" y2=\"3\" />", "eraser": "<path d=\"m7 21-4.3-4.3c-1-1-1-2.5 0-3.4l9.6-9.6c1-1 2.5-1 3.4 0l5.6 5.6c1 1 1 2.5 0 3.4L13 21\" /> <path d=\"M22 21H7\" /> <path d=\"m5 11 9 9\" />", "flask-conical": "<path d=\"M14 2v6a2 2 0 0 0 .245.96l5.51 10.08A2 2 0 0 1 18 22H6a2 2 0 0 1-1.755-2.96l5.51-10.08A2 2 0 0 0 10 8V2\" /> <path d=\"M6.453 15h11.094\" /> <path d=\"M8.5 2h7\" />", "folder": "<path d=\"M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z\" />", "frame": "<line x1=\"22\" x2=\"2\" y1=\"6\" y2=\"6\" /> <line x1=\"22\" x2=\"2\" y1=\"18\" y2=\"18\" /> <line x1=\"6\" x2=\"6\" y1=\"2\" y2=\"22\" /> <line x1=\"18\" x2=\"18\" y1=\"2\" y2=\"22\" />", "fullscreen": "<path d=\"M3 7V5a2 2 0 0 1 2-2h2\" /> <path d=\"M17 3h2a2 2 0 0 1 2 2v2\" /> <path d=\"M21 17v2a2 2 0 0 1-2 2h-2\" /> <path d=\"M7 21H5a2 2 0 0 1-2-2v-2\" /> <rect width=\"10\" height=\"8\" x=\"7\" y=\"8\" rx=\"1\" />", "git-branch": "<line x1=\"6\" x2=\"6\" y1=\"3\" y2=\"15\" /> <circle cx=\"18\" cy=\"6\" r=\"3\" /> <circle cx=\"6\" cy=\"18\" r=\"3\" /> <path d=\"M18 9a9 9 0 0 1-9 9\" />", "github": "<path d=\"M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.403 5.403 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4\" /> <path d=\"M9 18c-4.51 2-5-2-7-2\" />", "globe": "<circle cx=\"12\" cy=\"12\" r=\"10\" /> <path d=\"M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20\" /> <path d=\"M2 12h20\" />", "hammer": "<path d=\"m15 12-8.373 8.373a1 1 0 1 1-3-3L12 9\" /> <path d=\"m18 15 4-4\" /> <path d=\"m21.5 11.5-1.914-1.914A2 2 0 0 1 19 8.172V7l-2.26-2.26a6 6 0 0 0-4.202-1.756L9 2.96l.92.82A6.18 6.18 0 0 1 12 8.4V10l2 2h1.172a2 2 0 0 1 1.414.586L18.5 14.5\" />", "hand": "<path d=\"M18 11V6a2 2 0 0 0-2-2a2 2 0 0 0-2 2\" /> <path d=\"M14 10V4a2 2 0 0 0-2-2a2 2 0 0 0-2 2v2\" /> <path d=\"M10 10.5V6a2 2 0 0 0-2-2a2 2 0 0 0-2 2v8\" /> <path d=\"M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15\" />", "image": "<rect width=\"18\" height=\"18\" x=\"3\" y=\"3\" rx=\"2\" ry=\"2\" /> <circle cx=\"9\" cy=\"9\" r=\"2\" /> <path d=\"m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21\" />", "keyboard": "<path d=\"M10 8h.01\" /> <path d=\"M12 12h.01\" /> <path d=\"M14 8h.01\" /> <path d=\"M16 12h.01\" /> <path d=\"M18 8h.01\" /> <path d=\"M6 8h.01\" /> <path d=\"M7 16h10\" /> <path d=\"M8 12h.01\" /> <rect width=\"20\" height=\"16\" x=\"2\" y=\"4\" rx=\"2\" />", "languages": "<path d=\"m5 8 6 6\" /> <path d=\"m4 14 6-6 2-3\" /> <path d=\"M2 5h12\" /> <path d=\"M7 2h1\" /> <path d=\"m22 22-5-10-5 10\" /> <path d=\"M14 18h6\" />", "layers": "<path d=\"M12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83z\" /> <path d=\"M2 12a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 12\" /> <path d=\"M2 17a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 17\" />", "layout-grid": "<rect width=\"7\" height=\"7\" x=\"3\" y=\"3\" rx=\"1\" /> <rect width=\"7\" height=\"7\" x=\"14\" y=\"3\" rx=\"1\" /> <rect width=\"7\" height=\"7\" x=\"14\" y=\"14\" rx=\"1\" /> <rect width=\"7\" height=\"7\" x=\"3\" y=\"14\" rx=\"1\" />", "link": "<path d=\"M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71\" /> <path d=\"M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71\" />", "lock": "<rect width=\"18\" height=\"11\" x=\"3\" y=\"11\" rx=\"2\" ry=\"2\" /> <path d=\"M7 11V7a5 5 0 0 1 10 0v4\" />", "mail": "<rect width=\"20\" height=\"16\" x=\"2\" y=\"4\" rx=\"2\" /> <path d=\"m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7\" />", "maximize-2": "<polyline points=\"15 3 21 3 21 9\" /> <polyline points=\"9 21 3 21 3 15\" /> <line x1=\"21\" x2=\"14\" y1=\"3\" y2=\"10\" /> <line x1=\"3\" x2=\"10\" y1=\"21\" y2=\"14\" />", "message-circle": "<path d=\"M7.9 20A9 9 0 1 0 4 16.1L2 22Z\" />", "mouse-pointer-2": "<path d=\"M4.037 4.688a.495.495 0 0 1 .651-.651l16 6.5a.5.5 0 0 1-.063.947l-6.124 1.58a2 2 0 0 0-1.438 1.435l-1.579 6.126a.5.5 0 0 1-.947.063z\" />", "music": "<path d=\"M9 18V5l12-2v13\" /> <circle cx=\"6\" cy=\"18\" r=\"3\" /> <circle cx=\"18\" cy=\"16\" r=\"3\" />", "notebook-pen": "<path d=\"M13.4 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7.4\" /> <path d=\"M2 6h4\" /> <path d=\"M2 10h4\" /> <path d=\"M2 14h4\" /> <path d=\"M2 18h4\" /> <path d=\"M21.378 5.626a1 1 0 1 0-3.004-3.004l-5.01 5.012a2 2 0 0 0-.506.854l-.837 2.87a.5.5 0 0 0 .62.62l2.87-.837a2 2 0 0 0 .854-.506z\" />", "panel-bottom": "<rect width=\"18\" height=\"18\" x=\"3\" y=\"3\" rx=\"2\" /> <path d=\"M3 15h18\" />", "panel-left": "<rect width=\"18\" height=\"18\" x=\"3\" y=\"3\" rx=\"2\" /> <path d=\"M9 3v18\" />", "panel-right": "<rect width=\"18\" height=\"18\" x=\"3\" y=\"3\" rx=\"2\" /> <path d=\"M15 3v18\" />", "panel-top": "<rect width=\"18\" height=\"18\" x=\"3\" y=\"3\" rx=\"2\" /> <path d=\"M3 9h18\" />", "pen-tool": "<path d=\"M15.707 21.293a1 1 0 0 1-1.414 0l-1.586-1.586a1 1 0 0 1 0-1.414l5.586-5.586a1 1 0 0 1 1.414 0l1.586 1.586a1 1 0 0 1 0 1.414z\" /> <path d=\"m18 13-1.375-6.874a1 1 0 0 0-.746-.776L3.235 2.028a1 1 0 0 0-1.207 1.207L5.35 15.879a1 1 0 0 0 .776.746L13 18\" /> <path d=\"m2.3 2.3 7.286 7.286\" /> <circle cx=\"11\" cy=\"11\" r=\"2\" />", "play": "<polygon points=\"6 3 20 12 6 21 6 3\" />", "pointer": "<path d=\"M22 14a8 8 0 0 1-8 8\" /> <path d=\"M18 11v-1a2 2 0 0 0-2-2a2 2 0 0 0-2 2\" /> <path d=\"M14 10V9a2 2 0 0 0-2-2a2 2 0 0 0-2 2v1\" /> <path d=\"M10 9.5V4a2 2 0 0 0-2-2a2 2 0 0 0-2 2v10\" /> <path d=\"M18 11a2 2 0 1 1 4 0v3a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15\" />", "power": "<path d=\"M12 2v10\" /> <path d=\"M18.4 6.6a9 9 0 1 1-12.77.04\" />", "scan": "<path d=\"M3 7V5a2 2 0 0 1 2-2h2\" /> <path d=\"M17 3h2a2 2 0 0 1 2 2v2\" /> <path d=\"M21 17v2a2 2 0 0 1-2 2h-2\" /> <path d=\"M7 21H5a2 2 0 0 1-2-2v-2\" />", "search": "<circle cx=\"11\" cy=\"11\" r=\"8\" /> <path d=\"m21 21-4.3-4.3\" />", "settings": "<path d=\"M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z\" /> <circle cx=\"12\" cy=\"12\" r=\"3\" />", "shield-check": "<path d=\"M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z\" /> <path d=\"m9 12 2 2 4-4\" />", "smile": "<circle cx=\"12\" cy=\"12\" r=\"10\" /> <path d=\"M8 14s1.5 2 4 2 4-2 4-2\" /> <line x1=\"9\" x2=\"9.01\" y1=\"9\" y2=\"9\" /> <line x1=\"15\" x2=\"15.01\" y1=\"9\" y2=\"9\" />", "sparkles": "<path d=\"M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z\" /> <path d=\"M20 3v4\" /> <path d=\"M22 5h-4\" /> <path d=\"M4 17v2\" /> <path d=\"M5 18H3\" />", "terminal": "<polyline points=\"4 17 10 11 4 5\" /> <line x1=\"12\" x2=\"20\" y1=\"19\" y2=\"19\" />", "type": "<polyline points=\"4 7 4 4 20 4 20 7\" /> <line x1=\"9\" x2=\"15\" y1=\"20\" y2=\"20\" /> <line x1=\"12\" x2=\"12\" y1=\"4\" y2=\"20\" />", "zoom-in": "<circle cx=\"11\" cy=\"11\" r=\"8\" /> <line x1=\"21\" x2=\"16.65\" y1=\"21\" y2=\"16.65\" /> <line x1=\"11\" x2=\"11\" y1=\"8\" y2=\"14\" /> <line x1=\"8\" x2=\"14\" y1=\"11\" y2=\"11\" />"};
+  const NS = "http://www.w3.org/2000/svg";
+  const REDUCED = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const PALETTE = ["#007AFF", "#28CD41", "#5AC8FA", "#8E8E93", "#FF2D55", "#FFCC00", "#AF52DE", "#FF9500"];
+
+  /* ——— Copy ——— */
+  const T = {
+    en: {
+      "nav.features": "Features", "nav.install": "Install", "cta.download": "Download",
+      "hero.eyebrow": "Radial launcher for macOS · free & open source",
+      "hero.title": "Grab anything<br>in <em>one flick.</em>",
+      "hero.lede": "CatGrab puts your apps, links, shortcuts and window commands on a ring around your pointer. Hold a hotkey or tap the trackpad, flick toward what you want, let go.",
+      "hero.download": "Download for Mac", "hero.github": "Source on GitHub",
+      "hero.fine": "macOS 13 or newer · Apple silicon & Intel · MIT license",
+      "mb.file": "File", "mb.edit": "Edit", "mb.view": "View", "mb.window": "Window",
+      "hint.point": "Point at a sector · click to fire", "hint.digits": "quick select",
+      "hint.space": "hold <span class=\"key\">Space</span> to summon it here",
+      "fired": "Opening {x}…",
+      "i.browser": "Browser", "i.terminal": "Terminal", "i.files": "Files", "i.settings": "Settings", "i.music": "Music", "i.notes": "Notes", "i.mail": "Mail", "i.calendar": "Calendar", "i.messages": "Messages", "i.design": "Design",
+      "actions.eyebrow": "Six kinds of action",
+      "actions.title": "Every sector does one thing — you decide which.",
+      "actions.text": "Launch an app, open a link, press a shortcut for you, run a macOS action or paste a snippet. Point at the ring to see what each kind does.",
+      "a.app": "Launch an app", "a.appEx": "Figma", "a.appText": "Opens it — or switches to it if it's already running, on whichever Space its window lives.",
+      "a.link": "Open a link", "a.linkEx": "github.com/berbekk/CatGrab", "a.linkText": "A site, a doc, a deep link into another app. The site's favicon can become the sector's icon.",
+      "a.key": "Send a keystroke", "a.keyEx": "⇧⌘4", "a.keyText": "Presses a shortcut in the app you were using, so a sector stands in for the combo you always forget.",
+      "a.sys": "Run a macOS action", "a.sysEx": "Mission Control", "a.sysText": "Mission Control, App Exposé, Quick Note, Screen Saver, Display Sleep or Lock Screen.",
+      "a.snip": "Paste a snippet", "a.snipEx": "Your email signature", "a.snipText": "Puts saved text on the clipboard, ready for ⌘V — addresses, replies, the code you type every day.",
+      "a.empty": "Keep a spot", "a.emptyEx": "for later", "a.emptyText": "Empty sectors stay dimmed, so the ring keeps its shape until you fill them.",
+      "trigger.eyebrow": "Hotkey or trackpad",
+      "trigger.title": "Summon it the way your hands already are.",
+      "trigger.text": "Give every menu its own key combination — even a bare fn press — or a light tap with three, four or five fingers. The ring opens under the pointer, wherever it is.",
+      "trigger.t1": "<b>Any combination.</b> ⌃⌥Space, ⌘Tab, a single F-key or just fn.",
+      "trigger.t2": "<b>Tap, don't click.</b> macOS swipes and pinches keep working.",
+      "trigger.t3": "<b>One trigger, one menu.</b> Each menu remembers its own.",
+      "trigger.keys": "Press the hotkey", "trigger.pad": "Tap the trackpad", "trigger.padHint": "tap here",
+      "switch.eyebrow": "Active apps", "switch.title": "⌘Tab, but round.",
+      "switch.text": "A built-in ring of everything that's running. Flick to an app and CatGrab brings it forward — on its own Space, with minimized windows back from the Dock.",
+      "switch.t1": "<b>Muscle-memory friendly.</b> Keep ⌘ held and press Tab to step around the ring.",
+      "switch.t2": "<b>Your order.</b> The last app you used sits first; hide the ones you never switch to.",
+      "switched": "Switched to {x}",
+      "cmd.eyebrow": "App commands", "cmd.title": "The commands of the app in front — on one hotkey.",
+      "cmd.text": "Out of the box: the halves of the screen, each on its own side of the ring, plus fill, center, full screen and quit. Give an app its own set from its menu bar, and the same hotkey shows Figma's commands in Figma and Xcode's in Xcode.",
+      "cmd.any": "Any app", "cmd.hint": "Point at a command to preview it, click to run.",
+      "c.top": "Top half", "c.full": "Full screen", "c.right": "Right half", "c.fill": "Fill screen", "c.bottom": "Bottom half", "c.quit": "Quit", "c.left": "Left half", "c.center": "Center",
+      "custom.eyebrow": "Make it yours", "custom.title": "Tune the ring until it feels like part of your Mac.",
+      "custom.text": "Pick one of 24 themes, then fine-tune it: palette or gradient, intensity, glass, icons — and any sector can wear its own colour. Every menu keeps its own look. Try it:",
+      "custom.size": "Size", "custom.hole": "Hole", "custom.rotation": "Rotation", "custom.tint": "Intensity", "custom.color": "Theme", "custom.paw": "Paw", "custom.digits": "Digits",
+      "th.classic": "Classic", "th.rainbow": "Rainbow", "th.neon": "Neon", "th.candy": "Candy", "th.pastel": "Pastel", "th.sakura": "Sakura", "th.mint": "Mint", "th.ocean": "Ocean", "th.aurora": "Aurora", "th.sunset": "Sunset", "th.forest": "Forest", "th.midnight": "Midnight",
+      "custom.shotTitle": "One tidy settings window.",
+      "custom.shotText": "Every menu with its hotkey and gesture, and a live preview you drag to reorder — the same ring you just played with.",
+      "custom.shotAlt": "CatGrab settings window with the menu list, hotkey and trackpad gesture, and a live preview of the ring",
+      "details.eyebrow": "The small things", "details.title": "Details that make it stick.",
+      "details.text": "The parts you only notice after a week — and then can't do without.",
+      "d.quick": "Quick select", "d.quickText": "Every sector wears a digit or a letter. Press it instead of aiming.",
+      "d.icons": "Icons from anywhere", "d.iconsText": "SF Symbols, emoji, a website's favicon, your own image or a couple of letters.",
+      "d.lang": "13 languages", "d.langText": "From English and Русский to हिन्दी, العربية and 日本語 — switch any time in Settings.",
+      "d.backup": "Backup in one file", "d.backupText": "Export every menu to JSON and bring it to your next Mac.",
+      "d.private": "Stays on your Mac", "d.privateText": "No account, no telemetry, no analytics. The only request fetches a website icon, and only when you ask for one.",
+      "d.chip": "Apple silicon & Intel", "d.chipText": "One universal app for macOS 13 Ventura and everything since.",
+      "d.a11y": "Kind to every setup", "d.a11yText": "Respects Reduce Transparency and Reduce Motion, and every control speaks to VoiceOver.",
+      "d.oss": "Open source", "d.ossText": "MIT licensed and written in Swift and SwiftUI. Read it, build it, make it better.",
+      "install.eyebrow": "Install", "install.title": "Up and running in a minute.",
+      "install.text": "No account, no installer, nothing running in the background except the cat in your menu bar.",
+      "s1": "Download CatGrab.dmg", "s1t": "From the latest release on GitHub. It's about 4 MB.",
+      "s2": "Drag it into Applications", "s2t": "Then open CatGrab from there, like any other app.",
+      "s3": "Allow two permissions", "s3t": "Accessibility presses keys and moves windows; Input Monitoring hears your hotkeys.",
+      "gate.title": "The first launch needs one confirmation",
+      "gate.text": "CatGrab isn't notarized by Apple — that takes a paid developer account — so macOS asks you to confirm it once.",
+      "gate.m15": "<b>macOS 15 and newer:</b> System Settings → Privacy &amp; Security → scroll down → <b>Open Anyway</b>.",
+      "gate.m13": "<b>macOS 13–14:</b> Control-click CatGrab in Applications → <b>Open</b>.",
+      "gate.term": "Prefer Terminal?", "gate.termText": "This removes the “downloaded from the internet” mark from CatGrab only:",
+      "gate.copy": "Copy", "gate.copied": "Copied", "gate.copyFail": "Select & copy",
+      "final.title": "Let the cat do the reaching.", "final.cta": "Download CatGrab",
+      "final.fine": "Free · about 4 MB · macOS 13+ · Apple silicon & Intel",
+      "foot.text": "CatGrab is free and open source under the MIT license. Not affiliated with Apple.",
+      "foot.releases": "Releases", "foot.changelog": "Changelog", "foot.issue": "Report a problem",
+      "foot.author": "Made by Kudriash Vasiliy"
+    },
+    ru: {
+      "nav.features": "Возможности", "nav.install": "Установка", "cta.download": "Скачать",
+      "hero.eyebrow": "Радиальное меню для macOS · бесплатно и с открытым кодом",
+      "hero.title": "Всё под рукой —<br><em>одним взмахом.</em>",
+      "hero.lede": "CatGrab раскладывает программы, ссылки, сочетания клавиш и команды окон по кольцу вокруг курсора. Нажмите сочетание или коснитесь трекпада, двиньте курсор к нужному — и отпустите.",
+      "hero.download": "Скачать для Mac", "hero.github": "Код на GitHub",
+      "hero.fine": "macOS 13 и новее · Apple silicon и Intel · лицензия MIT",
+      "mb.file": "Файл", "mb.edit": "Правка", "mb.view": "Вид", "mb.window": "Окно",
+      "hint.point": "Наведите на сектор · клик — выбрать", "hint.digits": "быстрый выбор",
+      "hint.space": "зажмите <span class=\"key\">Space</span> — кольцо появится здесь",
+      "fired": "Открываю: {x}…",
+      "i.browser": "Браузер", "i.terminal": "Терминал", "i.files": "Файлы", "i.settings": "Настройки", "i.music": "Музыка", "i.notes": "Заметки", "i.mail": "Почта", "i.calendar": "Календарь", "i.messages": "Сообщения", "i.design": "Дизайн",
+      "actions.eyebrow": "Шесть видов действий",
+      "actions.title": "Каждый сектор делает одно дело — какое, решаете вы.",
+      "actions.text": "Запустить программу, открыть ссылку, нажать за вас сочетание, выполнить действие macOS или вставить заготовленный текст. Наведите на кольцо — и посмотрите, что умеет каждый вид.",
+      "a.app": "Запустить программу", "a.appEx": "Figma", "a.appText": "Откроет её — а если она уже запущена, переключит на неё, на каком бы рабочем столе ни было окно.",
+      "a.link": "Открыть ссылку", "a.linkEx": "github.com/berbekk/CatGrab", "a.linkText": "Сайт, документ, ссылка внутрь другой программы. Фавикон сайта может стать иконкой сектора.",
+      "a.key": "Нажать сочетание", "a.keyEx": "⇧⌘4", "a.keyText": "Нажимает сочетание в программе, где вы работали: сектор заменит комбинацию, которую вечно забываешь.",
+      "a.sys": "Действие macOS", "a.sysEx": "Mission Control", "a.sysText": "Mission Control, окна программы, быстрая заметка, заставка, сон дисплея или блокировка экрана.",
+      "a.snip": "Вставить текст", "a.snipEx": "Подпись для писем", "a.snipText": "Кладёт заготовленный текст в буфер — жмите ⌘V: адреса, ответы, код, который печатаете каждый день.",
+      "a.empty": "Оставить место", "a.emptyEx": "на потом", "a.emptyText": "Пустые секторы приглушены, и кольцо сохраняет форму, пока вы их не заполните.",
+      "trigger.eyebrow": "Сочетание или трекпад",
+      "trigger.title": "Вызывайте так, как удобно рукам прямо сейчас.",
+      "trigger.text": "У каждого меню своё сочетание — хоть одиночное нажатие fn — или лёгкое касание трекпада тремя, четырьмя или пятью пальцами. Кольцо открывается под курсором, где бы он ни был.",
+      "trigger.t1": "<b>Любое сочетание.</b> ⌃⌥Space, ⌘Tab, одна F-клавиша или просто fn.",
+      "trigger.t2": "<b>Касание, а не клик.</b> Смахивания и щипки macOS продолжают работать.",
+      "trigger.t3": "<b>Один жест — одно меню.</b> Каждое меню помнит свой.",
+      "trigger.keys": "Нажмите сочетание", "trigger.pad": "Коснитесь трекпада", "trigger.padHint": "коснитесь здесь",
+      "switch.eyebrow": "Активные приложения", "switch.title": "⌘Tab, только круглый.",
+      "switch.text": "Встроенное кольцо из всех запущенных программ. Двиньте курсор к нужной — CatGrab выведет её вперёд: на её рабочем столе и со свёрнутыми окнами, вернувшимися из Dock.",
+      "switch.t1": "<b>Как привыкли.</b> Держите ⌘ и нажимайте Tab, чтобы идти по кругу.",
+      "switch.t2": "<b>Ваш порядок.</b> Последняя программа — первая, а ненужные можно скрыть.",
+      "switched": "Переключено: {x}",
+      "cmd.eyebrow": "Команды приложения", "cmd.title": "Команды программы, в которой вы работаете, — на одном сочетании.",
+      "cmd.text": "Сразу из коробки: половины экрана — каждая на своей стороне кольца, — а ещё «развернуть», «по центру», полный экран и «завершить». Соберите программе свой набор из её строки меню, и то же сочетание покажет команды Figma в Figma и команды Xcode в Xcode.",
+      "cmd.any": "Любая", "cmd.hint": "Наведите на команду — увидите результат, клик — выполнить.",
+      "c.top": "Верхняя половина", "c.full": "Полный экран", "c.right": "Правая половина", "c.fill": "Развернуть", "c.bottom": "Нижняя половина", "c.quit": "Завершить", "c.left": "Левая половина", "c.center": "По центру",
+      "custom.eyebrow": "Под себя", "custom.title": "Настройте кольцо, пока оно не станет частью вашего Mac.",
+      "custom.text": "Выберите одну из 24 тем и подстройте её: палитра или градиент, насыщенность, стекло, иконки — а любому сектору можно дать свой цвет. У каждого меню свой вид. Попробуйте:",
+      "custom.size": "Размер", "custom.hole": "Отверстие", "custom.rotation": "Поворот", "custom.tint": "Насыщенность", "custom.color": "Тема", "custom.paw": "Лапка", "custom.digits": "Цифры",
+      "th.classic": "Классика", "th.rainbow": "Радуга", "th.neon": "Неон", "th.candy": "Конфеты", "th.pastel": "Пастель", "th.sakura": "Сакура", "th.mint": "Мята", "th.ocean": "Океан", "th.aurora": "Сияние", "th.sunset": "Закат", "th.forest": "Лес", "th.midnight": "Полночь",
+      "custom.shotTitle": "Одно аккуратное окно настроек.",
+      "custom.shotText": "Все меню с их сочетаниями и жестами и живое превью, где порядок меняют перетаскиванием, — то самое кольцо, с которым вы только что играли.",
+      "custom.shotAlt": "Окно настроек CatGrab: список меню, сочетание и жест трекпада, живое превью кольца",
+      "details.eyebrow": "Мелочи", "details.title": "Детали, к которым привыкаешь.",
+      "details.text": "То, что замечаешь через неделю — и без чего потом уже не можешь.",
+      "d.quick": "Быстрый выбор", "d.quickText": "На каждом секторе цифра или буква. Нажмите её вместо того, чтобы целиться.",
+      "d.icons": "Иконки откуда угодно", "d.iconsText": "SF Symbols, эмодзи, фавикон сайта, своя картинка или пара букв.",
+      "d.lang": "13 языков", "d.langText": "От English и русского до हिन्दी, العربية и 日本語 — переключаются в настройках.",
+      "d.backup": "Копия одним файлом", "d.backupText": "Выгрузите все меню в JSON и перенесите на следующий Mac.",
+      "d.private": "Остаётся на вашем Mac", "d.privateText": "Без аккаунта, телеметрии и аналитики. Единственный запрос — за иконкой сайта, и только когда вы её попросите.",
+      "d.chip": "Apple silicon и Intel", "d.chipText": "Одно универсальное приложение для macOS 13 Ventura и новее.",
+      "d.a11y": "Для любых настроек", "d.a11yText": "Учитывает «Уменьшить прозрачность» и «Уменьшить движение», а все кнопки подписаны для VoiceOver.",
+      "d.oss": "Открытый код", "d.ossText": "Лицензия MIT, написано на Swift и SwiftUI. Читайте, собирайте, улучшайте.",
+      "install.eyebrow": "Установка", "install.title": "Минута — и готово.",
+      "install.text": "Ни аккаунта, ни установщика, ничего фонового, кроме кота в строке меню.",
+      "s1": "Скачайте CatGrab.dmg", "s1t": "Со страницы последнего релиза на GitHub. Около 4 МБ.",
+      "s2": "Перетащите в «Программы»", "s2t": "И запустите CatGrab оттуда, как любую программу.",
+      "s3": "Разрешите два доступа", "s3t": "Универсальный доступ нажимает клавиши и двигает окна, мониторинг ввода слышит ваши сочетания.",
+      "gate.title": "Первый запуск нужно подтвердить",
+      "gate.text": "CatGrab не заверен Apple — для этого нужен платный аккаунт разработчика, — поэтому macOS один раз попросит подтверждение.",
+      "gate.m15": "<b>macOS 15 и новее:</b> Системные настройки → Конфиденциальность и безопасность → вниз → <b>Всё равно открыть</b>.",
+      "gate.m13": "<b>macOS 13–14:</b> щёлкните CatGrab в «Программах» с <b>Control</b> → <b>Открыть</b>.",
+      "gate.term": "Удобнее Терминал?", "gate.termText": "Команда снимает отметку «скачано из интернета» только с CatGrab:",
+      "gate.copy": "Копировать", "gate.copied": "Скопировано", "gate.copyFail": "Выделите и скопируйте",
+      "final.title": "Пусть тянется кот, а не вы.", "final.cta": "Скачать CatGrab",
+      "final.fine": "Бесплатно · около 4 МБ · macOS 13+ · Apple silicon и Intel",
+      "foot.text": "CatGrab — бесплатная программа с открытым кодом под лицензией MIT. Не связана с Apple.",
+      "foot.releases": "Релизы", "foot.changelog": "История изменений", "foot.issue": "Сообщить о проблеме",
+      "foot.author": "Сделал Кудряш Василий"
+    }
+  };
+  let lang = "en";
+  const t = (k, x) => ((T[lang][k] ?? T.en[k] ?? k) + "").replace("{x}", x ?? "");
+
+  /* ——— Helpers ——— */
+  const $ = (s, r = document) => r.querySelector(s);
+  const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+  const svgIcon = (name) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name] || ""}</svg>`;
+  $$("[data-icon]").forEach((n) => { n.innerHTML = svgIcon(n.dataset.icon); if (n.tagName === "SPAN") n.style.display = "inline-flex"; });
+  function el(tag, attrs, parent) {
+    const e = document.createElementNS(NS, tag);
+    for (const k in attrs) e.setAttribute(k, attrs[k]);
+    if (parent) parent.appendChild(e);
+    return e;
+  }
+  const hex = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
+  const mix = (c, g, a) => { const x = hex(c), y = hex(g); return "rgb(" + x.map((v, i) => Math.round(v * a + y[i] * (1 - a))).join(",") + ")"; };
+  const polar = (r, a) => [r * Math.cos(a), r * Math.sin(a)];
+  const f = (n) => Math.round(n * 100) / 100;
+
+  /** Annular wedge with an even gap between sectors (the gap is a width, not an angle). */
+  function wedge(r0, r1, a0, a1, gap) {
+    const o0 = a0 + gap / r1, o1 = a1 - gap / r1, i0 = a0 + gap / r0, i1 = a1 - gap / r0;
+    const lo = o1 - o0 > Math.PI ? 1 : 0, li = i1 - i0 > Math.PI ? 1 : 0;
+    const [x1, y1] = polar(r1, o0), [x2, y2] = polar(r1, o1), [x3, y3] = polar(r0, i1), [x4, y4] = polar(r0, i0);
+    return `M${f(x1)} ${f(y1)}A${f(r1)} ${f(r1)} 0 ${lo} 1 ${f(x2)} ${f(y2)}L${f(x3)} ${f(y3)}A${f(r0)} ${f(r0)} 0 ${li} 0 ${f(x4)} ${f(y4)}Z`;
+  }
+
+  /* ——— Ring ——— */
+  let ringSeq = 0;
+  class Ring {
+    constructor(svg, opts) {
+      this.svg = svg;
+      this.id = "rg" + (++ringSeq);
+      this.o = Object.assign({
+        items: [], size: 1, hole: .42, rotation: 0, tint: .38, iconDistance: .5, iconSize: 30,
+        paw: true, digits: true, center: "cat", ground: "#151120", appIcon: null, appColor: "#007AFF",
+        onHover: null, onFire: null
+      }, opts);
+      this.index = this.o.start ?? 0;
+      this.svg.setAttribute("viewBox", "-210 -210 420 420");
+      this.svg.setAttribute("role", "listbox");
+      this.bind();
+      this.render();
+    }
+    set(p) { Object.assign(this.o, p); if (this.index >= this.o.items.length) this.index = 0; this.render(); }
+    render() {
+      const o = this.o, svg = this.svg;
+      svg.textContent = "";
+      const defs = el("defs", {}, svg);
+      const sheen = el("linearGradient", { id: this.id + "s", x1: 0, y1: -200, x2: 0, y2: 200, gradientUnits: "userSpaceOnUse" }, defs);
+      [[0, .26], [.5, .05], [1, 0]].forEach(([off, op]) => el("stop", { offset: off, "stop-color": "#fff", "stop-opacity": op }, sheen));
+      const glow = el("radialGradient", { id: this.id + "g", cx: 0, cy: 0, r: 200, gradientUnits: "userSpaceOnUse" }, defs);
+      [[.35, 0], [1, .18]].forEach(([off, op]) => el("stop", { offset: off, "stop-color": "#fff", "stop-opacity": op }, glow));
+      const R = 186 * o.size, r = R * o.hole, n = Math.max(1, o.items.length);
+      const step = 2 * Math.PI / n, rot = (o.rotation - 90) * Math.PI / 180;
+      this.geo = { R, r, n, step, rot };
+      const ring = el("g", {}, svg);
+      this.sectors = o.items.map((it, i) => {
+        const a0 = rot + i * step, a1 = a0 + step, mid = (a0 + a1) / 2;
+        const g = el("g", { class: "sector", role: "option", "aria-label": it.label }, ring);
+        const d = wedge(r + 5, R - 5, a0, a1, 8);
+        const dim = it.empty ? .45 : 1;
+        const base = mix(it.color, o.ground, o.tint * dim), hot = mix(it.color, o.ground, Math.min(1, o.tint * dim + .24));
+        const body = el("path", { d, fill: base, stroke: base, "stroke-width": 10, "stroke-linejoin": "round" }, g);
+        el("path", { d, fill: `url(#${this.id}s)`, stroke: `url(#${this.id}s)`, "stroke-width": 10, "stroke-linejoin": "round" }, g);
+        el("path", { d, fill: `url(#${this.id}g)`, opacity: .6 }, g);
+        const [ix, iy] = polar(r + (R - r) * o.iconDistance, mid);
+        const s = o.iconSize / 24;
+        const ic = el("g", { transform: `translate(${f(ix)} ${f(iy)}) scale(${f(s)}) translate(-12 -12)`, fill: "none", stroke: "#fff", "stroke-width": 2.1, "stroke-linecap": "round", "stroke-linejoin": "round", opacity: it.empty ? .45 : 1 }, g);
+        if (it.text) {
+          const tx = el("text", { x: 12, y: 16.5, "text-anchor": "middle", fill: "#fff", stroke: "none", style: "font:600 13px ui-rounded,system-ui" }, ic);
+          tx.textContent = it.text;
+        } else ic.innerHTML = ICONS[it.icon] || "";
+        if (o.digits) {
+          const da = a0 + 15 / (R - 20);
+          const [dx, dy] = polar(R - 20, da);
+          const dt = el("text", { x: f(dx), y: f(dy + 4), class: "digit", "text-anchor": "middle" }, g);
+          dt.textContent = it.key ?? (i < 9 ? i + 1 : "");
+        }
+        return { g, body, base, hot, mid };
+      });
+      // Центр: кот или иконка приложения, которую кот держит.
+      const hub = el("g", {}, svg);
+      if (o.center === "cat" && r > 30) {
+        const k = (r * 1.18) / 99;
+        this.cat = el("g", { transform: `translate(${f(-49.5 * k)} ${f(-50 * k)}) scale(${f(k)})` }, hub);
+        this.drawCat(this.cat);
+      } else if (o.center === "app") {
+        const side = r * .92, k = (side * .9) / 99;
+        this.cat = el("g", { transform: `translate(${f(-49.5 * k)} ${f(-side * .62 - 40 * k)}) scale(${f(k)})` }, hub);
+        this.drawCat(this.cat);
+        const tile = el("g", { transform: `translate(0 ${f(side * .12)})` }, hub);
+        el("rect", { x: f(-side / 2), y: f(-side / 2), width: f(side), height: f(side), rx: f(side * .23), fill: o.appColor }, tile);
+        el("rect", { x: f(-side / 2), y: f(-side / 2), width: f(side), height: f(side), rx: f(side * .23), fill: `url(#${this.id}s)` }, tile);
+        const ks = side * .5 / 24;
+        const gi = el("g", { transform: `scale(${f(ks)}) translate(-12 -12)`, fill: "none", stroke: "#fff", "stroke-width": 2, "stroke-linecap": "round", "stroke-linejoin": "round" }, tile);
+        gi.innerHTML = ICONS[o.appIcon] || "";
+        // Лапка придерживает иконку слева.
+        const pk = side * .26 / 32;
+        const hold = el("g", { transform: `translate(${f(-side / 2 + 2)} ${f(side * .05)}) rotate(60) scale(${f(pk)}) translate(-16 -21.5)` }, tile);
+        this.drawPaw(hold);
+      }
+      this.pawG = el("g", { class: "paw", opacity: o.paw ? 1 : 0 }, svg);
+      const ps = (R - r) * .34 / 32;
+      this.drawPaw(el("g", { transform: `scale(${f(ps)}) translate(-16 -21.5)` }, this.pawG));
+      this.pawR = r + 2;
+      this.highlight(this.index, true);
+    }
+    drawCat(g) {
+      el("use", { href: "#cat-head", fill: "#0B0A0F" }, g);
+      el("path", { d: "M62.9443 17.7817C71.3823 4.69493 82.5023 -2.58303 90.4189 0.844176C97.5994 3.95285 97.2199 21.9127 94.1777 39.4662C96.6536 44.0141 98.0224 49.0135 98.0225 54.2612C98.0225 75.271 76.0797 92.303 49.0117 92.3032C21.9435 92.3032 0 75.271 0 54.2612C5.28279e-05 49.6182 1.07235 45.1697 3.03418 41.0561C-0.24872 23.0352 -0.862363 4.12037 6.52441 0.922301C14.4723 -2.51843 25.6488 4.83069 34.0986 18.0151C38.8011 16.8505 43.8117 16.2202 49.0117 16.2202C53.8521 16.2202 58.5279 16.767 62.9443 17.7817Z", fill: "none", stroke: "rgba(255,255,255,.22)", "stroke-width": 1.6 }, g);
+      this.eyes = [[29.48, 45.96], [72.48, 45.96]].map(([cx, cy]) => {
+        el("circle", { cx, cy, r: 13.5, fill: "#F6F2F2" }, g);
+        return el("circle", { cx: cx + 1.5, cy: cy - 1.5, r: 7, fill: "#0B0A0F", class: "pupil" }, g);
+      });
+      el("path", { d: "M51.05 63.12a1 1 0 0 1 1 1c0 2.11.5 4.02 1.42 5.37.9 1.31 2.23 2.13 4.08 2.13a1 1 0 1 1 0 2c-2.55 0-4.48-1.18-5.72-3a8.6 8.6 0 0 1-.85-1.57 9.1 9.1 0 0 1-.98 1.61c-1.37 1.79-3.4 2.96-5.94 2.96a1 1 0 1 1 0-2c1.86 0 3.33-.84 4.36-2.18 1.04-1.36 1.64-3.26 1.64-5.33a1 1 0 0 1 1-1Z", fill: "#fff" }, g);
+    }
+    drawPaw(g) {
+      el("path", { d: "M16.6636 1.24902C17.6639 -0.748993 23.6636 -0.751842 24.939 4.24805C29.3842 4.92529 33.164 8.25122 30.6069 16.1172C30.6047 16.171 30.3975 21.0086 27.937 24.4785L28.8042 32.8516C29.3517 38.1445 25.1996 42.7489 19.8784 42.749H13.0024C8.0464 42.749 4.02886 38.7314 4.02881 33.7754V23.4053C3.63245 23.0041 3.25867 22.5782 2.9126 22.125C-2.33615 15.2512 -0.336785 3.24792 7.66357 4.24805C8.16361 1.2489 12.664 -1.24939 16.6636 1.24902Z", fill: "#0B0A0F", stroke: "rgba(255,255,255,.55)", "stroke-width": 1.2 }, g);
+      el("path", { d: "M15.58 13.96c2.2-.08 4.05 1.33 4.24 3.17 2.06.97 3.06 3.18 2.24 4.93-.82 1.76-3.16 2.4-5.23 1.43a5 5 0 0 1-1.32-.92l-.15.14c-1.71 1.51-4.14 1.56-5.42.1-1.28-1.45-.94-3.86.78-5.37.3-.26.61-.48.94-.65.38-1.56 1.98-2.76 3.93-2.83Z", fill: "#F6F2F2" }, g);
+      [[20.01, 7.82, 3.39, 2.87, -87.7], [25.55, 13.25, 3.39, 2.68, -80.6], [12.68, 7.36, 3.41, 2.76, -94.5], [6.64, 11.9, 3.42, 2.91, -93.1]]
+        .forEach(([cx, cy, rx, ry, a]) => el("ellipse", { cx, cy, rx, ry, transform: `rotate(${a} ${cx} ${cy})`, fill: "#F6F2F2" }, g));
+    }
+    highlight(i, silent) {
+      if (!this.sectors.length) return;
+      i = ((i % this.sectors.length) + this.sectors.length) % this.sectors.length;
+      const changed = i !== this.index;
+      this.index = i;
+      this.sectors.forEach((s, j) => {
+        const on = j === i;
+        s.g.classList.toggle("on", on);
+        s.body.setAttribute("fill", on ? s.hot : s.base);
+        s.body.setAttribute("stroke", on ? s.hot : s.base);
+      });
+      const deg = this.sectors[i].mid * 180 / Math.PI + 90;
+      this.pawG.style.transform = `rotate(${f(deg)}deg) translateY(${f(-this.pawR)}px)`;
+      this.sectors.forEach((s, j) => s.g.setAttribute("aria-selected", j === i));
+      if ((changed || silent) && this.o.onHover) this.o.onHover(this.o.items[i], i, !!silent);
+    }
+    fire(i = this.index) {
+      this.highlight(i);
+      const s = this.sectors[this.index];
+      if (!s) return;
+      s.g.classList.remove("fire"); s.g.getBoundingClientRect(); s.g.classList.add("fire");
+      if (this.o.onFire) this.o.onFire(this.o.items[this.index], this.index);
+    }
+    toUser(e) {
+      const pt = this.svg.createSVGPoint(); pt.x = e.clientX; pt.y = e.clientY;
+      const m = this.svg.getScreenCTM();
+      return m ? pt.matrixTransform(m.inverse()) : { x: 0, y: 0 };
+    }
+    indexAt(x, y) {
+      const { r, step, rot } = this.geo;
+      if (Math.hypot(x, y) < r * .55) return -1;
+      const a = ((Math.atan2(y, x) - rot) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI);
+      return Math.floor(a / step);
+    }
+    look(x, y) {
+      if (!this.eyes) return;
+      const d = Math.hypot(x, y) || 1, m = Math.min(4.2, d / 22);
+      this.eyes.forEach((p) => { p.style.transform = `translate(${f(x / d * m)}px, ${f(y / d * m)}px)`; });
+    }
+    bind() {
+      const svg = this.svg;
+      svg.addEventListener("pointermove", (e) => {
+        const p = this.toUser(e);
+        this.look(p.x, p.y);
+        const i = this.indexAt(p.x, p.y);
+        if (i >= 0) this.highlight(i);
+      });
+      svg.addEventListener("pointerleave", () => this.look(0, 0));
+      svg.addEventListener("click", (e) => {
+        const p = this.toUser(e);
+        const i = this.indexAt(p.x, p.y);
+        if (i >= 0) this.fire(i);
+      });
+      svg.addEventListener("keydown", (e) => {
+        if (e.key === "ArrowRight" || e.key === "ArrowDown") { this.highlight(this.index + 1); e.preventDefault(); }
+        else if (e.key === "ArrowLeft" || e.key === "ArrowUp") { this.highlight(this.index - 1); e.preventDefault(); }
+        else if (e.key === "Enter") { this.fire(); e.preventDefault(); }
+      });
+    }
+  }
+
+  const toaster = (node) => {
+    let timer;
+    return (text) => {
+      node.textContent = text;
+      node.classList.add("show");
+      clearTimeout(timer);
+      timer = setTimeout(() => node.classList.remove("show"), 1600);
+    };
+  };
+
+  /* ——— Hero ——— */
+  const heroItems = () => [
+    { icon: "compass", color: PALETTE[0], label: t("i.browser") },
+    { icon: "terminal", color: PALETTE[1], label: t("i.terminal") },
+    { icon: "folder", color: PALETTE[2], label: t("i.files") },
+    { icon: "settings", color: PALETTE[3], label: t("i.settings") },
+    { icon: "music", color: PALETTE[4], label: t("i.music") },
+    { icon: "notebook-pen", color: PALETTE[5], label: t("i.notes") }
+  ];
+  const heroToast = toaster($("#heroToast"));
+  const hero = new Ring($("#heroRing"), {
+    items: heroItems(), ground: "#1A1528", tint: .42,
+    onFire: (it) => heroToast(t("fired", it.label))
+  });
+  const desk = $("#heroDesk"), wrap = $("#heroRingWrap");
+  let pointerIn = null, summoned = false;
+  desk.addEventListener("pointermove", (e) => {
+    const b = desk.getBoundingClientRect();
+    pointerIn = { x: e.clientX - b.left, y: e.clientY - b.top, w: b.width, h: b.height };
+  });
+  desk.addEventListener("pointerleave", () => { pointerIn = null; });
+  const typing = () => /INPUT|TEXTAREA|SELECT/.test(document.activeElement?.tagName || "");
+  document.addEventListener("keydown", (e) => {
+    if (typing() || e.metaKey || e.ctrlKey || e.altKey) return;
+    if (e.code === "Space" && pointerIn) {
+      e.preventDefault();
+      if (e.repeat || summoned) return;
+      summoned = true;
+      const half = wrap.offsetWidth / 2;
+      const x = Math.min(Math.max(pointerIn.x, half * .6), pointerIn.w - half * .6);
+      const y = Math.min(Math.max(pointerIn.y, half * .6), pointerIn.h - half * .6);
+      wrap.style.transition = "none";
+      wrap.style.setProperty("--x", x + "px");
+      wrap.style.setProperty("--y", y + "px");
+      wrap.classList.remove("pop"); void wrap.offsetWidth; wrap.classList.add("pop");
+      return;
+    }
+    const d = parseInt(e.key, 10);
+    if (d >= 1 && d <= 6 && document.activeElement?.closest?.(".chapter") == null) hero.fire(d - 1);
+  });
+  document.addEventListener("keyup", (e) => {
+    if (e.code !== "Space" || !summoned) return;
+    summoned = false;
+    hero.fire();
+    setTimeout(() => {
+      wrap.style.transition = "";
+      wrap.style.removeProperty("--x");
+      wrap.style.removeProperty("--y");
+    }, 700);
+  });
+  const clock = $("#clock");
+  const tick = () => { clock.textContent = new Date().toLocaleTimeString(lang === "ru" ? "ru-RU" : "en-US", { hour: "numeric", minute: "2-digit" }); };
+
+  /* ——— Actions ——— */
+  const ACTIONS = [
+    { icon: "app-window", color: PALETTE[0], k: "app" },
+    { icon: "link", color: PALETTE[2], k: "link" },
+    { icon: "keyboard", color: PALETTE[6], k: "key" },
+    { icon: "layout-grid", color: PALETTE[7], k: "sys" },
+    { icon: "clipboard-paste", color: PALETTE[1], k: "snip" },
+    { icon: "circle-dashed", color: PALETTE[3], k: "empty", empty: true }
+  ];
+  const actionItems = () => ACTIONS.map((a) => ({ ...a, label: t("a." + a.k) }));
+  const showAction = (it) => {
+    $("#dIcon").innerHTML = svgIcon(it.icon);
+    $("#dIcon").style.background = it.color;
+    $("#dTitle").textContent = t("a." + it.k);
+    $("#dExample").textContent = t("a." + it.k + "Ex");
+    $("#dText").textContent = t("a." + it.k + "Text");
+  };
+  const actions = new Ring($("#actionsRing"), { items: actionItems(), digits: false, onHover: showAction, onFire: showAction });
+
+  /* ——— Trigger ——— */
+  const triggerBox = $("#triggerRingBox");
+  const trigger = new Ring($("#triggerRing"), {
+    items: heroItems().slice(0, 5), iconSize: 34, digits: false,
+    onFire: () => setTimeout(() => triggerBox.classList.add("hide"), 380)
+  });
+  let hideTimer;
+  const openTrigger = () => {
+    triggerBox.classList.remove("hide");
+    clearTimeout(hideTimer);
+    hideTimer = setTimeout(() => triggerBox.classList.add("hide"), 3200);
+  };
+  let fingers = 4;
+  $$("#fingerSeg button").forEach((b) => b.addEventListener("click", () => {
+    fingers = +b.dataset.f;
+    $$("#fingerSeg button").forEach((x) => x.setAttribute("aria-pressed", x === b));
+    tap();
+  }));
+  const pad = $("#pad");
+  function tap() {
+    $$(".dot", pad).forEach((d) => d.remove());
+    const spots = { 3: [[34, 48], [50, 38], [66, 48]], 4: [[28, 54], [42, 38], [58, 36], [72, 50]], 5: [[22, 60], [36, 40], [50, 32], [64, 38], [78, 56]] }[fingers];
+    spots.forEach(([x, y], i) => {
+      const d = document.createElement("span");
+      d.className = "dot";
+      d.style.left = x + "%"; d.style.top = y + "%";
+      d.style.animationDelay = (i * 18) + "ms";
+      pad.appendChild(d);
+      requestAnimationFrame(() => d.classList.add("tap"));
+    });
+    setTimeout(openTrigger, REDUCED ? 0 : 240);
+  }
+  pad.addEventListener("click", tap);
+  pad.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); tap(); } });
+  $$("#keysLine button, .keys-line button").forEach((b) => b.addEventListener("click", () => {
+    $$(".key", b).forEach((k) => { k.classList.add("lit"); setTimeout(() => k.classList.remove("lit"), 420); });
+    openTrigger();
+  }));
+
+  /* ——— Switcher ——— */
+  const switchItems = () => [
+    { icon: "compass", color: PALETTE[0], label: t("i.browser"), key: "1" },
+    { icon: "mail", color: PALETTE[2], label: t("i.mail"), key: "2" },
+    { icon: "message-circle", color: PALETTE[1], label: t("i.messages"), key: "3" },
+    { icon: "pen-tool", color: PALETTE[4], label: t("i.design"), key: "4" },
+    { icon: "music", color: PALETTE[6], label: t("i.music"), key: "5" },
+    { icon: "notebook-pen", color: PALETTE[5], label: t("i.notes"), key: "6" },
+    { icon: "calendar", color: PALETTE[7], label: t("i.calendar"), key: "Q" },
+    { icon: "terminal", color: PALETTE[3], label: t("i.terminal"), key: "W" }
+  ];
+  const switchName = $("#switchName");
+  let releaseTimer;
+  const switcher = new Ring($("#switchRing"), {
+    items: switchItems(), start: 1,
+    onHover: (it) => { switchName.textContent = it.label; },
+    onFire: (it) => { switchName.textContent = t("switched", it.label); }
+  });
+  $("#tabBtn").addEventListener("click", () => {
+    switcher.highlight(switcher.index + 1);
+    clearTimeout(releaseTimer);
+    releaseTimer = setTimeout(() => switcher.fire(), 1100);
+  });
+
+  /* ——— Commands ——— */
+  const FRAMES = {
+    top: [0, 0, 100, 50], full: [0, -9, 100, 109], right: [50, 0, 50, 100], fill: [0, 0, 100, 100],
+    bottom: [0, 50, 100, 50], quit: null, left: [0, 0, 50, 100], center: [20, 14, 60, 72]
+  };
+  const DEFAULT_FRAME = [12, 10, 56, 64];
+  const CMD_DEFAULT = [
+    ["top", "panel-top"], ["full", "fullscreen"], ["right", "panel-right"], ["fill", "maximize-2"],
+    ["bottom", "panel-bottom"], ["quit", "power"], ["left", "panel-left"], ["center", "scan"]
+  ];
+  const APPS = {
+    figma: { name: "Figma", icon: "pen-tool", color: "#A259FF", items: [
+      ["Frame", "frame", "Insert ▸ Frame", "F"], ["Component", "component", "Object ▸ Create component", "⌥⌘K"],
+      ["Export…", "download", "File ▸ Export…", "⇧⌘E"], ["Dev Mode", "code-xml", "View ▸ Dev Mode", "⇧D"],
+      ["Zoom to fit", "zoom-in", "View ▸ Zoom to fit", "⇧1"], ["Layers", "layers", "Window ▸ Layers", "⌥1"]] },
+    xcode: { name: "Xcode", icon: "hammer", color: "#1C7CF4", items: [
+      ["Build", "hammer", "Product ▸ Build", "⌘B"], ["Run", "play", "Product ▸ Run", "⌘R"],
+      ["Test", "flask-conical", "Product ▸ Test", "⌘U"], ["Clean", "eraser", "Product ▸ Clean Build Folder", "⇧⌘K"],
+      ["Debug", "bug", "Debug ▸ Pause", "⌃⌘Y"], ["Branch", "git-branch", "Integrate ▸ New Branch…", ""]] }
+  };
+  let currentApp = "any";
+  const cmdArea = $("#cmdArea"), win = $("#win"), ghost = $("#frameGhost"), cmdDesk = $("#cmdDesk"), caption = $("#cmdCaption");
+  const place = (node, fr) => { const [x, y, w, h] = fr; Object.assign(node.style, { left: x + "%", top: y + "%", width: w + "%", height: h + "%" }); };
+  place(win, DEFAULT_FRAME);
+  const cmdItems = () => currentApp === "any"
+    ? CMD_DEFAULT.map(([k, icon], i) => ({ k, icon, label: t("c." + k), color: k === "quit" ? "#FF453B" : PALETTE[i % 8] }))
+    : APPS[currentApp].items.map(([label, icon, path, sc], i) => ({ label, icon, path, sc, color: PALETTE[(i + 2) % 8] }));
+  const setCaption = (it) => {
+    if (!it) { caption.textContent = t("cmd.hint"); return; }
+    caption.innerHTML = currentApp === "any"
+      ? `<b>${it.label}</b>`
+      : `<b>${it.label}</b><br>${it.path}${it.sc ? " · " + it.sc : ""}`;
+  };
+  const cmdToast = (it) => {
+    if (currentApp !== "any") { setCaption(it); caption.animate?.([{ opacity: .3 }, { opacity: 1 }], { duration: 300 }); return; }
+    ghost.classList.remove("show");
+    cmdDesk.classList.toggle("fullscreen", it.k === "full");
+    if (it.k === "quit") {
+      win.classList.add("gone");
+      setTimeout(() => { place(win, DEFAULT_FRAME); win.classList.remove("gone"); }, 1100);
+      return;
+    }
+    win.classList.remove("gone");
+    place(win, FRAMES[it.k]);
+    win.style.borderRadius = it.k === "full" ? "0" : "";
+  };
+  const cmd = new Ring($("#cmdRing"), {
+    items: cmdItems(), rotation: -22.5, center: "app", appIcon: "notebook-pen", appColor: "#E0A800", digits: true, iconSize: 32, paw: false,
+    onHover: (it, i, silent) => {
+      if (silent) { setCaption(null); ghost.classList.remove("show"); return; }
+      setCaption(it);
+      if (currentApp === "any" && it.k && FRAMES[it.k]) { place(ghost, FRAMES[it.k]); ghost.classList.add("show"); }
+      else ghost.classList.remove("show");
+    },
+    onFire: cmdToast
+  });
+  $("#cmdRing").addEventListener("pointerleave", () => ghost.classList.remove("show"));
+  $$("#appSeg button").forEach((b) => b.addEventListener("click", () => {
+    currentApp = b.dataset.app;
+    $$("#appSeg button").forEach((x) => x.setAttribute("aria-pressed", x === b));
+    const a = APPS[currentApp];
+    $("#cmdApp").textContent = a ? a.name : "Notes";
+    $("#winTitle").textContent = a ? a.name : "Notes";
+    cmdDesk.classList.remove("fullscreen");
+    place(win, DEFAULT_FRAME); win.style.borderRadius = ""; win.classList.remove("gone");
+    cmd.set({ items: cmdItems(), rotation: a ? 0 : -22.5, appIcon: a ? a.icon : "notebook-pen", appColor: a ? a.color : "#E0A800" });
+    setCaption(null);
+  }));
+
+  /* ——— Customizer ——— */
+  // Те же темы, что в приложении (12 из 24): палитра по кругу или градиент от первого сектора к последнему.
+  const THEMES = [
+    ["classic", "p", PALETTE, .3], ["rainbow", "p", ["#FF3B30", "#FF9500", "#FFCC00", "#34C759", "#00C7BE", "#007AFF", "#5856D6", "#AF52DE"], .4],
+    ["neon", "p", ["#00F5D4", "#00BBF9", "#9B5DE5", "#F15BB5", "#FEE440", "#39FF14"], .5], ["candy", "p", ["#FF2D55", "#FF9500", "#FFCC00", "#FF6482", "#FF375F", "#FFB340"], .45],
+    ["pastel", "p", ["#A0C4FF", "#BDB2FF", "#FFC6FF", "#FFADAD", "#FFD6A5", "#FDFFB6", "#CAFFBF", "#9BF6FF"], .45], ["sakura", "p", ["#FFB7C5", "#FF8FAB", "#FFC2D1", "#FB6F92", "#FFE5EC", "#F4ACB7"], .45],
+    ["mint", "g", ["#A7F3D0", "#2DD4BF"], .4], ["ocean", "g", ["#48CAE4", "#0077B6", "#03045E"], .5],
+    ["aurora", "g", ["#00F5A0", "#00D9F5", "#7B61FF"], .45], ["sunset", "g", ["#F72585", "#FF7B00", "#FFD000"], .45],
+    ["forest", "p", ["#1B4332", "#2D6A4F", "#40916C", "#52B788", "#74C69D", "#95D5B2"], .5], ["midnight", "g", ["#1A1A6E", "#4361EE"], .55]
+  ];
+  const lerpHex = (stops, t) => {
+    const pts = stops.map(hex);
+    const x = Math.min(Math.max(t, 0), 1) * (pts.length - 1), i = Math.min(Math.floor(x), pts.length - 2), k = x - i;
+    return "#" + pts[i].map((v, j) => Math.round(v + (pts[i + 1][j] - v) * k).toString(16).padStart(2, "0")).join("");
+  };
+  const themeColor = ([, mode, colors], i, n) => mode === "g" ? lerpHex(colors, n > 1 ? i / (n - 1) : 0) : colors[i % colors.length];
+  let theme = THEMES[0];
+  const customBase = () => [...heroItems(), { icon: "mail", label: t("i.mail") }, { icon: "calendar", label: t("i.calendar") }];
+  const customItems = () => customBase().map((it, i, all) => ({ ...it, color: themeColor(theme, i, all.length) }));
+  const custom = new Ring($("#customRing"), { items: customItems() });
+  const accBox = $("#accents");
+  const drawPalettes = () => {
+    accBox.textContent = "";
+    THEMES.forEach((th) => {
+      const b = document.createElement("button");
+      const stops = Array.from({ length: 8 }, (_, i) => themeColor(th, i, 8));
+      b.type = "button";
+      b.title = t("th." + th[0]);
+      b.setAttribute("aria-label", t("th." + th[0]));
+      b.setAttribute("aria-pressed", th === theme);
+      b.innerHTML = `<i style="background:conic-gradient(${stops.join(",")},${stops[0]})"></i>`;
+      b.addEventListener("click", () => {
+        theme = th;
+        const tint = $("#cTint");
+        tint.value = Math.round(25 + th[3] * 60);
+        custom.set(Object.assign({ items: customItems() }, syncRange("cTint")));
+        drawPalettes();
+      });
+      accBox.appendChild(b);
+    });
+  };
+  const ranges = {
+    cSize: ["oSize", (v) => v + "%", (v) => ({ size: v / 100 })],
+    cHole: ["oHole", (v) => v + "%", (v) => ({ hole: v / 100 })],
+    cRot: ["oRot", (v) => (+v).toFixed(1) + "°", (v) => ({ rotation: +v })],
+    cTint: ["oTint", (v) => v + "%", (v) => ({ tint: v / 100 })]
+  };
+  const syncRange = (id) => {
+    const input = $("#" + id), [out, fmt, map] = ranges[id];
+    $("#" + out).textContent = fmt(input.value);
+    input.style.setProperty("--p", ((input.value - input.min) / (input.max - input.min) * 100) + "%");
+    return map(input.value);
+  };
+  Object.keys(ranges).forEach((id) => {
+    syncRange(id);
+    $("#" + id).addEventListener("input", () => custom.set(syncRange(id)));
+  });
+  custom.set(Object.assign({}, ...Object.keys(ranges).map(syncRange)));
+  $("#cPaw").addEventListener("change", (e) => custom.set({ paw: e.target.checked }));
+  $("#cDigits").addEventListener("change", (e) => custom.set({ digits: e.target.checked }));
+
+  /* ——— Details ——— */
+  const HELLO = [["Hello", "en"], ["Привет", "ru"], ["你好", "zh"], ["नमस्ते", "hi"], ["Hola", "es"], ["مرحبا", "ar"], ["Bonjour", "fr"], ["হ্যালো", "bn"], ["Olá", "pt"], ["ہیلو", "ur"], ["Halo", "id"], ["Hallo", "de"], ["こんにちは", "ja"]];
+  const hello = $("#hello");
+  let hi = 0;
+  if (!REDUCED) setInterval(() => {
+    hello.style.opacity = 0;
+    setTimeout(() => { hi = (hi + 1) % HELLO.length; hello.textContent = HELLO[hi][0]; hello.lang = HELLO[hi][1]; hello.style.opacity = 1; }, 250);
+  }, 1500);
+
+  /* ——— Copy command ——— */
+  const copyBtn = $("#copyBtn");
+  copyBtn.addEventListener("click", async () => {
+    const text = $("#cmd").textContent;
+    try {
+      await navigator.clipboard.writeText(text);
+      copyBtn.textContent = t("gate.copied");
+    } catch {
+      const r = document.createRange(); r.selectNodeContents($("#cmd"));
+      const s = getSelection(); s.removeAllRanges(); s.addRange(r);
+      copyBtn.textContent = t("gate.copyFail");
+    }
+    setTimeout(() => { copyBtn.textContent = t("gate.copy"); }, 1800);
+  });
+
+  /* ——— Language ——— */
+  function applyLang(next) {
+    lang = next;
+    document.documentElement.lang = lang;
+    $$("[data-i18n]").forEach((n) => { n.textContent = t(n.dataset.i18n); });
+    $$("[data-i18n-html]").forEach((n) => { n.innerHTML = t(n.dataset.i18nHtml); });
+    $$("[data-i18n-alt]").forEach((n) => { n.alt = t(n.dataset.i18nAlt); });
+    $$(".lang button").forEach((b) => b.setAttribute("aria-pressed", b.dataset.lang === lang));
+    hero.set({ items: heroItems() });
+    actions.set({ items: actionItems() });
+    trigger.set({ items: heroItems().slice(0, 5) });
+    switcher.set({ items: switchItems() });
+    cmd.set({ items: cmdItems() });
+    custom.set({ items: customItems() });
+    drawPalettes();
+    setCaption(null);
+    tick();
+    try { localStorage.setItem("catgrab-lang", lang); } catch {}
+  }
+  $$(".lang button").forEach((b) => b.addEventListener("click", () => applyLang(b.dataset.lang)));
+  let saved = null;
+  try { saved = localStorage.getItem("catgrab-lang"); } catch {}
+  applyLang(saved || ((navigator.language || "").toLowerCase().startsWith("ru") ? "ru" : "en"));
+  setInterval(tick, 30000);
+})();
+</script>
+</body>
+</html>

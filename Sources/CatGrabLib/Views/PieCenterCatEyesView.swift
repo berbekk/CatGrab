@@ -7,11 +7,12 @@ struct PieCenterCatEyesView: View {
     var pupilOffset: CGSize = .zero
     /// Когда низ мордочки закрыт (кот выглядывает из-за иконки), кончик рта торчал бы над краем.
     var showsMouth = true
+    var headColor: Color = .black
 
     @State private var eyeOpenScaleY: CGFloat = 1
     @State private var blinkTask: Task<Void, Never>?
 
-    /// Как `PieSegmentView.sectorBorder` / `PieCenterHubView` при неактивном секторе.
+    /// Как `PieSegmentView.sectorBorder` при неактивном секторе.
     private enum MenuItemOutline {
         static let lineWidth: CGFloat = 0.7
         static let whiteOpacity: CGFloat = 0.24
@@ -38,7 +39,7 @@ struct PieCenterCatEyesView: View {
 
         ZStack {
             CatSVGHeadShape()
-                .fill(Color.black)
+                .fill(headColor)
                 .frame(width: w, height: h)
                 .overlay {
                     CatSVGHeadShape()

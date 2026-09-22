@@ -132,18 +132,32 @@ enum PieSubActionResolver {
             case .minimizeWindow, .toggleFullScreen, .tileLeft, .tileRight, .tileTop, .tileBottom, .fillScreen,
                  .centerWindow, .closeWindow:
                 available = builtIn(entry.kind, context: context, window: window, icon: entry.icon)
+            case .action:
+                available = customAction(entry, index: index, context: context)
             }
             return available ?? unavailableAction(entry, index: index, context: context)
         }
     }
 
-    private static func unavailableAction(_ entry: AppSubMenuEntry, index: Int, context: AppContext) -> PieSubAction {
-        let title = entry.kind == .menuItem
-            ? entry.menuTitle
-            : entry.kind.title(appName: context.appName, language: context.language)
+    /// Своё действие сектора; пустое (не выбрано приложение, нет ссылки) — приглушённый сектор.
+    private static func customAction(_ entry: AppSubMenuEntry, index: Int, context: AppContext) -> PieSubAction? {
+        guard let action = entry.action, action.isConfigured else { return nil }
+        let title = entry.displayTitle(appName: context.appName, language: context.language)
         return PieSubAction(
-            id: "unavailable:\(index)",
+            id: "action:\(index)",
             title: title,
+            icon: entry.resolvedIcon,
+            shortcut: nil,
+            isDestructive: false,
+            kind: .customAction(PieMenuItem(id: entry.id, title: title, icon: entry.resolvedIcon, action: action)),
+            pid: context.pid
+        )
+    }
+
+    private static func unavailableAction(_ entry: AppSubMenuEntry, index: Int, context: AppContext) -> PieSubAction {
+        PieSubAction(
+            id: "unavailable:\(index)",
+            title: entry.displayTitle(appName: context.appName, language: context.language),
             icon: entry.resolvedIcon,
             shortcut: entry.shortcut?.displayString,
             isDestructive: false,
@@ -183,7 +197,7 @@ enum PieSubActionResolver {
             )
         }
         switch kind {
-        case .menuItem:
+        case .menuItem, .action:
             return nil
         case .hideApp:
             return action(.hideApp)

@@ -11,10 +11,6 @@ enum Timings {
     /// Повторный опрос прав после возврата из System Settings (окна онбординга/настроек).
     static let permissionsRefreshDelay: TimeInterval = 0.25
 
-    /// Пауза между системным диалогом «Универсальный доступ» (он же добавляет приложение в список)
-    /// и открытием панели Системных настроек — чтобы диалог не оказался под окном настроек.
-    static let accessibilitySettingsOpenDelay: TimeInterval = 0.6
-
     /// Задержка перед системным диалогом доступа после показа окна онбординга,
     /// чтобы диалог появился поверх уже видимого окна.
     static let accessibilityPromptAfterOnboardingDelay: TimeInterval = 0.4

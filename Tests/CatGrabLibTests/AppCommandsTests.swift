@@ -35,16 +35,18 @@ final class AppCommandsMenuTests: XCTestCase {
     }
 
     func test_commandsBecomeRingItemsInOrderWithQuitInRed() {
-        let items = AppCommandsMenuItems.build(
+        let menu = PieConfiguration.templateAppCommandsMenu()
+        let entries = [AppSubMenuEntry(kind: .toggleFullScreen), AppSubMenuEntry(kind: .hideApp), AppSubMenuEntry(kind: .quitApp)]
+        let items = menu.themed(AppCommandsMenuItems.build(
             actions: [action("new"), action("hide"), action("quit", destructive: true)],
+            entries: entries,
             bundleIdentifier: "com.apple.Safari"
-        )
+        ))
         XCTAssertEqual(items.map(\.title), ["new", "hide", "quit"])
         XCTAssertEqual(items.map(\.sectorIndex), [0, 1, 2])
-        XCTAssertEqual(items[0].color, PieMenuItem.paletteColor(for: 0))
-        XCTAssertEqual(items[2].color, DS.Pie.destructiveSubSectorTintHex)
-        XCTAssertEqual(Set(items.compactMap(\.iconColor)), ["#FFFFFF"])
-        XCTAssertEqual(items.count, 3)
+        XCTAssertEqual(items[0].color, menu.colorScheme.color(at: 0, count: 3))
+        XCTAssertEqual(items[2].color, AppSubMenuEntry.destructiveColorHex)
+        XCTAssertEqual(Set(items.compactMap(\.iconColor)), ["#FFFFFF"], "command icons stay white by default")
     }
 
     func test_appIconSizeDefaultsForOldConfigsAndStaysOnItsMenu() throws {
@@ -60,9 +62,9 @@ final class AppCommandsMenuTests: XCTestCase {
     }
 
     func test_ringItemIdsAreStableAcrossShows() {
-        let first = AppCommandsMenuItems.build(actions: [action("new")], bundleIdentifier: "com.apple.Safari")
-        let again = AppCommandsMenuItems.build(actions: [action("new")], bundleIdentifier: "com.apple.Safari")
-        let other = AppCommandsMenuItems.build(actions: [action("new")], bundleIdentifier: "com.apple.Terminal")
+        let first = AppCommandsMenuItems.build(actions: [action("new")], entries: [], bundleIdentifier: "com.apple.Safari")
+        let again = AppCommandsMenuItems.build(actions: [action("new")], entries: [], bundleIdentifier: "com.apple.Safari")
+        let other = AppCommandsMenuItems.build(actions: [action("new")], entries: [], bundleIdentifier: "com.apple.Terminal")
         XCTAssertEqual(first[0].id, again[0].id)
         XCTAssertNotEqual(first[0].id, other[0].id)
     }

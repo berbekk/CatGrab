@@ -7,7 +7,10 @@ struct PieMenuItem: Codable, Identifiable, Equatable {
     var title: String
     var icon: String
     var action: MenuAction
+    /// Свой цвет сектора — действует, только когда `usesThemeColor == false`.
     var color: String
+    /// Цвет берётся из темы меню по месту сектора в кольце (см. `PieMenu.themed`).
+    var usesThemeColor: Bool
     var iconColor: String?
     var sectorIndex: Int
     /// Пользовательская горячая буква/цифра для выбора пункта при открытом меню.
@@ -56,6 +59,15 @@ struct PieMenuItem: Codable, Identifiable, Equatable {
         return randomUnassignedSymbol(avoiding: used, using: &generator)
     }
 
+    /// Иконку можно перекрасить: символ SF Symbols или текст. Иконки приложений, картинки и эмодзи
+    /// рисуются своими цветами.
+    var hasTintableIcon: Bool {
+        if action.bundleIdentifier != nil || icon.isEmpty || icon.hasPrefix("app:") || icon.hasPrefix("file:") {
+            return false
+        }
+        return icon.hasPrefix("text:") || icon.allSatisfy(\.isASCII)
+    }
+
     static func paletteColor(for index: Int) -> String {
         sectorPalette[index % sectorPalette.count]
     }
@@ -74,19 +86,30 @@ struct PieMenuItem: Codable, Identifiable, Equatable {
         return nil
     }
 
-    init(id: UUID = UUID(), title: String, icon: String, action: MenuAction, color: String = "#007AFF", iconColor: String? = nil, sectorIndex: Int = 0, customShortcut: String? = nil) {
+    init(
+        id: UUID = UUID(),
+        title: String,
+        icon: String,
+        action: MenuAction,
+        color: String = "#007AFF",
+        usesThemeColor: Bool = true,
+        iconColor: String? = nil,
+        sectorIndex: Int = 0,
+        customShortcut: String? = nil
+    ) {
         self.id = id
         self.title = title
         self.icon = icon
         self.action = action
         self.color = color
+        self.usesThemeColor = usesThemeColor
         self.iconColor = iconColor
         self.sectorIndex = sectorIndex
         self.customShortcut = PieMenuItem.normalizedCustomShortcut(customShortcut)
     }
 
     private enum CodingKeys: String, CodingKey {
-        case id, title, icon, action, color, iconColor, sectorIndex, customShortcut
+        case id, title, icon, action, color, usesThemeColor, iconColor, sectorIndex, customShortcut
     }
 
     init(from decoder: Decoder) throws {
@@ -99,6 +122,16 @@ struct PieMenuItem: Codable, Identifiable, Equatable {
         color = try container.decodeIfPresent(String.self, forKey: .color) ?? PieMenuItem.paletteColor(for: 0)
         iconColor = try container.decodeIfPresent(String.self, forKey: .iconColor)
         sectorIndex = try container.decodeIfPresent(Int.self, forKey: .sectorIndex) ?? 0
+        // До тем у каждого сектора был свой цвет. Цвет «по умолчанию для своего места» считаем цветом
+        // темы — тема «Классика» даёт ровно его, и кольцо после обновления выглядит как раньше.
+        usesThemeColor = try container.decodeIfPresent(Bool.self, forKey: .usesThemeColor)
+            ?? (color.caseInsensitiveCompare(PieMenuItem.paletteColor(for: sectorIndex)) == .orderedSame)
+        // Старый системный пикер цвета иконки записывал цвет сам — почти тот же, что у сектора, — и такая
+        // иконка переставала следовать теме («Белые» её не красили). Похожий на цвет сектора цвет снимаем:
+        // в цвет сектора иконку и так красит тема.
+        if let iconHex = iconColor, HexColor.isClose(iconHex, color) {
+            iconColor = nil
+        }
         customShortcut = PieMenuItem.normalizedCustomShortcut(
             try container.decodeIfPresent(String.self, forKey: .customShortcut)
         )
@@ -116,6 +149,17 @@ enum MenuAction: Codable, Equatable {
     var bundleIdentifier: String? {
         if case .launchApp(let id) = self { return id }
         return nil
+    }
+
+    /// Действие заполнено: выбрано приложение, есть ссылка или текст.
+    var isConfigured: Bool {
+        switch self {
+        case .unassigned: return false
+        case .launchApp(let id): return !id.isEmpty
+        case .openURL(let url): return !url.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        case .snippet(let text): return !text.isEmpty
+        case .keystroke, .systemShortcut: return true
+        }
     }
 
     /// Действие адресовано приложению, из которого открыли меню (нажатие, сниппет), — перед ним
@@ -441,8 +485,22 @@ struct PieMenu: Codable, Identifiable, Equatable {
     var shortcutDigitOpacity: Double
     /// Цвет цифр-шорткатов в HEX.
     var shortcutDigitColorHex: String
+    /// Цвет кота в центре меню (и выглядывающего из-за иконки в меню команд), в HEX.
+    var catColorHex: String
+    /// Цвет лапки — и той, что хватает выбранный сектор, и той, что держит иконку в меню команд.
+    var pawColorHex: String
+    /// Подпись выделенного сектора снаружи кольца: название, а для ссылки, сочетания и текста — ещё и
+    /// что именно выполнится. Выключают, когда кольцо из одних иконок приложений и подпись лишняя.
+    var showsHoverLabel: Bool
     /// Фон плитки с иконкой меню в боковой панели (HEX). `nil` — старые конфиги, в UI — системный accent.
     var globalSidebarIconColorHex: String?
+    /// Раскраска кольца. Секторы без своего цвета берут цвет отсюда по месту (см. `themed(_:)`).
+    var colorScheme: SectorColorScheme
+    /// Цвет иконок-символов: в цвет сектора или белые.
+    var iconStyle: SectorIconStyle
+    /// Своя тема, которой оформлено меню. Сохранённые изменения темы расходятся по всем её меню;
+    /// несохранённые правки видны как «тема изменена». `nil` — оформление не из темы.
+    var themeID: UUID?
 
     var isRunningAppsMenu: Bool { kind == .runningApps }
 
@@ -515,6 +573,8 @@ struct PieMenu: Codable, Identifiable, Equatable {
     static let defaultShortcutDigitInsetRightScale: Double = 0.35
     static let defaultShortcutDigitOpacity: Double = 0.29
     static let defaultShortcutDigitColorHex: String = "#FFFFFF"
+    static let defaultCatColorHex: String = "#000000"
+    static let defaultPawColorHex: String = "#000000"
     /// Базовые коэффициенты шорткатов к ширине кольца сектора (`menuRadius - innerRadius`).
     static let shortcutDigitFontBaseFromRingWidth: Double = 0.13
     static let shortcutDigitInsetLeftBaseFromRingWidth: Double = 0.165
@@ -584,6 +644,23 @@ struct PieMenu: Codable, Identifiable, Equatable {
     var effectiveInnerRadius: Double { innerRadius * appearanceScale }
     var effectiveIconSize: Double { iconSize * appearanceScale }
 
+    /// Иконка в кольце из `sectorCount` секторов: заданного размера, но не больше места в секторе.
+    /// Место — ширина сектора на радиусе иконки и толщина кольца: в меню с многими секторами
+    /// сектор узкий, и иконка уменьшается, чтобы не вылезать за края.
+    func fittedIconSize(sectorCount: Int) -> Double {
+        let ring = max(1, effectiveMenuRadius - effectiveInnerRadius)
+        let radius = effectiveInnerRadius + ring * iconDistance
+        let sectorWidth = sectorCount > 1 ? 2 * radius * sin(.pi / Double(sectorCount)) : ring
+        let room = min(sectorWidth * Self.iconWidthShare, ring * Self.iconRingShare)
+        return max(Self.minFittedIconSize, min(effectiveIconSize, room))
+    }
+
+    /// Какую долю ширины сектора может занять иконка: остальное — поля до соседей и зазоров.
+    private static let iconWidthShare = 0.62
+    /// Вдоль радиуса места больше: иконка у края кольца заметна меньше, чем наезд на соседа.
+    private static let iconRingShare = 0.8
+    private static let minFittedIconSize = 12.0
+
     static func clampedInnerRadius(_ inner: Double, outerRadius: Double) -> Double {
         let maxInner = max(minInnerRadius, outerRadius - minRingWidth)
         return min(max(inner, minInnerRadius), maxInner)
@@ -641,7 +718,13 @@ struct PieMenu: Codable, Identifiable, Equatable {
          shortcutDigitInsetRightScale: Double = PieMenu.defaultShortcutDigitInsetRightScale,
          shortcutDigitOpacity: Double = PieMenu.defaultShortcutDigitOpacity,
          shortcutDigitColorHex: String = PieMenu.defaultShortcutDigitColorHex,
-         globalSidebarIconColorHex: String? = nil) {
+         catColorHex: String = PieMenu.defaultCatColorHex,
+         pawColorHex: String = PieMenu.defaultPawColorHex,
+         showsHoverLabel: Bool = true,
+         globalSidebarIconColorHex: String? = nil,
+         colorScheme: SectorColorScheme = MenuThemePreset.classic.scheme,
+         iconStyle: SectorIconStyle = .tinted,
+         themeID: UUID? = nil) {
         self.id = id
         self.name = name
         self.hotkey = hotkey
@@ -669,7 +752,13 @@ struct PieMenu: Codable, Identifiable, Equatable {
         self.shortcutDigitInsetRightScale = Self.clampedShortcutDigitInsetRightScale(shortcutDigitInsetRightScale)
         self.shortcutDigitOpacity = Self.clampedShortcutDigitOpacity(shortcutDigitOpacity)
         self.shortcutDigitColorHex = shortcutDigitColorHex
+        self.catColorHex = catColorHex
+        self.pawColorHex = pawColorHex
+        self.showsHoverLabel = showsHoverLabel
         self.globalSidebarIconColorHex = globalSidebarIconColorHex
+        self.colorScheme = colorScheme
+        self.iconStyle = iconStyle
+        self.themeID = themeID
     }
 
     init(from decoder: Decoder) throws {
@@ -721,8 +810,16 @@ struct PieMenu: Codable, Identifiable, Equatable {
             try container.decodeIfPresent(Double.self, forKey: .shortcutDigitOpacity) ?? Self.defaultShortcutDigitOpacity
         )
         shortcutDigitColorHex = try container.decodeIfPresent(String.self, forKey: .shortcutDigitColorHex) ?? Self.defaultShortcutDigitColorHex
+        catColorHex = try container.decodeIfPresent(String.self, forKey: .catColorHex) ?? Self.defaultCatColorHex
+        pawColorHex = try container.decodeIfPresent(String.self, forKey: .pawColorHex) ?? Self.defaultPawColorHex
+        showsHoverLabel = try container.decodeIfPresent(Bool.self, forKey: .showsHoverLabel) ?? true
         globalSidebarIconColorHex = try container.decodeIfPresent(String.self, forKey: .globalSidebarIconColorHex)
+        colorScheme = Self.decodeColorScheme(from: container)
         kind = try container.decodeIfPresent(PieMenuKind.self, forKey: .kind) ?? .standard
+        // Иконки команд всегда были белыми — у меню команд так и остаётся, пока не выберут другие.
+        iconStyle = (try? container.decodeIfPresent(String.self, forKey: .iconStyle))
+            .flatMap(SectorIconStyle.init(rawValue:)) ?? (kind == .appCommands ? .white : .tinted)
+        themeID = try container.decodeIfPresent(UUID.self, forKey: .themeID) ?? Self.legacyThemeID(in: &colorScheme)
         runningAppsExcludedBundleIds = Self.deduplicatedRunningAppsExcludedBundleIds(
             try container.decodeIfPresent([String].self, forKey: .runningAppsExcludedBundleIds) ?? []
         )
@@ -745,6 +842,7 @@ struct PieMenu: Codable, Identifiable, Equatable {
             if colors.count == 1 {
                 for i in items.indices {
                     items[i].color = PieMenuItem.paletteColor(for: items[i].sectorIndex)
+                    items[i].usesThemeColor = true
                 }
             }
         }
@@ -781,15 +879,104 @@ struct PieMenu: Codable, Identifiable, Equatable {
         try container.encode(shortcutDigitInsetRightScale, forKey: .shortcutDigitInsetRightScale)
         try container.encode(shortcutDigitOpacity, forKey: .shortcutDigitOpacity)
         try container.encode(shortcutDigitColorHex, forKey: .shortcutDigitColorHex)
+        try container.encode(catColorHex, forKey: .catColorHex)
+        try container.encode(pawColorHex, forKey: .pawColorHex)
+        try container.encode(showsHoverLabel, forKey: .showsHoverLabel)
         try container.encodeIfPresent(globalSidebarIconColorHex, forKey: .globalSidebarIconColorHex)
+        try container.encode(colorScheme, forKey: .colorScheme)
+        try container.encode(iconStyle, forKey: .iconStyle)
+        try container.encodeIfPresent(themeID, forKey: .themeID)
     }
 
-    /// Копирует размер кольца, внешний вид и анимацию из шаблона.
+    /// Первая версия своих тем помечала раскраску меню как `custom:<id темы>` — такое меню
+    /// становится привязанным к этой теме, а метка из раскраски убирается.
+    private static func legacyThemeID(in scheme: inout SectorColorScheme) -> UUID? {
+        guard let presetID = scheme.presetID, presetID.hasPrefix(CustomMenuTheme.legacyIDPrefix) else { return nil }
+        scheme.presetID = nil
+        return UUID(uuidString: String(presetID.dropFirst(CustomMenuTheme.legacyIDPrefix.count)))
+    }
+
+    /// Пункты в том виде, в каком их рисует кольцо: цвет из темы по месту сектора в кольце
+    /// (если у сектора нет своего) и белые иконки, если так задано. Место — по `sectorIndex`,
+    /// а не по порядку в массиве: перетаскивание в редакторе меняет номера секторов, не порядок
+    /// пунктов, и иначе меню и превью раскрасили бы секторы по-разному. Порядок пунктов не меняется.
+    func themed(_ items: [PieMenuItem]) -> [PieMenuItem] {
+        let ringOrder = items.indices.sorted { (items[$0].sectorIndex, $0) < (items[$1].sectorIndex, $1) }
+        var position = [Int](repeating: 0, count: items.count)
+        for (place, index) in ringOrder.enumerated() {
+            position[index] = place
+        }
+        return items.enumerated().map { index, item in
+            var item = item
+            if item.usesThemeColor {
+                item.color = colorScheme.color(at: position[index], count: items.count)
+            }
+            if iconStyle == .white, item.iconColor == nil {
+                item.iconColor = "#FFFFFF"
+            }
+            return item
+        }
+    }
+
+    /// Готовая палитра: раскраска, насыщенность, стекло и иконки. Форма, детали, свои цвета секторов
+    /// и привязка к теме остаются — у меню с темой палитра становится несохранённой правкой темы.
+    mutating func applyPalette(_ preset: MenuThemePreset) {
+        colorScheme = preset.scheme
+        liquidGlass.tintOpacity = preset.intensity
+        liquidGlass.variant = preset.glass
+        iconStyle = preset.icons
+    }
+
+    /// Сколько пунктов со своим цветом сектора или иконки — они не следуют теме.
+    /// У меню команд — сколько таких команд.
+    var customColorCount: Int {
+        if isAppCommandsMenu {
+            return appCommandsDefaultEntries.filter(\.hasCustomColors).count
+        }
+        return items.filter { !$0.usesThemeColor || ($0.iconColor != nil && $0.hasTintableIcon) }.count
+    }
+
+    /// Вернуть всем секторам и иконкам цвета темы (у «Завершить» — его красный).
+    mutating func resetSectorColors() {
+        for i in appCommandsDefaultEntries.indices {
+            appCommandsDefaultEntries[i].resetColors()
+        }
+        for i in items.indices {
+            items[i].usesThemeColor = true
+            items[i].iconColor = nil
+        }
+    }
+
+    /// Сколько секторов в кольце: у меню команд — команды, у остальных — пункты.
+    var sectorCount: Int {
+        isAppCommandsMenu ? appCommandsDefaultEntries.count : items.count
+    }
+
+    /// Нет схемы — конфиг до тем: «Классика». Цвет меню из промежуточной версии (`accent`) становится
+    /// схемой одного цвета. Схема из будущей версии, которую не прочесть, — тоже «Классика».
+    private static func decodeColorScheme(from container: KeyedDecodingContainer<CodingKeys>) -> SectorColorScheme {
+        if let scheme = try? container.decodeIfPresent(SectorColorScheme.self, forKey: .colorScheme),
+           !scheme.colors.isEmpty, scheme.colors.allSatisfy(HexColor.isValid) {
+            return scheme
+        }
+        let legacyAccents = [
+            "blue": "#0A84FF", "purple": "#BF5AF2", "pink": "#FF375F", "red": "#FF453A",
+            "orange": "#FF9F0A", "yellow": "#FFD60A", "green": "#30D158", "graphite": "#98989D"
+        ]
+        if let accent = try? container.decodeIfPresent(String.self, forKey: .accent), let hex = legacyAccents[accent] {
+            return SectorColorScheme(mode: .single, colors: [hex], presetID: nil)
+        }
+        return MenuThemePreset.classic.scheme
+    }
+
+    /// Копирует размер кольца, внешний вид, цвет меню и анимацию из шаблона.
     /// Поворот (`rotationDegrees`) намеренно не копируется:
     /// у каждого меню он настраивается индивидуально. Размер иконки приложения в центре — тоже:
     /// он есть только у меню команд, и копия из обычного меню затёрла бы настройку значением по умолчанию.
-    /// Не меняет id, имя, хоткей и элементы.
+    /// Не меняет id, имя, хоткей и пункты — их собственные цвета тоже остаются.
     mutating func applySharedVisualSettings(from template: PieMenu) {
+        colorScheme = template.colorScheme
+        iconStyle = template.iconStyle
         menuRadius = template.menuRadius
         innerRadius = Self.clampedInnerRadius(template.innerRadius, outerRadius: template.menuRadius)
         iconDistance = template.iconDistance
@@ -806,6 +993,9 @@ struct PieMenu: Codable, Identifiable, Equatable {
         shortcutDigitInsetRightScale = template.shortcutDigitInsetRightScale
         shortcutDigitOpacity = template.shortcutDigitOpacity
         shortcutDigitColorHex = template.shortcutDigitColorHex
+        catColorHex = template.catColorHex
+        pawColorHex = template.pawColorHex
+        showsHoverLabel = template.showsHoverLabel
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -837,13 +1027,43 @@ struct PieMenu: Codable, Identifiable, Equatable {
         case shortcutDigitCornerInsetScale // legacy fallback
         case shortcutDigitOpacity
         case shortcutDigitColorHex
+        case catColorHex
+        case pawColorHex
+        case showsHoverLabel
         case globalSidebarIconColorHex
+        case colorScheme
+        case iconStyle
+        case themeID
+        case accent // legacy decode only: цвет меню из промежуточной версии
     }
 
     /// Набор по умолчанию есть только у меню команд; пустым он быть не может — меню без секторов бесполезно.
     private static func resolvedAppCommandsDefaultEntries(_ entries: [AppSubMenuEntry], kind: PieMenuKind) -> [AppSubMenuEntry] {
         guard kind == .appCommands else { return [] }
         return entries.isEmpty ? AppSubMenuEntry.automaticBuiltIns : entries
+    }
+
+    /// Копия меню для списка: новые id у меню и пунктов, без хоткея и жеста — они у одного меню,
+    /// и копия с тем же сочетанием только перехватывала бы его у оригинала.
+    func duplicated(named name: String) -> PieMenu {
+        var copy = self
+        copy.id = UUID()
+        copy.name = name
+        copy.hotkey = .empty
+        copy.trackpadFingerCount = 0
+        copy.items = items.map { item in
+            var item = item
+            item.id = UUID()
+            return item
+        }
+        copy.appCommandsDefaultEntries = appCommandsDefaultEntries.map(\.withNewID)
+        return copy
+    }
+
+    /// Первый свободный номер сектора: пункты удаляли и переставляли, и номера идут с пропусками.
+    var nextFreeSectorIndex: Int {
+        let used = Set(items.map(\.sectorIndex))
+        return (0...).first { !used.contains($0) } ?? items.count
     }
 
     /// Визуальный образец для новых меню: «Main», иначе первое обычное меню.
@@ -865,8 +1085,12 @@ struct PieConfiguration: Codable, Equatable {
     var language: AppLanguage
     /// Тактильная отдача при наведении на секторы и в редакторе.
     var hapticFeedbackEnabled: Bool
+    /// Светлое или тёмное оформление окон приложения; по умолчанию — как в системе.
+    var appearance: AppAppearance
     /// Свои наборы команд меню «Команды приложения» для отдельных приложений; остальным команды подбираются автоматически.
     var appSubMenus: [AppSubMenu]
+    /// Свои темы пользователя — рядом с готовыми в галерее любого меню.
+    var customThemes: [CustomMenuTheme]
     /// Метка времени сохранения: нужна, чтобы не затирать свежие локальные правки устаревшими данными из iCloud.
     var lastModified: Date
 
@@ -874,7 +1098,9 @@ struct PieConfiguration: Codable, Equatable {
         menus: [PieMenu],
         language: AppLanguage = .english,
         hapticFeedbackEnabled: Bool = true,
+        appearance: AppAppearance = .system,
         appSubMenus: [AppSubMenu] = [],
+        customThemes: [CustomMenuTheme] = [],
         lastModified: Date = Date(),
         schemaVersion: Int = PieConfiguration.currentSchemaVersion
     ) {
@@ -882,7 +1108,9 @@ struct PieConfiguration: Codable, Equatable {
         self.menus = menus
         self.language = language
         self.hapticFeedbackEnabled = hapticFeedbackEnabled
+        self.appearance = appearance
         self.appSubMenus = appSubMenus
+        self.customThemes = customThemes
         self.lastModified = lastModified
     }
 
@@ -917,13 +1145,113 @@ struct PieConfiguration: Codable, Equatable {
         appSubMenus.first { $0.matches(bundleIdentifier: bundleIdentifier) }
     }
 
-    /// Меню команд в том виде, в каком оно откроется в приложении: у своего набора может быть свой поворот.
+    /// Копия обычного меню сразу за оригиналом; `nil` — такого меню нет или оно встроенное.
+    @discardableResult
+    mutating func duplicateMenu(id: UUID, name: String) -> PieMenu? {
+        guard let index = menus.firstIndex(where: { $0.id == id }), !menus[index].isDynamicMenu else { return nil }
+        let copy = menus[index].duplicated(named: name)
+        menus.insert(copy, at: index + 1)
+        return copy
+    }
+
+    /// Другое включённое меню с тем же сочетанием: по нему хоткей откроет то из них, что выше в списке.
+    func menuSharingHotkey(with menu: PieMenu) -> PieMenu? {
+        guard !menu.hotkey.isEmpty else { return nil }
+        return menus.first {
+            $0.id != menu.id && $0.hotkey == menu.hotkey && !($0.isDynamicMenu && !$0.runningAppsMenuEnabled)
+        }
+    }
+
+    /// Меню команд в том виде, в каком оно откроется в приложении: у своего набора может быть
+    /// свой поворот и свой вид.
     func appCommandsMenu(_ menu: PieMenu, for bundleIdentifier: String) -> PieMenu {
         var result = menu
-        if let rotation = appSubMenu(for: bundleIdentifier)?.rotationDegrees {
+        guard let set = appSubMenu(for: bundleIdentifier) else { return result }
+        if let rotation = set.rotationDegrees {
             result.rotationDegrees = rotation
         }
+        set.look?.apply(to: &result)
         return result
+    }
+
+    /// Набор приложения как обычное меню: вид (свой или общий), поворот и команды набора
+    /// в `appCommandsDefaultEntries`. Так его редактируют тем же превью и той же панелью, что и остальные меню.
+    func appSetMenu(for bundleIdentifier: String) -> PieMenu? {
+        guard let set = appSubMenu(for: bundleIdentifier),
+              let shared = menus.first(where: \.isAppCommandsMenu) else { return nil }
+        var menu = appCommandsMenu(shared, for: bundleIdentifier)
+        menu.appCommandsDefaultEntries = set.entries
+        return menu
+    }
+
+    /// Записывает правку меню набора обратно: команды и поворот — в набор, вид — в свой вид набора,
+    /// а если своего нет — в общее меню «Команды приложения».
+    mutating func updateAppSetMenu(_ menu: PieMenu, for bundleIdentifier: String) {
+        guard let old = appSetMenu(for: bundleIdentifier),
+              let setIndex = appSubMenus.firstIndex(where: { $0.matches(bundleIdentifier: bundleIdentifier) }),
+              let sharedIndex = menus.firstIndex(where: \.isAppCommandsMenu) else { return }
+        if menu.appCommandsDefaultEntries != old.appCommandsDefaultEntries {
+            appSubMenus[setIndex].entries = menu.appCommandsDefaultEntries
+        }
+        if menu.rotationDegrees != old.rotationDegrees {
+            appSubMenus[setIndex].rotationDegrees = menu.rotationDegrees
+        }
+        let look = MenuLook(menu)
+        guard look != MenuLook(old) else { return }
+        if appSubMenus[setIndex].look != nil {
+            appSubMenus[setIndex].look = look
+        } else {
+            look.apply(to: &menus[sharedIndex])
+        }
+    }
+
+    /// Свой вид у набора: включение начинает с общего вида, выключение возвращает общий.
+    mutating func setAppSetHasOwnLook(_ ownLook: Bool, for bundleIdentifier: String) {
+        guard let setIndex = appSubMenus.firstIndex(where: { $0.matches(bundleIdentifier: bundleIdentifier) }),
+              let shared = menus.first(where: \.isAppCommandsMenu) else { return }
+        appSubMenus[setIndex].look = ownLook ? MenuLook(shared) : nil
+    }
+
+    // MARK: - Свои темы
+
+    /// Новая тема из вида меню. Меню к ней не привязывается — это делает `PieMenu.applyTheme`.
+    @discardableResult
+    mutating func createTheme(named name: String, from menu: PieMenu) -> CustomMenuTheme {
+        let theme = CustomMenuTheme(name: name, menu: menu)
+        customThemes.append(theme)
+        return theme
+    }
+
+    /// Сохранить вид меню в тему и разнести его по всем меню этой темы: обычным, встроенным
+    /// и своим видам наборов приложений.
+    mutating func saveTheme(_ id: UUID, from menu: PieMenu) {
+        guard let index = customThemes.firstIndex(where: { $0.id == id }) else { return }
+        customThemes[index].update(from: menu)
+        let theme = customThemes[index]
+        for i in menus.indices where menus[i].themeID == id {
+            menus[i].applyTheme(theme)
+        }
+        for i in appSubMenus.indices where appSubMenus[i].look?.themeID == id {
+            appSubMenus[i].look = appSubMenus[i].look.map { Self.look($0, restyledWith: theme) }
+        }
+    }
+
+    /// Удалить тему. Её меню сохраняют свой вид, но больше к ней не привязаны.
+    mutating func deleteTheme(_ id: UUID) {
+        customThemes.removeAll { $0.id == id }
+        for i in menus.indices where menus[i].themeID == id {
+            menus[i].themeID = nil
+        }
+        for i in appSubMenus.indices where appSubMenus[i].look?.themeID == id {
+            appSubMenus[i].look?.themeID = nil
+        }
+    }
+
+    private static func look(_ look: MenuLook, restyledWith theme: CustomMenuTheme) -> MenuLook {
+        var menu = PieMenu()
+        look.apply(to: &menu)
+        menu.applyTheme(theme)
+        return MenuLook(menu)
     }
 
     /// Команды для приложений без своего набора — из меню «Команды приложения».
@@ -936,7 +1264,9 @@ struct PieConfiguration: Codable, Equatable {
         case menus
         case language
         case hapticFeedbackEnabled
+        case appearance
         case appSubMenus
+        case customThemes
         case trackpadGesture // legacy decode only: общий жест из системных настроек
         case lastModified
         case items, hotkey, menuRadius, animationDuration, menuBehavior // menuBehavior: legacy decode only
@@ -951,7 +1281,11 @@ struct PieConfiguration: Codable, Equatable {
             menus = zip(menus, appBound).filter { !$0.1 }.map(\.0)
             language = try container.decodeIfPresent(AppLanguage.self, forKey: .language) ?? .english
             hapticFeedbackEnabled = try container.decodeIfPresent(Bool.self, forKey: .hapticFeedbackEnabled) ?? true
+            appearance = (try? container.decodeIfPresent(String.self, forKey: .appearance))
+                .flatMap(AppAppearance.init(rawValue:)) ?? .system
             appSubMenus = try container.decodeIfPresent([AppSubMenu].self, forKey: .appSubMenus) ?? []
+            customThemes = (try? container.decodeIfPresent([LossyCustomMenuTheme].self, forKey: .customThemes))?
+                .compactMap(\.theme) ?? []
             lastModified = try container.decodeIfPresent(Date.self, forKey: .lastModified) ?? .distantPast
             if let legacyGesture = try? container.decodeIfPresent(LegacyTrackpadGesture.self, forKey: .trackpadGesture) {
                 legacyGesture.moveIntoMenu(of: &menus)
@@ -966,7 +1300,9 @@ struct PieConfiguration: Codable, Equatable {
                             menuRadius: radius, animationDuration: duration)]
             language = .english
             hapticFeedbackEnabled = true
+            appearance = .system
             appSubMenus = []
+            customThemes = []
             lastModified = .distantPast
         }
         PieConfigurationMigrator.migrate(&self)
@@ -978,7 +1314,9 @@ struct PieConfiguration: Codable, Equatable {
         try container.encode(menus, forKey: .menus)
         try container.encode(language, forKey: .language)
         try container.encode(hapticFeedbackEnabled, forKey: .hapticFeedbackEnabled)
+        try container.encode(appearance, forKey: .appearance)
         try container.encode(appSubMenus, forKey: .appSubMenus)
+        try container.encode(customThemes, forKey: .customThemes)
         try container.encode(lastModified, forKey: .lastModified)
     }
 
@@ -1029,7 +1367,8 @@ struct PieConfiguration: Codable, Equatable {
             items: [],
             kind: .appCommands,
             rotationDegrees: AppSubMenuEntry.automaticRingRotationDegrees,
-            pawDecorationEnabled: false
+            pawDecorationEnabled: false,
+            iconStyle: .white
         )
     }
 

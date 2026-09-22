@@ -11,6 +11,8 @@ struct CatHoldingAppIconView: View {
     let iconSide: CGFloat
     /// Смещение зрачков, см. `PieCenterCatEyesView.lookOffset`.
     var pupilOffset: CGSize = .zero
+    var headColor: Color = .black
+    var pawColor: Color = .black
 
     /// У иконок macOS по сетке Apple сама плашка — 824 из 1024, по 100 поля с каждой стороны:
     /// кот держит плашку, а не прозрачное поле вокруг неё. Остальное — в долях стороны плашки.
@@ -73,14 +75,19 @@ struct CatHoldingAppIconView: View {
         )
 
         ZStack {
-            PieCenterCatEyesView(diameter: Self.headWidth(iconSide: s), pupilOffset: pupilOffset, showsMouth: false)
-                .offset(Self.headCenterOffset(iconSide: s))
+            PieCenterCatEyesView(
+                diameter: Self.headWidth(iconSide: s),
+                pupilOffset: pupilOffset,
+                showsMouth: false,
+                headColor: headColor
+            )
+            .offset(Self.headCenterOffset(iconSide: s))
 
             IconView(icon: "app:\(bundleIdentifier)", size: s, appBundleId: bundleIdentifier)
                 .frame(width: s, height: s)
                 .shadow(color: .black.opacity(0.35), radius: s * 0.06, y: s * 0.02)
 
-            CatGrabPawView(size: pawHeight)
+            CatGrabPawView(size: pawHeight, pawColor: pawColor)
                 .shadow(color: .black.opacity(0.3), radius: s * 0.02, y: s * 0.01)
                 .offset(x: pawCenter.x, y: pawCenter.y)
         }

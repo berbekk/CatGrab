@@ -3,9 +3,30 @@ import AppKit
 import UniformTypeIdentifiers
 
 struct ItemEditorView: View {
+    /// Сектор меню команд: к обычным действиям добавляется «Команда приложения».
+    struct AppCommandSlot {
+        struct Summary {
+            let title: String
+            let caption: String
+            let shortcut: String?
+            let isMissing: Bool
+        }
+
+        /// Что делает сектор, если это команда приложения; `nil` — у сектора своё действие.
+        let command: Summary?
+        /// Открыть список команд приложения, чтобы выбрать команду для сектора.
+        let choose: () -> Void
+    }
+
     @Binding var item: PieMenuItem
     var onClose: (() -> Void)?
     let onDelete: () -> Void
+    /// Цвет, который сектор получает от темы на своём месте, и цвета темы для палитры.
+    let themeColor: String
+    let themeColors: [String]
+    /// Цвет иконки по теме: белый или цвет сектора.
+    let iconThemeColor: String
+    let appCommand: AppCommandSlot?
 
     @State private var actionType: ActionType?
     @State private var bundleId: String
@@ -16,23 +37,30 @@ struct ItemEditorView: View {
     @State private var systemKind: MacOSSystemActionKind
     @State private var snippetText: String
     @State private var showIconPicker = false
+    /// Название, которое подставили за пользователя (домен ссылки, сочетание, начало текста):
+    /// пока оно не изменено вручную, его можно подставлять заново при смене действия.
+    @State private var autoTitle: String?
     @State private var isIconHovered = false
-    @State private var isDeleteHovered = false
     @State private var isBrowseAppHovered = false
-    @State private var iconColorValue: Color
-    @State private var sectorColorHex: String
-    @State private var customShortcutInput: String
+    @State private var isCommandHovered = false
     @EnvironmentObject private var localizer: LocalizationStore
 
     enum ActionType: CaseIterable {
+        /// Только в меню команд: пункт из меню приложения или встроенная команда окна.
+        case appCommand
         case launchApp
         case openURL
         case keystroke
         case systemShortcut
         case snippet
 
+        /// Действия, которые есть у сектора любого меню.
+        static let regular: [ActionType] = allCases.filter { $0 != .appCommand }
+
         func title(_ localizer: LocalizationStore) -> String {
             switch self {
+            case .appCommand:
+                return localizer.text(.actionTypeAppCommand)
             case .launchApp:
                 return localizer.text(.actionTypeApp)
             case .openURL:
@@ -47,18 +75,22 @@ struct ItemEditorView: View {
         }
     }
 
-    init(item: Binding<PieMenuItem>, onClose: (() -> Void)? = nil, onDelete: @escaping () -> Void) {
+    init(
+        item: Binding<PieMenuItem>,
+        themeColor: String = PieMenuItem.paletteColor(for: 0),
+        themeColors: [String] = PieMenuItem.sectorPalette,
+        iconThemeColor: String = PieMenuItem.paletteColor(for: 0),
+        appCommand: AppCommandSlot? = nil,
+        onClose: (() -> Void)? = nil,
+        onDelete: @escaping () -> Void
+    ) {
         _item = item
+        self.themeColor = themeColor
+        self.themeColors = themeColors
+        self.iconThemeColor = iconThemeColor
+        self.appCommand = appCommand
         self.onClose = onClose
         self.onDelete = onDelete
-        _sectorColorHex = State(initialValue: item.wrappedValue.color)
-        _customShortcutInput = State(initialValue: item.wrappedValue.customShortcut ?? "")
-
-        if let hex = item.wrappedValue.iconColor, let c = Color(hex: hex) {
-            _iconColorValue = State(initialValue: c)
-        } else {
-            _iconColorValue = State(initialValue: Color(hex: item.wrappedValue.color) ?? .blue)
-        }
 
         let action = item.wrappedValue.action
         switch action {
@@ -121,83 +153,65 @@ struct ItemEditorView: View {
             _systemKind = State(initialValue: .missionControl)
             _snippetText = State(initialValue: text)
         }
+        if appCommand?.command != nil {
+            _actionType = State(initialValue: .appCommand)
+        }
     }
 
     private var segmentColor: Color {
-        Color(hex: item.color) ?? .blue
+        Color(hex: item.usesThemeColor ? themeColor : item.color) ?? .blue
     }
 
     private var resolvedIconColor: Color {
-        if let hex = item.iconColor, let c = Color(hex: hex) { return c }
-        return segmentColor
+        Color(hex: item.iconColor ?? iconThemeColor) ?? segmentColor
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            PanelHeader(title: localizer.text(.selectedItemParameters), onClose: onClose)
-
-            ScrollView {
-                VStack(alignment: .leading, spacing: DS.Spacing.l) {
-                    formField(label: localizer.text(.actionType)) {
-                        actionTypePicker
-                    }
-
-                    if actionType != .launchApp {
-                        formField(label: localizer.text(.icon)) {
-                            HStack(spacing: DS.Spacing.m) {
-                                iconButton
-                                iconColorPicker
-                            }
-                        }
-                    }
-
-                    // Без типа действия настраивать нечего — поле «Не назначено» только повторяло бы список выше.
-                    if actionType != nil {
-                        formField(label: actionFieldLabel) {
-                            actionFields
-                        }
-                    }
-
-                    formField(label: localizer.text(.sectorColor)) {
-                        SectorColorPickerView(selectedHex: $sectorColorHex)
-                    }
-
-                    formField(label: localizer.text(.customShortcut)) {
-                        customShortcutField
-                    }
-                }
-                .padding(DS.Spacing.l)
+        InspectorPanel(title: localizer.text(.selectedItemParameters), onClose: onClose, onDelete: onDelete) {
+            // Сначала что делает сектор, потом как он выглядит, в конце — клавиша.
+            InspectorField(label: localizer.text(.actionType)) {
+                actionTypePicker
             }
 
-            Spacer(minLength: 0)
+            // Без типа действия настраивать нечего — поле «Не назначено» только повторяло бы список выше.
+            if actionType != nil {
+                InspectorField(label: actionFieldLabel) {
+                    actionFields
+                }
+            }
 
-            Rectangle()
-                .fill(DS.Colors.stroke)
-                .frame(height: DS.Border.hairline)
+            // Название — это подпись сектора под курсором в кольце. Ссылке, сочетанию и тексту оно
+            // подставляется само, а здесь его можно поправить.
+            if actionType != .launchApp {
+                InspectorField(label: localizer.text(.title)) {
+                    ModernTextField(localizer.text(.title), text: $item.title)
+                }
+            }
 
-            deleteButton
-                .padding(.horizontal, DS.Spacing.l)
-                .padding(.vertical, DS.Spacing.m)
+            // У приложения иконка — его собственная.
+            if actionType != .launchApp {
+                InspectorField(label: localizer.text(.icon)) {
+                    iconField
+                }
+            }
+
+            InspectorField(label: localizer.text(.sectorColor)) {
+                SectorColorField(item: $item, themeColor: themeColor, themeColors: themeColors)
+            }
+
+            // Эмодзи и значки приложений рисуются своими цветами — перекрашивать нечего.
+            if actionType != .launchApp, item.hasTintableIcon {
+                InspectorField(label: localizer.text(.iconColorLabel)) {
+                    IconColorField(item: $item, themeColor: iconThemeColor, themeColors: ["#FFFFFF"] + themeColors)
+                }
+            }
+
+            InspectorField(label: localizer.text(.customShortcut)) {
+                CustomShortcutField(value: $item.customShortcut)
+            }
         }
         .onChange(of: actionType) { _ in updateAction() }
         .onChange(of: bundleId) { _ in updateAction() }
-        .onChange(of: iconColorValue) { newColor in
-            item.iconColor = newColor.toHex()
-        }
-        .onChange(of: sectorColorHex) { newHex in
-            item.color = newHex
-        }
-        .onChange(of: customShortcutInput) { newValue in
-            var candidate = PieMenuItem.normalizedCustomShortcut(newValue)
-            if candidate == nil, let last = newValue.last {
-                candidate = PieMenuItem.normalizedCustomShortcut(String(last))
-            }
-            let normalized = candidate ?? ""
-            if normalized != newValue {
-                customShortcutInput = normalized
-            }
-            item.customShortcut = normalized.isEmpty ? nil : normalized
-        }
         .onChange(of: urlString) { newValue in
             updateAction()
             if actionType == .openURL,
@@ -214,9 +228,28 @@ struct ItemEditorView: View {
         .onChange(of: snippetText) { _ in updateAction() }
     }
 
+    /// Названия новых секторов на любом языке: такое название — ещё не название, его можно заменить.
+    private static let placeholderTitles: Set<String> = Set(
+        AppLanguage.allCases.map { LocalizationStore(language: $0).text(.newItem) } + ["New item"]
+    )
+
+    /// Подставить название за пользователя, если он ещё не дал своего.
+    private func suggestTitle(_ suggestion: String?) {
+        let current = item.title.trimmingCharacters(in: .whitespacesAndNewlines)
+        let isPlaceholder = current.isEmpty
+            || current == autoTitle
+            || Self.placeholderTitles.contains { current == $0 || current.hasPrefix($0 + " ") }
+        guard isPlaceholder else { return }
+        let suggestion = suggestion?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        guard !suggestion.isEmpty, suggestion != current else { return }
+        item.title = suggestion
+        autoTitle = suggestion
+    }
+
     private var actionFieldLabel: String {
         guard let actionType else { return localizer.text(.parameters) }
         switch actionType {
+        case .appCommand: return localizer.text(.commandLabel)
         case .launchApp: return localizer.text(.application)
         case .openURL: return localizer.text(.actionTypeUrl)
         case .keystroke: return localizer.text(.keyCombination)
@@ -225,62 +258,55 @@ struct ItemEditorView: View {
         }
     }
 
+    /// В меню команд «Не назначено» нет: сектор — команда приложения или одно из обычных действий.
+    /// Выбор «Команды приложения» открывает список команд; тип меняется, когда команда выбрана.
     private var actionTypePicker: some View {
-        DSPopUpPicker(
-            selection: $actionType,
-            options: [(nil, localizer.text(.unassigned))] + ActionType.allCases.map { (Optional($0), $0.title(localizer)) },
+        let types = appCommand == nil ? ActionType.regular : ActionType.allCases
+        let unassigned: [(ActionType?, String)] = appCommand == nil ? [(nil, localizer.text(.unassigned))] : []
+        return DSPopUpPicker(
+            selection: Binding(
+                get: { actionType },
+                set: { newType in
+                    if newType == .appCommand, let appCommand, appCommand.command == nil {
+                        appCommand.choose()
+                        return
+                    }
+                    actionType = newType
+                }
+            ),
+            options: unassigned + types.map { (Optional($0), $0.title(localizer)) },
             width: nil,
             accessibilityLabel: localizer.text(.actionType)
         )
     }
 
-    private func formField<Content: View>(label: String, @ViewBuilder content: () -> Content) -> some View {
-        VStack(alignment: .leading, spacing: DS.Spacing.xs) {
-            Text(label)
-                .font(DS.Typography.label)
-                .foregroundStyle(.secondary)
-            content()
-        }
-    }
-
-    private var deleteButton: some View {
-        Button(action: onDelete) {
-            HStack(spacing: DS.Spacing.xs) {
-                Image(systemName: "trash")
-                    .font(DS.Typography.label)
-                Text(localizer.text(.deleteItem))
-                    .font(DS.Typography.control)
+    /// Иконка на тёмной плитке в цвете сектора — как в самом кольце: белая иконка видна и в светлой теме.
+    /// Иконка — полем во всю ширину, как соседние: плитка в цвете сектора (так иконка выглядит
+    /// в кольце, и белая видна в светлой теме) и «Сменить иконку».
+    private var iconField: some View {
+        let tile = RoundedRectangle(cornerRadius: DS.Radius.s, style: .continuous)
+        return Button { showIconPicker.toggle() } label: {
+            HStack(spacing: DS.Spacing.s) {
+                IconView(icon: item.icon, size: 14, color: resolvedIconColor)
+                    .frame(width: 22, height: 22)
+                    .background(tile.fill(segmentColor.opacity(0.28)))
+                    .background(tile.fill(Color(white: 0.16)))
+                Text(localizer.text(.changeIcon))
+                    .font(DS.Typography.body)
+                    .foregroundStyle(.primary)
+                    .lineLimit(1)
+                Spacer(minLength: 0)
+                SidebarAppMenuPickerChevronLabel()
             }
-            .foregroundStyle(.red.opacity(isDeleteHovered ? 1.0 : 0.9))
+            .padding(.horizontal, DS.Spacing.fieldInsetHorizontal)
+            .frame(height: DS.Sizing.fieldHeight)
             .frame(maxWidth: .infinity)
-            .padding(.vertical, DS.Spacing.s)
-            .background(Color.red.opacity(isDeleteHovered ? 0.14 : 0.08))
-            .clipShape(RoundedRectangle(cornerRadius: DS.Radius.m, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: DS.Radius.m, style: .continuous)
-                    .strokeBorder(Color.red.opacity(isDeleteHovered ? 0.3 : 0), lineWidth: DS.Border.hairline)
-            )
-        }
-        .buttonStyle(DSPlainButtonStyle())
-        .onHover { isDeleteHovered = $0 }
-        .animation(.easeInOut(duration: 0.12), value: isDeleteHovered)
-    }
-
-    private var iconButton: some View {
-        Button { showIconPicker.toggle() } label: {
-            IconView(
-                icon: item.icon,
-                size: 16,
-                color: resolvedIconColor,
-                appBundleId: actionType == .launchApp && !bundleId.isEmpty ? bundleId : nil
-            )
-            .frame(width: DS.Sizing.fieldHeight, height: DS.Sizing.fieldHeight)
-            .dsFieldChrome(isHovered: isIconHovered)
+            .dsFieldChrome(isHovered: isIconHovered, isFocused: showIconPicker)
+            .contentShape(Rectangle())
         }
         .buttonStyle(DSPlainButtonStyle())
         .onHover { isIconHovered = $0 }
         .animation(.easeInOut(duration: 0.12), value: isIconHovered)
-        .iconOnlyHelp(localizer.text(.changeIcon))
         .popover(isPresented: $showIconPicker) {
             IconPickerView(
                 selectedIcon: $item.icon,
@@ -289,35 +315,12 @@ struct ItemEditorView: View {
         }
     }
 
-    @State private var isColorHovered = false
-
-    private var iconColorPicker: some View {
-        ColorPicker("", selection: $iconColorValue, supportsOpacity: false)
-            .labelsHidden()
-            .scaleEffect(x: DS.Sizing.fieldHeight / 28, y: DS.Sizing.fieldHeight / 28)
-            .frame(width: DS.Sizing.fieldHeight, height: DS.Sizing.fieldHeight)
-            .background(
-                RoundedRectangle(cornerRadius: DS.Radius.m, style: .continuous)
-                    .fill(iconColorValue)
-                    .allowsHitTesting(false)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: DS.Radius.m, style: .continuous)
-                    .strokeBorder(
-                        isColorHovered ? Color.white.opacity(0.3) : Color.black.opacity(0.3),
-                        lineWidth: DS.Border.hairline
-                    )
-                    .allowsHitTesting(false)
-            )
-            .clipShape(RoundedRectangle(cornerRadius: DS.Radius.m, style: .continuous))
-            .onHover { isColorHovered = $0 }
-            .animation(.easeInOut(duration: 0.12), value: isColorHovered)
-    }
-
     @ViewBuilder
     private var actionFields: some View {
         if let actionType {
             switch actionType {
+            case .appCommand:
+                appCommandField
             case .launchApp:
                 Button(action: browseApp) {
                     HStack(spacing: DS.Spacing.s) {
@@ -355,6 +358,13 @@ struct ItemEditorView: View {
                 .buttonStyle(DSPlainButtonStyle())
                 .onHover { isBrowseAppHovered = $0 }
                 .animation(.easeInOut(duration: 0.12), value: isBrowseAppHovered)
+                if !bundleId.isEmpty, !AppIconResolver.shared.isInstalled(bundleIdentifier: bundleId) {
+                    // В кольце такой сектор приглушён и не выбирается — здесь сказано почему.
+                    Label(localizer.text(.appNotInstalled), systemImage: "exclamationmark.triangle")
+                        .font(DS.Typography.caption)
+                        .foregroundStyle(Color.orange)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
 
             case .openURL:
                 ModernTextField("https://...", text: $urlString, updateMode: .onBlur)
@@ -384,6 +394,9 @@ struct ItemEditorView: View {
         }
 
         switch actionType {
+        case .appCommand:
+            // Команду выбирают в списке команд приложения, у пункта действия нет.
+            return
         case .launchApp:
             item.action = .launchApp(bundleIdentifier: bundleId)
             if !bundleId.isEmpty {
@@ -396,8 +409,10 @@ struct ItemEditorView: View {
             }
         case .openURL:
             item.action = .openURL(url: urlString)
+            suggestTitle(URLNormalizer.host(of: urlString))
         case .keystroke:
             item.action = .keystroke(keyCode: keystrokeKeyCode, modifiers: keystrokeModifiers)
+            suggestTitle(HotkeyConfig.keystrokeGlyphString(keyCode: keystrokeKeyCode, modifiers: keystrokeModifiers))
         case .systemShortcut:
             let kind = systemKind.isAvailableInAppStore ? systemKind : .missionControl
             systemKind = kind
@@ -406,6 +421,44 @@ struct ItemEditorView: View {
             item.icon = kind.defaultSFSymbol
         case .snippet:
             item.action = .snippet(text: snippetText)
+            suggestTitle(PieHoverLabelText.excerpt(snippetText))
+        }
+    }
+
+    /// Какая команда у сектора и откуда она; по клику — выбрать другую из списка.
+    @ViewBuilder
+    private var appCommandField: some View {
+        if let appCommand, let command = appCommand.command {
+            Button(action: appCommand.choose) {
+                HStack(spacing: DS.Spacing.s) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(command.title)
+                            .font(DS.Typography.body)
+                            .foregroundStyle(.primary)
+                            .lineLimit(1)
+                        Text(command.isMissing ? localizer.text(.subMenuMissing) : command.caption)
+                            .font(DS.Typography.label)
+                            .foregroundStyle(command.isMissing ? Color.orange : Color.secondary)
+                            .lineLimit(1)
+                    }
+                    Spacer(minLength: 0)
+                    if let shortcut = command.shortcut {
+                        HotkeyCaption(text: shortcut)
+                    }
+                    Image(systemName: "chevron.right")
+                        .font(DS.Typography.caption)
+                        .foregroundStyle(.secondary.opacity(isCommandHovered ? 0.85 : 0.6))
+                }
+                .padding(.horizontal, DS.Spacing.fieldInsetHorizontal)
+                .padding(.vertical, DS.Spacing.s)
+                .frame(minHeight: DS.Sizing.fieldHeight)
+                .frame(maxWidth: .infinity)
+                .dsFieldChrome(isHovered: isCommandHovered)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(DSPlainButtonStyle())
+            .onHover { isCommandHovered = $0 }
+            .animation(.easeInOut(duration: 0.12), value: isCommandHovered)
         }
     }
 
@@ -418,21 +471,9 @@ struct ItemEditorView: View {
         )
     }
 
-    private var customShortcutField: some View {
-        VStack(alignment: .leading, spacing: DS.Spacing.xs) {
-            ShortcutDigitKeyField(placeholder: "A-Z / 0-9", text: $customShortcutInput)
-            Text(localizer.text(.customShortcutHint))
-                .font(DS.Typography.caption)
-                .foregroundStyle(.secondary.opacity(0.8))
-                .fixedSize(horizontal: false, vertical: true)
-        }
-    }
-
+    /// Домен для фавикона — с `www.`: сервисы фавиконов отдают по нему то же, что сайт показывает сам.
     private func extractHost(from urlString: String) -> String? {
-        var s = urlString.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !s.isEmpty else { return nil }
-        if !s.contains("://") { s = "https://" + s }
-        return URL(string: s)?.host
+        URLNormalizer.url(from: urlString)?.host
     }
 
     private func browseApp() {

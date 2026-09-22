@@ -45,6 +45,12 @@ struct SettingsView: View {
             .onChange(of: config.language) { language in
                 localizer.language = language
             }
+            // Панель «Параметры» правит то, что открыто; другое меню или приложение — закрыть её.
+            .onChange(of: selectedAppBundleId) { _ in showAppearancePanel = false }
+            // Сразу, не дожидаясь сохранения конфига: тему видно в самом окне настроек.
+            .onChange(of: config.appearance) { appearance in
+                NSApp.appearance = appearance.nsAppearance
+            }
             .onReceive(NotificationCenter.default.publisher(for: .configurationDidChange)) { _ in
                 let updated = ConfigManager.shared.configuration
                 guard updated != config else { return }
@@ -82,6 +88,7 @@ struct SettingsView: View {
                     showAppearancePanel: $showAppearancePanel,
                     onAddMenu: addMenu,
                     onRemoveMenu: removeMenu,
+                    onDuplicateMenu: duplicateMenu,
                     onAddApp: addApp,
                     onChooseApp: chooseApp,
                     onRemoveApp: removeApp
@@ -100,8 +107,7 @@ struct SettingsView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
 
-            if let selId = selectedMenuId, let i = menuIndex, i < config.menus.count,
-               !showingSystemPreferencesPane, selectedAppBundleId == nil {
+            if let drawer = appearanceDrawerTarget {
                 let drawerW = DS.Sizing.appearanceDrawerWidth
                 Color.black.opacity(0.001)
                     .ignoresSafeArea()
@@ -110,9 +116,12 @@ struct SettingsView: View {
                     .onTapGesture { showAppearancePanel = false }
                     .allowsHitTesting(showAppearancePanel)
 
-                MenuAppearanceControlsView(menu: bindingForMenu(id: selId), onClose: {
-                    showAppearancePanel = false
-                })
+                MenuAppearanceControlsView(
+                    menu: drawer.menu,
+                    themeLibrary: themeLibrary,
+                    lookScope: drawer.lookScope,
+                    onClose: { showAppearancePanel = false }
+                )
                 .frame(width: drawerW)
                 .frame(maxHeight: .infinity)
                 .background(DS.Colors.canvasTop)
@@ -128,6 +137,12 @@ struct SettingsView: View {
                 .allowsHitTesting(showAppearancePanel)
             }
         }
+        // Инспектор сектора и список «Добавить сектор» страница отдаёт сюда: они выезжают там же
+        // и так же, как «Параметры».
+        .sideDrawerHost(
+            width: DS.Sizing.appearanceDrawerWidth,
+            animation: DS.Motion.respectReducing(DS.Motion.slidePanelSpring, reduce: reduceMotion)
+        )
         // Окно уже само ограничено до видимой области экрана (`SettingsWindowController.targetContentSize`);
         // фиксированный размер здесь не давал контенту сжаться вместе с окном на невысоких экранах,
         // и низ сайдбара обрезался. Тянемся на весь предложенный размер, с тем же нижним порогом.
@@ -144,16 +159,17 @@ struct SettingsView: View {
             SystemPreferencesView(
                 appLanguage: $config.language,
                 hapticFeedbackEnabled: $config.hapticFeedbackEnabled,
+                appearance: $config.appearance,
                 onExportSettings: exportSettingsToFile,
                 onImportSettings: importSettingsFromFile
             )
-        } else if let bundleId = selectedAppBundleId, config.appSubMenu(for: bundleId) != nil {
+        } else if let bundleId = selectedAppBundleId, config.appSetMenu(for: bundleId) != nil {
             AppSubMenuEditorView(
                 bundleIdentifier: bundleId,
-                appSubMenus: $config.appSubMenus,
-                appCommandsMenu: config.menus.first(where: \.isAppCommandsMenu)
-                    ?? PieConfiguration.templateAppCommandsMenu(),
+                menu: bindingForAppSet(bundleId),
                 hapticFeedbackEnabled: config.hapticFeedbackEnabled,
+                showAppearancePanel: $showAppearancePanel,
+                customThemes: config.customThemes,
                 onReset: { removeApp(bundleId) }
             )
             .id(bundleId.lowercased())
@@ -164,10 +180,10 @@ struct SettingsView: View {
                 trackpadFingerCount: bindingForTrackpadFingerCount(menuId: selId),
                 trackpadFingerCountOwners: trackpadFingerCountOwners(excludingMenuId: selId),
                 showAppearancePanel: $showAppearancePanel,
-                otherMenuApplyTargets: config.menus.filter { $0.id != selId }.map { ($0.id, menuDisplayName($0)) },
-                onApplySharedSettingsToMenuIds: { ids in
-                    applySharedVisualSettings(fromMenuIndex: i, toMenuIds: ids)
-                }
+                customThemes: config.customThemes,
+                onDelete: config.menus[i].isDynamicMenu ? nil : { removeMenu(selId) },
+                onDuplicate: config.menus[i].isDynamicMenu ? nil : { duplicateMenu(selId) },
+                hotkeyConflictMenuName: config.menuSharingHotkey(with: config.menus[i]).map(menuDisplayName)
             )
             .id(selId)
             .onChange(of: selId) { _ in showAppearancePanel = false }
@@ -187,6 +203,52 @@ struct SettingsView: View {
         case .runningApps: return localizer.text(.activeAppsMenuTitle)
         case .appCommands: return localizer.text(.appCommandsMenuTitle)
         }
+    }
+
+    /// Свои темы: сохранение темы расходится по всем её меню, удаление отвязывает их.
+    private var themeLibrary: ThemeLibrary {
+        ThemeLibrary(
+            themes: config.customThemes,
+            create: { name, menu in config.createTheme(named: name, from: menu) },
+            rename: { id, name in
+                if let index = config.customThemes.firstIndex(where: { $0.id == id }) {
+                    config.customThemes[index].name = name
+                }
+            },
+            save: { id, menu in config.saveTheme(id, from: menu) },
+            delete: { id in config.deleteTheme(id) }
+        )
+    }
+
+    /// Что правит панель «Параметры»: открытый набор приложения (со своим или общим видом)
+    /// или выбранное меню.
+    private var appearanceDrawerTarget: (menu: Binding<PieMenu>, lookScope: MenuAppearanceControlsView.LookScope?)? {
+        guard !showingSystemPreferencesPane else { return nil }
+        if let bundleId = selectedAppBundleId {
+            guard config.appSetMenu(for: bundleId) != nil else { return nil }
+            let scope = MenuAppearanceControlsView.LookScope(
+                appName: AppSubMenuEditorView.appName(for: bundleId),
+                hasOwnLook: Binding(
+                    get: { config.appSubMenu(for: bundleId)?.look != nil },
+                    set: { config.setAppSetHasOwnLook($0, for: bundleId) }
+                )
+            )
+            return (bindingForAppSet(bundleId), scope)
+        }
+        guard let id = selectedMenuId, config.menus.contains(where: { $0.id == id }) else { return nil }
+        return (bindingForMenu(id: id), nil)
+    }
+
+    /// Набор приложения как меню: команды и поворот пишутся в набор, вид — в свой вид набора или в общее меню.
+    private func bindingForAppSet(_ bundleId: String) -> Binding<PieMenu> {
+        Binding(
+            get: { config.appSetMenu(for: bundleId) ?? PieConfiguration.templateAppCommandsMenu() },
+            set: { newValue in
+                var next = config
+                next.updateAppSetMenu(newValue, for: bundleId)
+                config = next
+            }
+        )
     }
 
     /// Binding по `id`, чтобы после удаления/перестановки меню не обращаться к `menus[i]` с устаревшим индексом.
@@ -277,6 +339,7 @@ struct SettingsView: View {
         )
         if let template = PieMenu.mainTemplateMenu(from: config.menus) {
             menu.applySharedVisualSettings(from: template)
+            menu.themeID = template.themeID
         }
         menu.rotationDegrees = 0
         let standardCount = config.menus.filter { !$0.isDynamicMenu }.count
@@ -343,6 +406,18 @@ struct SettingsView: View {
         }
     }
 
+    /// Копия сразу под оригиналом, без сочетания и жеста — их назначают копии отдельно.
+    private func duplicateMenu(_ id: UUID) {
+        guard let original = config.menus.first(where: { $0.id == id }), !original.isDynamicMenu else { return }
+        let name = String(format: localizer.text(.copySuffixFormat), original.name)
+        withoutAnimation {
+            guard let copy = config.duplicateMenu(id: id, name: name) else { return }
+            showingSystemPreferencesPane = false
+            selectedAppBundleId = nil
+            selectedMenuId = copy.id
+        }
+    }
+
     private func removeMenu(_ id: UUID) {
         guard let target = config.menus.first(where: { $0.id == id }), !target.isDynamicMenu else { return }
         withoutAnimation {
@@ -350,14 +425,6 @@ struct SettingsView: View {
             if selectedMenuId == id {
                 selectedMenuId = config.menus.first?.id
             }
-        }
-    }
-
-    private func applySharedVisualSettings(fromMenuIndex sourceIndex: Int, toMenuIds: Set<UUID>) {
-        guard sourceIndex < config.menus.count else { return }
-        let template = config.menus[sourceIndex]
-        for j in config.menus.indices where toMenuIds.contains(config.menus[j].id) {
-            config.menus[j].applySharedVisualSettings(from: template)
         }
     }
 

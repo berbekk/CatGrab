@@ -24,6 +24,9 @@ struct PieSubAction: Identifiable, Equatable {
         case tileWindow(AXUIElement, WindowTile)
         case hideApp
         case quitApp
+        /// Своё действие сектора (приложение, ссылка, сочетание, действие macOS, текст) — выполняется
+        /// как пункт обычного меню.
+        case customAction(PieMenuItem)
         /// Команда из своего набора, которая сейчас недоступна: нет окна, пункт выключен или пропал из меню.
         /// Сектор остаётся на месте приглушённым, чтобы остальные не сдвигались.
         case unavailable
@@ -37,6 +40,7 @@ struct PieSubAction: Identifiable, Equatable {
                 return CFEqual(a, b)
             case let (.tileWindow(a, tileA), .tileWindow(b, tileB)):
                 return tileA == tileB && CFEqual(a, b)
+            case let (.customAction(a), .customAction(b)): return a == b
             case (.hideApp, .hideApp), (.quitApp, .quitApp), (.unavailable, .unavailable): return true
             default: return false
             }

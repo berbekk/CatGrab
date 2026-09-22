@@ -33,8 +33,7 @@ struct IconView: View {
         } else if icon.hasPrefix("file:"), icon.count > 5 {
             let path = String(icon.dropFirst(5))
             let faviconScale = FaviconDownloader.isFaviconCacheFilePath(path) ? DS.PieIconVisualScale.favicon : 1
-            if FileManager.default.fileExists(atPath: path),
-               let nsImage = NSImage(contentsOfFile: path) {
+            if let nsImage = FileIconCache.shared.image(atPath: path) {
                 Image(nsImage: nsImage)
                     .resizable()
                     .scaledToFit()
@@ -53,9 +52,16 @@ struct IconView: View {
                 .font(.system(size: size * DS.PieIconVisualScale.sfSymbol))
                 .foregroundStyle(.quaternary)
         } else if icon.allSatisfy({ $0.isASCII }) {
+            // Вписываем символ в квадрат, а не задаём размер шрифтом: широкие символы (горы, звёзды,
+            // палочка) по размеру шрифта выходят шире ячейки и крупнее иконок приложений.
+            // Только насыщенность, без размера шрифта: размер шрифта не анимируется, и при наведении
+            // символ перескакивал бы на новый размер рывком, а рамка плавно догоняла.
             Image(systemName: icon)
-                .font(.system(size: size * DS.PieIconVisualScale.sfSymbol, weight: .medium))
+                .resizable()
+                .scaledToFit()
+                .fontWeight(.medium)
                 .foregroundStyle(color)
+                .frame(width: size * DS.PieIconVisualScale.sfSymbol, height: size * DS.PieIconVisualScale.sfSymbol)
         } else {
             Text(icon)
                 .font(.system(size: size))
@@ -127,6 +133,8 @@ class FaviconDownloader {
                 }
                 DispatchQueue.main.async {
                     self?.activeTasks.removeValue(forKey: domain)
+                    // Кэш мог запомнить, что файла по этому пути нет.
+                    FileIconCache.shared.invalidate(path: savePath)
                     completion(savePath)
                 }
             } else {

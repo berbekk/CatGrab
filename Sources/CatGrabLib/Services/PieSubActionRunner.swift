@@ -50,7 +50,8 @@ enum PieSubActionRunner {
         case .quitApp:
             app.terminate()
             returnFocus(to: previousApp, leaving: app)
-        case .unavailable:
+        case .unavailable, .customAction:
+            // Своё действие выполняет AppDelegate так же, как пункт обычного меню.
             returnFocus(to: previousApp, leaving: app)
         }
     }

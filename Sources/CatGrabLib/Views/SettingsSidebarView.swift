@@ -16,7 +16,6 @@ struct SettingsSidebarView: View {
     @State private var renamingDraft: String = ""
     @FocusState private var renameFieldFocused: Bool
     @State private var isAddMenuRowHovered = false
-    @State private var isDeleteMenuButtonHovered = false
     @State private var isSystemPrefsRowHovered = false
     @State private var measuredSidebarMenuHeight: CGFloat = 0
 
@@ -24,6 +23,7 @@ struct SettingsSidebarView: View {
 
     var onAddMenu: () -> Void
     var onRemoveMenu: (UUID) -> Void
+    var onDuplicateMenu: (UUID) -> Void
     /// Свой набор команд для приложения: создать или открыть, если уже есть.
     var onAddApp: (String) -> Void
     var onChooseApp: () -> Void
@@ -65,7 +65,7 @@ struct SettingsSidebarView: View {
                 Spacer(minLength: 0)
 
                 VStack(spacing: 0) {
-                    sidebarAddDeleteBar
+                    sidebarAddMenuBar
 
                     Color.clear
                         .frame(height: DS.Sizing.sidebarFooterVerticalGutter)
@@ -92,13 +92,10 @@ struct SettingsSidebarView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
-    private var sidebarAddDeleteBar: some View {
+    /// «Новое меню» во всю ширину. Удаляют меню на его странице справа (и правым кликом в списке).
+    private var sidebarAddMenuBar: some View {
         let rowShape = RoundedRectangle(cornerRadius: DS.Radius.m, style: .continuous)
         let baseFill = Color.primary.opacity(0.04)
-        let selectedIsDynamic = highlightedMenuId.flatMap { sid in
-            config.menus.first { $0.id == sid }?.isDynamicMenu
-        } ?? true
-        let canDelete = highlightedAppBundleId != nil || !selectedIsDynamic
 
         return HStack(alignment: .top, spacing: DS.Spacing.s) {
             Button(action: onAddMenu) {
@@ -134,53 +131,10 @@ struct SettingsSidebarView: View {
             .onHover { isAddMenuRowHovered = $0 }
             .pointingHandCursor()
             .frame(maxWidth: .infinity)
-
-            Button(role: .destructive) {
-                if let bundleId = highlightedAppBundleId {
-                    onRemoveApp(bundleId)
-                } else if let id = highlightedMenuId {
-                    onRemoveMenu(id)
-                }
-            } label: {
-                let destructiveStroke = canDelete
-                    ? Color.red.opacity(isDeleteMenuButtonHovered ? 0.42 : 0.28)
-                    : DS.Colors.stroke
-                Image(systemName: "trash")
-                    .font(.system(size: DS.Sizing.sidebarIconGlyph, weight: .semibold))
-                    .symbolRenderingMode(.monochrome)
-                    .foregroundStyle(
-                        canDelete
-                            ? Color.red.opacity(isDeleteMenuButtonHovered ? 1.0 : 0.88)
-                            : Color.primary.opacity(0.35)
-                    )
-                    .frame(width: DS.Sizing.sidebarRowMinHeight, height: DS.Sizing.sidebarRowMinHeight)
-                    .background(
-                        rowShape.fill(
-                            canDelete
-                                ? Color.red.opacity(isDeleteMenuButtonHovered ? 0.16 : 0.1)
-                                : baseFill
-                        )
-                    )
-                    .overlay(
-                        rowShape.strokeBorder(destructiveStroke, lineWidth: DS.Border.hairline)
-                    )
-                    .contentShape(rowShape)
-            }
-            .buttonStyle(DSPlainButtonStyle())
-            .accessibilityLabel(localizer.text(.delete))
-            .disabled(!canDelete)
-            .onHover {
-                guard canDelete else {
-                    isDeleteMenuButtonHovered = false
-                    return
-                }
-                isDeleteMenuButtonHovered = $0
-            }
         }
         .padding(.horizontal, DS.Sizing.sidebarHorizontalPadding)
         .padding(.top, DS.Spacing.s)
         .animation(.easeInOut(duration: 0.15), value: isAddMenuRowHovered)
-        .animation(.easeInOut(duration: 0.15), value: isDeleteMenuButtonHovered)
     }
 
     /// Такая же строка, как у меню и приложений: плитка-иконка слева, выбор — той же заливкой и рамкой.
@@ -533,6 +487,10 @@ struct SettingsSidebarView: View {
         }
         .contextMenu {
             if !menu.isDynamicMenu {
+                Button { onDuplicateMenu(menu.id) } label: {
+                    Label(localizer.text(.duplicateMenu), systemImage: "plus.square.on.square")
+                }
+                Divider()
                 Button(role: .destructive) { onRemoveMenu(menu.id) } label: {
                     Label(localizer.text(.delete), systemImage: "trash")
                 }
@@ -574,15 +532,7 @@ struct SettingsSidebarView: View {
     }
 
     private func sidebarIcon(_ menu: PieMenu) -> some View {
-        switch menu.kind {
-        case .appCommands:
-            return sidebarIconTile(symbol: "command", fill: Color(nsColor: .systemIndigo), weight: .semibold)
-        case .runningApps:
-            return sidebarIconTile(symbol: "square.stack.3d.up.fill", fill: Color(nsColor: .systemTeal))
-        case .standard:
-            let fill = menu.globalSidebarIconColorHex.flatMap { Color(hex: $0) } ?? DS.Colors.blueAccent
-            return sidebarIconTile(symbol: "globe", fill: fill)
-        }
+        MenuIconTile(menu: menu)
     }
 
     /// Цветная плитка с белым символом — одна у всех строк сайдбара.

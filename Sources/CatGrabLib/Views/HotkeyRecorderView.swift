@@ -182,33 +182,23 @@ struct HotkeyRecorderView: View {
                         }
                         .help(localizer.text(.reset))
                     }
-                    Menu {
-                        Section {
-                            Button {
-                                hotkey = HotkeyConfig(keyCode: KeyCodes.tab, carbonModifiers: CarbonModifiers.command)
-                            } label: {
-                                Label("⌘ Tab", systemImage: "arrow.left.arrow.right")
-                            }
-                            Button {
-                                hotkey = HotkeyConfig(keyCode: KeyCodes.tab, carbonModifiers: CarbonModifiers.command | CarbonModifiers.shift)
-                            } label: {
-                                Label("⇧⌘ Tab", systemImage: "arrow.left.arrow.right")
-                            }
+                    // Шеврон рисует SwiftUI, меню — `PopUpMenuHost`, как в `DSPopUpPicker`: у SwiftUI `Menu`
+                    // AppKit перерисовывает подпись сам, и шеврон выходил крупнее и темнее соседних.
+                    SidebarAppMenuPickerChevronLabel()
+                        .overlay {
+                            PopUpMenuHost(
+                                titles: Self.presetTitles,
+                                selectedIndex: nil,
+                                symbols: [0: "arrow.left.arrow.right", 1: "arrow.left.arrow.right"],
+                                separatorsBefore: [Self.tabPresetCount],
+                                toolTip: localizer.text(.hotkeyPickerMenuHelp),
+                                accessibilityLabel: localizer.text(.hotkeyPickerMenuHelp),
+                                onSelect: applyPreset,
+                                onHover: { _ in }
+                            )
+                            // Во всю высоту поля — меню открывается ровно под ним.
+                            .frame(height: DS.Sizing.fieldHeight)
                         }
-                        Section {
-                            ForEach(HotkeyConfig.functionKeyVirtualCodes, id: \.code) { entry in
-                                Button(entry.label) {
-                                    let mods = hotkey.isEmpty ? 0 : hotkey.carbonModifiers
-                                    hotkey = HotkeyConfig(keyCode: entry.code, carbonModifiers: mods)
-                                }
-                            }
-                        }
-                    } label: {
-                        SidebarAppMenuPickerChevronLabel()
-                    }
-                    .menuStyle(.borderlessButton)
-                    .menuIndicator(.hidden)
-                    .iconOnlyHelp(localizer.text(.hotkeyPickerMenuHelp))
                 }
             }
         }
@@ -232,6 +222,26 @@ struct HotkeyRecorderView: View {
 
     private func toggle() {
         if engine.isRecording { engine.stop() } else { engine.start() }
+    }
+
+    /// Готовые варианты в меню шеврона: ⌘Tab и ⇧⌘Tab, за разделителем — одиночные клавиши.
+    private static let tabPresetCount = 2
+    private static let presetTitles = ["⌘ Tab", "⇧⌘ Tab"] + HotkeyConfig.functionKeyVirtualCodes.map(\.label)
+
+    private func applyPreset(_ index: Int) {
+        switch index {
+        case 0:
+            hotkey = HotkeyConfig(keyCode: KeyCodes.tab, carbonModifiers: CarbonModifiers.command)
+        case 1:
+            hotkey = HotkeyConfig(keyCode: KeyCodes.tab, carbonModifiers: CarbonModifiers.command | CarbonModifiers.shift)
+        default:
+            let keys = HotkeyConfig.functionKeyVirtualCodes
+            let keyIndex = index - Self.tabPresetCount
+            guard keys.indices.contains(keyIndex) else { return }
+            // Одиночная клавиша сохраняет уже заданные модификаторы.
+            let mods = hotkey.isEmpty ? 0 : hotkey.carbonModifiers
+            hotkey = HotkeyConfig(keyCode: keys[keyIndex].code, carbonModifiers: mods)
+        }
     }
 }
 

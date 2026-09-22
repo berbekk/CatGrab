@@ -1,4 +1,4 @@
-.PHONY: build run install test lint dmg verify-release clean
+.PHONY: build run install test lint dmg verify-release site clean
 
 build:           ## Build build/CatGrab.app for this Mac
 	./build.sh
@@ -21,5 +21,10 @@ dmg:             ## Universal build/CatGrab.dmg for distribution
 verify-release:  ## Check build/CatGrab.dmg the way users receive it
 	./scripts/verify-release.sh
 
+site:            ## Preview the website at http://localhost:8000
+	mkdir -p site/assets
+	cp docs/screenshots/*.png site/assets/ && cp design/icon.png site/assets/icon.png
+	python3 -m http.server 8000 --directory site
+
 clean:
-	rm -rf .build build
+	rm -rf .build build site/assets

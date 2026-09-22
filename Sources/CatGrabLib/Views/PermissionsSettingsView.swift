@@ -6,6 +6,7 @@ struct PermissionsSettingsView: View {
     @EnvironmentObject private var localizer: LocalizationStore
     @Binding var appLanguage: AppLanguage
     @Binding var hapticFeedbackEnabled: Bool
+    @Binding var appearance: AppAppearance
     let onExportSettings: () -> Void
     let onImportSettings: () -> Void
 
@@ -28,6 +29,14 @@ struct PermissionsSettingsView: View {
                                 selection: $appLanguage,
                                 options: AppLanguage.allCases.map { ($0, $0.displayName) },
                                 accessibilityLabel: localizer.text(.language)
+                            )
+                        }
+                        SettingsRowDivider()
+                        SettingsRow(localizer.text(.interfaceAppearance)) {
+                            DSPopUpPicker(
+                                selection: $appearance,
+                                options: AppAppearance.allCases.map { ($0, appearanceTitle($0)) },
+                                accessibilityLabel: localizer.text(.interfaceAppearance)
                             )
                         }
                         SettingsRowDivider()
@@ -58,6 +67,9 @@ struct PermissionsSettingsView: View {
                         }
                     }
                 }
+
+                DSSectionHeader(title: localizer.text(.aboutSection), topInset: DS.Spacing.xl)
+                AboutAppCard()
             }
             .padding(.horizontal, DS.Spacing.l)
             .padding(.top, DS.Spacing.s)
@@ -74,6 +86,14 @@ struct PermissionsSettingsView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
             refreshLaunchAtLogin()
+        }
+    }
+
+    private func appearanceTitle(_ appearance: AppAppearance) -> String {
+        switch appearance {
+        case .system: return localizer.text(.interfaceAppearanceSystem)
+        case .light: return localizer.text(.interfaceAppearanceLight)
+        case .dark: return localizer.text(.interfaceAppearanceDark)
         }
     }
 

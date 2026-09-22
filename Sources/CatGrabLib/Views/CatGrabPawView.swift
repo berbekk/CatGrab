@@ -5,6 +5,7 @@ import SwiftUI
 /// Контуры сняты с рисунка и заданы в квадрате 1×1 (рисунок вписан по высоте и отцентрован).
 struct CatGrabPawView: View {
     let size: CGFloat
+    var pawColor: Color = .black
 
     /// Обводка как у мордочки (`PieCenterCatEyesView`): на тёмном центре меню без неё ладонь теряется.
     private static let outlineWhiteOpacity: CGFloat = 0.24
@@ -13,7 +14,7 @@ struct CatGrabPawView: View {
     var body: some View {
         ZStack {
             CatGrabPawShape(points: CatGrabPawGeometry.outline)
-                .fill(Color.black)
+                .fill(pawColor)
                 .overlay {
                     CatGrabPawShape(points: CatGrabPawGeometry.outline)
                         .stroke(Color.white.opacity(Self.outlineWhiteOpacity), lineWidth: Self.outlineWidth)

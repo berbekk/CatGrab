@@ -10,7 +10,6 @@ struct MouseTrackingOverlay: NSViewRepresentable {
     let items: [PieMenuItem]
     /// Только для меню запущенных приложений: в центральном круге подсвечивается первый сектор.
     var innerCircleHighlightsFirstSector: Bool = false
-    var hapticFeedbackEnabled: Bool = true
     /// Позиция курсора в координатах того же SwiftUI-пространства, что и `center`.
     var onPointerLocationUpdate: ((CGPoint) -> Void)?
     let onHover: (Int?) -> Void
@@ -19,23 +18,16 @@ struct MouseTrackingOverlay: NSViewRepresentable {
 
     func makeNSView(context: Context) -> NSView {
         let view = MouseTrackingNSView()
-        view.center = center
-        view.radius = radius
-        view.innerRadius = innerRadius
-        view.sectorCount = sectorCount
-        view.rotationDegrees = rotationDegrees
-        view.items = items
-        view.innerCircleHighlightsFirstSector = innerCircleHighlightsFirstSector
-        view.hapticFeedbackEnabled = hapticFeedbackEnabled
-        view.onPointerLocationUpdate = onPointerLocationUpdate
-        view.onHover = onHover
-        view.onSelect = onSelect
-        view.onDismiss = onDismiss
+        apply(to: view)
         return view
     }
 
     func updateNSView(_ nsView: NSView, context: Context) {
         guard let view = nsView as? MouseTrackingNSView else { return }
+        apply(to: view)
+    }
+
+    private func apply(to view: MouseTrackingNSView) {
         view.center = center
         view.radius = radius
         view.innerRadius = innerRadius
@@ -43,7 +35,6 @@ struct MouseTrackingOverlay: NSViewRepresentable {
         view.rotationDegrees = rotationDegrees
         view.items = items
         view.innerCircleHighlightsFirstSector = innerCircleHighlightsFirstSector
-        view.hapticFeedbackEnabled = hapticFeedbackEnabled
         view.onPointerLocationUpdate = onPointerLocationUpdate
         view.onHover = onHover
         view.onSelect = onSelect
@@ -51,6 +42,9 @@ struct MouseTrackingOverlay: NSViewRepresentable {
     }
 }
 
+/// Курсор над кольцом. Сектор выбирается по направлению от центра, на любом расстоянии: кольцо
+/// можно «пролететь» мышью, не целясь в него. Внутри центрального круга — ничего не выбрано,
+/// и клик или отпускание хоткея там закрывают меню. Правая кнопка тоже закрывает.
 final class MouseTrackingNSView: NSView {
     override var isFlipped: Bool { true }
     var center: CGPoint = .zero
@@ -60,13 +54,11 @@ final class MouseTrackingNSView: NSView {
     var rotationDegrees: Double = 0
     var items: [PieMenuItem] = []
     var innerCircleHighlightsFirstSector = false
-    var hapticFeedbackEnabled = true
     var onPointerLocationUpdate: ((CGPoint) -> Void)?
     var onHover: ((Int?) -> Void)?
     var onSelect: ((PieMenuItem) -> Void)?
     var onDismiss: (() -> Void)?
     private var trackingArea: NSTrackingArea?
-    private var lastHoveredSectorIndex: Int?
 
     override func updateTrackingAreas() {
         super.updateTrackingAreas()
@@ -101,17 +93,7 @@ final class MouseTrackingNSView: NSView {
     override func mouseMoved(with event: NSEvent) {
         let location = convert(event.locationInWindow, from: nil)
         onPointerLocationUpdate?(location)
-        let sectorIndex = hoverSectorIndex(at: location)
-        if sectorIndex != lastHoveredSectorIndex {
-            lastHoveredSectorIndex = sectorIndex
-            if sectorIndex != nil, hapticFeedbackEnabled {
-                NSHapticFeedbackManager.defaultPerformer.perform(
-                    .levelChange,
-                    performanceTime: .default
-                )
-            }
-        }
-        onHover?(sectorIndex)
+        onHover?(sectorIndex(at: location))
     }
 
     override func mouseEntered(with event: NSEvent) {
@@ -119,7 +101,6 @@ final class MouseTrackingNSView: NSView {
     }
 
     override func mouseExited(with event: NSEvent) {
-        lastHoveredSectorIndex = nil
         onHover?(nil)
         onPointerLocationUpdate?(center)
     }
@@ -142,26 +123,8 @@ final class MouseTrackingNSView: NSView {
         }
     }
 
-    private func hoverSectorIndex(at point: NSPoint) -> Int? {
-        let dx = point.x - center.x
-        let dy = point.y - center.y
-        let dist = sqrt(dx * dx + dy * dy)
-        if dist < innerRadius {
-            return innerCircleHighlightsFirstSector ? 0 : nil
-        }
-        let rotationRadians = rotationDegrees * .pi / 180
-        let angleNorm = PieSectorLayout.normalizePointerAngle(
-            atan2Angle: atan2(dy, dx),
-            rotationRadians: rotationRadians
-        )
-        return PieSectorLayout.sectorIndex(
-            angleNorm: angleNorm,
-            radius: dist,
-            sectorCount: sectorCount,
-            innerRadius: innerRadius,
-            outerRadius: radius,
-            ignoreAngularGaps: true
-        )
+    override func rightMouseDown(with event: NSEvent) {
+        onDismiss?()
     }
 
     private func sectorIndex(at point: NSPoint) -> Int? {

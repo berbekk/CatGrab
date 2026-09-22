@@ -25,7 +25,7 @@ extension PieMenu {
     }
 
     mutating func snapRotationToAestheticAnchor() {
-        let count = items.count
+        let count = sectorCount
         guard count > 0 else { return }
         rotationDegrees = Self.snappedAestheticRotationDegrees(
             raw: rotationDegrees,

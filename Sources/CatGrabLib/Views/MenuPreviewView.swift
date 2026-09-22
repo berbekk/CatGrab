@@ -6,12 +6,9 @@ struct MenuPreviewView: View {
     @Binding var selectedItemId: UUID?
     var hapticFeedbackEnabled: Bool
     var isAppearancePanelVisible: Bool
-    var onToggleAppearancePanel: () -> Void
+    /// Клик по коту в центре: новый пункт (у меню команд — список, что добавить).
     var onAddItem: (() -> Void)?
-    /// Действия «применить общие настройки меню» к другим меню; `nil` — кнопка скрыта.
-    var applySharedStyleActions: (applyToAll: () -> Void, chooseTargets: () -> Void)?
-    /// Набор команд одного приложения (`menu` — меню команд с командами и поворотом этого набора):
-    /// в центре — само приложение, сектор можно выбрать; вид меню настраивается в самом меню команд.
+    /// Набор команд одного приложения (`menu` — меню команд этого набора): в центре — само приложение.
     var appSetBundleId: String?
     @EnvironmentObject private var localizer: LocalizationStore
 
@@ -52,7 +49,12 @@ struct MenuPreviewView: View {
         appSetBundleId != nil
     }
 
+    /// Секторы в цветах меню — так же, как их покажет само кольцо.
     private var previewItems: [PieMenuItem] {
+        menu.themed(sourceItems)
+    }
+
+    private var sourceItems: [PieMenuItem] {
         if menu.isRunningAppsMenu {
             return liveRunningAppsItems.isEmpty ? Self.ghostItems : liveRunningAppsItems
         }
@@ -171,50 +173,46 @@ struct MenuPreviewView: View {
         return sorted
     }
 
-    private static let addButtonSize: CGFloat = 48
-
     @State private var hoveredSectorIndex: Int?
+    /// Последний сектор под курсором — лапка остаётся на нём, когда курсор уходит с кольца,
+    /// вместо того чтобы прыгать на первый сектор.
+    @State private var lastPawSectorIndex = 0
     @State private var isCenterHovered = false
-    @State private var isSettingsButtonHovered = false
-    @State private var isApplySharedStyleHovered = false
+    @State private var showsHints = false
+    /// Фон «светлый | тёмный» под превью и где между ними граница — общие для всех меню.
+    @AppStorage("previewBackdropEnabled") private var showsBackdrop = false
+    @AppStorage("previewBackdropSplit") private var backdropSplit = 0.5
     /// Для глаз кота в превью; `nil` — взгляд в центр (как без наведения).
     @State private var pointerForCatEyes: CGPoint?
 
     var body: some View {
         VStack(spacing: 0) {
             ZStack {
+                if showsBackdrop {
+                    PreviewBackdrop(split: backdropSplit)
+                }
+
                 wheelCanvas
 
-                VStack(alignment: .leading, spacing: DS.Spacing.xs) {
-                    if isAppSet {
-                        Text(localizer.text(.dragToReorder))
-                    } else if menu.isRunningAppsMenu {
-                        Text(localizer.text(.runningAppsEditorHint))
-                    } else if menu.isAppCommandsMenu {
-                        Text(localizer.text(.appCommandsPreviewHint))
-                        Text(localizer.text(.dragToReorder))
-                    } else if !menu.items.isEmpty {
-                        Text(localizer.text(.tapSectorToEdit))
-                        Text(localizer.text(.dragToReorder))
-                    }
-                    Text(localizer.text(.optionDragToRotate))
+                if showsBackdrop {
+                    PreviewBackdropHandle(split: $backdropSplit)
                 }
-                .font(DS.Typography.label)
-                .foregroundStyle(.secondary)
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                .allowsHitTesting(false)
 
-                VStack(alignment: .trailing, spacing: DS.Spacing.s) {
-                    if !isAppSet {
-                        settingsToggleButton
+                // Подсказки — по кнопке: текстом поверх превью на них наезжали секторы крупного кольца.
+                HStack(alignment: .top, spacing: DS.Spacing.s) {
+                    hintsButton
+                    PreviewToolbarButton(
+                        icon: "circle.lefthalf.filled",
+                        isActive: showsBackdrop,
+                        help: localizer.text(.previewBackdropHelp)
+                    ) {
+                        showsBackdrop.toggle()
                     }
-                    if applySharedStyleActions != nil {
-                        applySharedStyleToolbarButton
-                    }
+                    Spacer(minLength: 0)
                 }
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                .padding(.horizontal, DS.Spacing.s)
                 .padding(.top, DS.Spacing.s)
-                .padding(.trailing, DS.Spacing.s)
             }
             .frame(maxHeight: .infinity)
 
@@ -245,8 +243,6 @@ struct MenuPreviewView: View {
             let cy = geo.size.height / 2
             let drawRadius = displayRadius * scale
             let drawInnerRadius = menu.effectiveInnerRadius * scale
-            let drawHubRadius = CGFloat(centerCircleRadius) * CGFloat(scale)
-            let addDim = min(CGFloat(Self.addButtonSize) * CGFloat(scale), drawHubRadius * 2 * 0.88)
             let drawIconDist = drawInnerRadius + (drawRadius - drawInnerRadius) * menu.iconDistance
             let drawCornerRadius = min(CGFloat(DS.Pie.sectorCornerRadius) * scale, CGFloat(drawRadius * 0.11))
             let currentDropIndex = dropIndex
@@ -261,16 +257,38 @@ struct MenuPreviewView: View {
                 }
             }()
             let resolvedLabels = PieMenu.resolvedShortcutLabels(for: itemsToShow)
-            /// Сектор, на котором всегда показываем лапку в превью (без наведения), чтобы настраивать вид в панели параметров.
+            /// Сектор с лапкой: под курсором — как в живом меню; иначе выбранный, а без выбора —
+            /// там же, где лапка была до того, как курсор ушёл с кольца (не прыгает на первый).
             let pawPreviewSectorIndex: Int = {
+                if let hovered = hoveredSectorIndex, hovered < itemsToShow.count {
+                    return hovered
+                }
                 if let sid = selectedItemId,
                    let idx = itemsToShow.firstIndex(where: { $0.id == sid }) {
                     return idx
                 }
-                return 0
+                return min(lastPawSectorIndex, max(0, itemsToShow.count - 1))
             }()
+            // Одна и та же лапка меняет положение, а не пересоздаётся в другом секторе на каждый
+            // ховер: иначе перекрёстное появление/исчезание старой и новой лапки на быстром движении
+            // мыши между секторами мелькает чёрным (тень лапки поверх тени лапки).
+            let pawRingWidth = max(1, drawRadius - drawInnerRadius)
+            let pawSizeRatio = PieMenu.clampedPawSizeScale(menu.pawSizeScale) / PieMenu.defaultPawSizeScale
+            let pawSize = max(6, pawRingWidth * CGFloat(PieMenu.pawSizeBaseFromRingWidth) * CGFloat(pawSizeRatio))
+            let pawDist = PieMenu.pawRadialDistanceFromMenuCenter(
+                pawRadialInset: menu.pawRadialInset,
+                outerRadius: Double(drawRadius)
+            )
 
             ZStack {
+                glassLayer(
+                    items: itemsToShow,
+                    innerRadius: drawInnerRadius,
+                    outerRadius: drawRadius,
+                    cornerRadius: drawCornerRadius
+                )
+                .animation(DS.Motion.sectorHighlight, value: hoveredSectorIndex)
+
                 Group {
                     ForEach(Array(itemsToShow.enumerated()), id: \.element.id) { index, item in
                         let segmentColor = Color(hex: item.color) ?? .accentColor
@@ -334,31 +352,20 @@ struct MenuPreviewView: View {
                         )
                         let shortcutColor = Color(hex: menu.shortcutDigitColorHex) ?? .white
                         let isUnassignedSlot = !isGhost && item.action == .unassigned
-                        let sectorFillOpacityFactor: Double = {
-                            if isGhost { return 0.25 }
-                            if isUnassignedSlot { return DS.Pie.unassignedSectorFillOpacityFactor }
-                            return 1
-                        }()
                         let borderDim = isUnassignedSlot ? DS.Pie.unassignedSectorBorderOpacityMultiplier : 1.0
-                        let iconRender = CGFloat(menu.effectiveIconSize) * scale + (isHovered ? 4 : 0)
+                        let iconRender = CGFloat(menu.fittedIconSize(sectorCount: previewSectorCount)) * scale
+                            + (isHovered ? CGFloat(DS.Pie.highlightIconGrowth) : 0)
 
                         ZStack {
                             Group {
-                                PieSectorFillView(
-                                    startAngle: drawStart,
-                                    endAngle: drawEnd,
-                                    innerRadius: drawInnerRadius,
-                                    outerRadius: drawRadius,
-                                    cornerRadius: drawCornerRadius,
-                                    tintColor: segmentColor,
-                                    fillOpacityFactor: sectorFillOpacityFactor,
-                                    glassSettings: menu.liquidGlass,
-                                    interactiveGlass: !isGhost
+                                // Как в самом кольце: цвет выделения — слоем поверх неизменного стекла.
+                                sectorShape.fill(
+                                    segmentColor.opacity(isHovered || isSelected ? DS.Pie.highlightTintBoost : 0)
                                 )
                                 sectorShape.fill(
                                     RadialGradient(
                                         colors: isHovered
-                                            ? [Color.white.opacity(0.1), .clear]
+                                            ? [Color.white.opacity(DS.Pie.highlightInnerGlowOpacity), .clear]
                                             : [.clear, .clear],
                                         center: .center,
                                         startRadius: drawInnerRadius,
@@ -367,11 +374,11 @@ struct MenuPreviewView: View {
                                 )
                                 sectorShape.stroke(
                                     Color.white.opacity(
-                                        (isSelected ? 0.5 :
-                                            isHovered ? 0.42 :
+                                        (isSelected ? DS.Pie.highlightBorderOpacity :
+                                            isHovered ? DS.Pie.highlightBorderOpacity :
                                             isGhost ? 0.2 : 0.26) * borderDim
                                     ),
-                                    lineWidth: (isSelected || isHovered) ? 1.4 : 0.7
+                                    lineWidth: (isSelected || isHovered) ? DS.Pie.highlightBorderWidth : 0.7
                                 )
                                 sectorShape.stroke(
                                     Color.black.opacity(
@@ -379,10 +386,9 @@ struct MenuPreviewView: View {
                                             isHovered ? 0.28 :
                                             isGhost ? 0.16 : 0.18) * borderDim
                                     ),
-                                    lineWidth: (isSelected || isHovered) ? 1.4 : 0.7
+                                    lineWidth: (isSelected || isHovered) ? DS.Pie.highlightBorderWidth : 0.7
                                 )
                             }
-                            .scaleEffect(isHovered ? 1.04 : 1)
 
                             Group {
                                 if item.icon.hasPrefix("text:") {
@@ -428,37 +434,55 @@ struct MenuPreviewView: View {
                                     .opacity(isGhost ? 0.22 : 1)
                             }
 
-                            if menu.pawDecorationEnabled, index == pawPreviewSectorIndex {
-                                let pawSizeRatio =
-                                    PieMenu.clampedPawSizeScale(menu.pawSizeScale)
-                                    / PieMenu.defaultPawSizeScale
-                                let pawSize = max(
-                                    6,
-                                    ringWidth
-                                        * CGFloat(PieMenu.pawSizeBaseFromRingWidth)
-                                        * CGFloat(pawSizeRatio)
-                                )
-                                let pawDist = PieMenu.pawRadialDistanceFromMenuCenter(
-                                    pawRadialInset: menu.pawRadialInset,
-                                    outerRadius: Double(drawRadius)
-                                )
-                                CatPawGrabView(
-                                    size: pawSize,
-                                    grabProgress: 1,
-                                    pawColor: .black.opacity(0.96)
-                                )
-                                .rotationEffect(.radians(midAngle + .pi / 2))
-                                .position(
-                                    x: cx + cos(midAngle) * pawDist,
-                                    y: cy + sin(midAngle) * pawDist
-                                )
-                                .opacity(isGhost ? 0.85 : 1)
-                            }
                         }
                         .zIndex(isDraggingThis ? 1 : 0)
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                         .allowsHitTesting(false)
                     }
+                }
+
+                // Лапка у каждого сектора, как в самом кольце: появляется на месте, а не скользит
+                // от соседа. Без наведения держится на выбранном или последнем секторе — по ней
+                // настраивают размер и положение лапки в «Параметрах».
+                if menu.pawDecorationEnabled, draggedItemId == nil {
+                    ForEach(Array(itemsToShow.enumerated()), id: \.element.id) { index, _ in
+                        let isPawHere = index == pawPreviewSectorIndex
+                        let midAngle = (startAngle(for: index) + endAngle(for: index)) / 2
+                        CatPawGrabView(
+                            size: pawSize,
+                            grabProgress: isPawHere ? 1 : 0,
+                            pawColor: (Color(hex: menu.pawColorHex) ?? .black).opacity(0.96)
+                        )
+                        .rotationEffect(.radians(midAngle + .pi / 2))
+                        .scaleEffect(isPawHere ? 1 : 0.84)
+                        .opacity(isPawHere ? (isGhost ? 0.85 : 1) : 0)
+                        .position(
+                            x: cx + cos(midAngle) * pawDist,
+                            y: cy + sin(midAngle) * pawDist
+                        )
+                        .animation(DS.Motion.sectorHighlight, value: isPawHere)
+                        .allowsHitTesting(false)
+                    }
+                }
+
+                // Подпись под курсором — как в самом кольце: по ней видно, что выключает переключатель
+                // в «Параметрах», и как читаются названия секторов.
+                if menu.showsHoverLabel, draggedItemId == nil, !isGhost,
+                   let hovered = hoveredSectorIndex, hovered < itemsToShow.count,
+                   let text = previewHoverLabel(for: itemsToShow[hovered], at: hovered) {
+                    let label = PieHoverLabel(text: text)
+                    label
+                        .position(
+                            label.position(
+                                angle: (startAngle(for: hovered) + endAngle(for: hovered)) / 2,
+                                ringOuterRadius: Double(drawRadius),
+                                menuCenter: CGPoint(x: cx, y: cy),
+                                bounds: geo.size
+                            )
+                        )
+                        .id(hovered)
+                        .transition(.opacity)
+                        .allowsHitTesting(false)
                 }
 
                 if menu.isAppCommandsMenu {
@@ -473,41 +497,31 @@ struct MenuPreviewView: View {
                             pointer: pointerForCatEyes ?? iconCenter,
                             hubCenter: CGPoint(x: iconCenter.x + head.width, y: iconCenter.y + head.height),
                             hubDiameter: CatHoldingAppIconView.headWidth(iconSide: side)
-                        )
+                        ),
+                        headColor: Color(hex: menu.catColorHex) ?? .black,
+                        pawColor: Color(hex: menu.pawColorHex) ?? .black
                     )
                     .position(iconCenter)
                     .animation(.easeOut(duration: 0.14), value: menu.centerAppIconScale)
                     .allowsHitTesting(false)
-                } else if !isAppearancePanelVisible {
-                    PieCenterHubView(
-                        diameter: drawHubRadius * 2 * DS.Pie.centerHubDiameterRatio,
-                        isHovered: isCenterHovered,
-                        iconName: onAddItem != nil ? "plus" : "circle.grid.cross",
-                        iconColor: .white.opacity(0.95),
-                        fillOpacityFactor: 1,
-                        glassSettings: menu.liquidGlass
-                    )
-                    .frame(width: addDim, height: addDim)
-                    .scaleEffect(isCenterHovered ? 1.04 : 1)
-                    .allowsHitTesting(false)
-                }
-
-                if isAppearancePanelVisible, !menu.isAppCommandsMenu {
+                } else {
+                    // Кот в центре, как в самом меню; клик по нему добавляет пункт.
                     let hubCenter = CGPoint(x: cx, y: cy)
                     let catDiam =
                         drawInnerRadius * 2
                         * DS.Pie.centerCatArtDiameterFactor
                         * CGFloat(PieMenu.clampedCenterCatScale(menu.centerCatScale))
-                    let gazePointer = pointerForCatEyes ?? hubCenter
                     PieCenterCatEyesView(
                         diameter: catDiam,
                         pupilOffset: PieCenterCatEyesView.lookOffset(
-                            pointer: gazePointer,
+                            pointer: pointerForCatEyes ?? hubCenter,
                             hubCenter: hubCenter,
                             hubDiameter: catDiam
-                        )
+                        ),
+                        headColor: Color(hex: menu.catColorHex) ?? .black
                     )
-                    .position(x: cx, y: cy)
+                    .scaleEffect(isCenterHovered && onAddItem != nil ? 1.06 : 1)
+                    .position(hubCenter)
                     .animation(.easeOut(duration: 0.14), value: menu.centerCatScale)
                     .allowsHitTesting(false)
                 }
@@ -542,14 +556,16 @@ struct MenuPreviewView: View {
                 }
             }
             .onChange(of: hoveredSectorIndex) { newIndex in
-                if newIndex != nil, hapticFeedbackEnabled {
+                guard let newIndex else { return }
+                lastPawSectorIndex = newIndex
+                if hapticFeedbackEnabled {
                     NSHapticFeedbackManager.defaultPerformer.perform(
                         .levelChange,
                         performanceTime: .default
                     )
                 }
             }
-            .animation(.spring(response: 0.25, dampingFraction: 0.7), value: hoveredSectorIndex)
+            .animation(DS.Motion.sectorHighlight, value: hoveredSectorIndex)
             .animation(.easeInOut(duration: 0.15), value: isCenterHovered)
             .gesture(
                 DragGesture(minimumDistance: 0)
@@ -626,7 +642,7 @@ struct MenuPreviewView: View {
                                     selectedItemId = nil
                                 }
                             } else {
-                                if isAppSet {
+                                if menu.isAppCommandsMenu {
                                     if dist <= drawRadius + 10 * scale,
                                        let idx = absoluteSectorIndex(from: tapAngle, radiusAtPoint: dist),
                                        idx < previewItems.count {
@@ -675,7 +691,8 @@ struct MenuPreviewView: View {
                     }
             )
             .contextMenu {
-                if isAppSet, let idx = hoveredSectorIndex, idx < itemsToShow.count {
+                if menu.isAppCommandsMenu, menu.appCommandsDefaultEntries.count > 1,
+                   let idx = hoveredSectorIndex, idx < itemsToShow.count {
                     Button(role: .destructive) {
                         removeAppSetEntry(id: itemsToShow[idx].id)
                     } label: {
@@ -684,6 +701,11 @@ struct MenuPreviewView: View {
                 }
                 if !menu.isDynamicMenu,
                    let idx = hoveredSectorIndex, idx < itemsToShow.count, !isGhost {
+                    Button {
+                        duplicatePreviewItem(id: itemsToShow[idx].id)
+                    } label: {
+                        Label(localizer.text(.duplicateItem), systemImage: "plus.square.on.square")
+                    }
                     Button {
                         copyPreviewItem(id: itemsToShow[idx].id)
                     } label: {
@@ -713,70 +735,109 @@ struct MenuPreviewView: View {
     }
 }
 
+// MARK: - Стекло секторов
+
+extension MenuPreviewView {
+    private var showsGhost: Bool {
+        switch menu.kind {
+        case .runningApps: return liveRunningAppsItems.isEmpty
+        case .appCommands: return false
+        case .standard: return menu.items.isEmpty
+        }
+    }
+
+    /// Пустой сектор залит цветом темы так же, как соседи; пустоту видно по иконке и обводке.
+    private func fillFactor(for item: PieMenuItem) -> Double {
+        showsGhost ? 0.25 : 1
+    }
+
+    /// Угол сектора с учётом перетаскивания: перетаскиваемый едет за курсором.
+    private func drawAngles(index: Int, itemId: UUID) -> (start: Double, end: Double) {
+        guard draggedItemId == itemId else { return (startAngle(for: index), endAngle(for: index)) }
+        return (dragAngle - sectorAngle / 2, dragAngle + sectorAngle / 2)
+    }
+
+    /// Стекло всех секторов — в одном контейнере, как в самом меню. Поодиночке адаптивное стекло
+    /// подстраивается каждое под свой фон и «перещёлкивается» вразнобой: секторы выглядят то плотнее,
+    /// то прозрачнее.
+    @ViewBuilder
+    private func glassLayer(
+        items: [PieMenuItem],
+        innerRadius: CGFloat,
+        outerRadius: CGFloat,
+        cornerRadius: CGFloat
+    ) -> some View {
+        let fills = ZStack {
+            ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
+                let angles = drawAngles(index: index, itemId: item.id)
+                PieSectorFillView(
+                    startAngle: angles.start,
+                    endAngle: angles.end,
+                    innerRadius: innerRadius,
+                    outerRadius: outerRadius,
+                    cornerRadius: cornerRadius,
+                    tintColor: Color(hex: item.color) ?? .accentColor,
+                    fillOpacityFactor: fillFactor(for: item),
+                    glassSettings: menu.liquidGlass,
+                    interactiveGlass: false
+                )
+            }
+        }
+        if #available(macOS 26.0, *) {
+            GlassEffectContainer(spacing: 0) { fills }
+        } else {
+            fills
+        }
+    }
+}
+
 // MARK: - Кнопки над превью
 
 extension MenuPreviewView {
-    private var settingsToggleButton: some View {
-        Button {
-            onToggleAppearancePanel()
-        } label: {
-            Image(systemName: "gearshape.fill")
-                .font(DS.Typography.panelHeading)
-                .foregroundStyle(.primary.opacity(isSettingsButtonHovered ? 0.98 : isAppearancePanelVisible ? 0.96 : 0.88))
-                .frame(width: DS.Sizing.compactButtonHeight, height: DS.Sizing.compactButtonHeight)
-                .background(
-                    RoundedRectangle(cornerRadius: DS.Radius.m, style: .continuous)
-                        .fill(
-                            isAppearancePanelVisible
-                                ? DS.Colors.blueAccent.opacity(0.2)
-                                : DS.Colors.field.opacity(isSettingsButtonHovered ? 1 : 0.92)
-                        )
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: DS.Radius.m, style: .continuous)
-                        .strokeBorder(
-                            isAppearancePanelVisible ? DS.Colors.blueAccent.opacity(0.45) : DS.Colors.stroke,
-                            lineWidth: DS.Border.hairline
-                        )
-                )
-                .scaleEffect(isSettingsButtonHovered ? 1.05 : 1)
+    /// Что можно делать в превью — одним списком по кнопке «i».
+    private var hintsButton: some View {
+        PreviewToolbarButton(
+            icon: "info.circle",
+            isActive: showsHints,
+            help: localizer.text(.previewHintsHelp)
+        ) {
+            showsHints.toggle()
         }
-        .buttonStyle(DSPlainButtonStyle())
-        .onHover { isSettingsButtonHovered = $0 }
-        .animation(.easeInOut(duration: 0.15), value: isSettingsButtonHovered)
-        .animation(.easeInOut(duration: 0.15), value: isAppearancePanelVisible)
+        .popover(isPresented: $showsHints, arrowEdge: .bottom) {
+            VStack(alignment: .leading, spacing: DS.Spacing.s) {
+                ForEach(previewHints, id: \.text) { hint in
+                    HStack(alignment: .firstTextBaseline, spacing: DS.Spacing.s) {
+                        Image(systemName: hint.icon)
+                            .font(DS.Typography.label)
+                            .foregroundStyle(.secondary)
+                            .frame(width: 18)
+                        Text(hint.text)
+                            .font(DS.Typography.body)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+            }
+            .padding(DS.Spacing.m + 2)
+            .frame(width: 320, alignment: .leading)
+        }
     }
 
-    private var applySharedStyleToolbarButton: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: DS.Radius.m, style: .continuous)
-                .fill(DS.Colors.field.opacity(isApplySharedStyleHovered ? 1 : 0.92))
-                .overlay(
-                    RoundedRectangle(cornerRadius: DS.Radius.m, style: .continuous)
-                        .strokeBorder(DS.Colors.stroke, lineWidth: DS.Border.hairline)
-                )
-            Menu {
-                Button(localizer.text(.applySharedMenuSettingsToAll)) {
-                    applySharedStyleActions?.applyToAll()
-                }
-                Button(localizer.text(.applySharedMenuSettingsChoose)) {
-                    applySharedStyleActions?.chooseTargets()
-                }
-            } label: {
-                Image(systemName: "paintbrush.fill")
-                    .font(DS.Typography.panelHeading)
-                    .foregroundStyle(.primary.opacity(isApplySharedStyleHovered ? 0.98 : 0.88))
-                    .frame(width: DS.Sizing.compactButtonHeight, height: DS.Sizing.compactButtonHeight)
-                    .contentShape(Rectangle())
+    private var previewHints: [(icon: String, text: String)] {
+        var hints: [(icon: String, text: String)] = []
+        if menu.isRunningAppsMenu {
+            hints.append(("app.badge", localizer.text(.runningAppsEditorHint)))
+        } else {
+            if menu.isAppCommandsMenu, !isAppSet {
+                hints.append(("command", localizer.text(.appCommandsPreviewHint)))
             }
-            .menuStyle(.borderlessButton)
-            .menuIndicator(.hidden)
+            hints.append(("hand.tap", localizer.text(.tapSectorToEdit)))
+            hints.append(("arrow.left.arrow.right", localizer.text(.dragToReorder)))
         }
-        .frame(width: DS.Sizing.compactButtonHeight, height: DS.Sizing.compactButtonHeight)
-        .scaleEffect(isApplySharedStyleHovered ? 1.05 : 1)
-        .onHover { isApplySharedStyleHovered = $0 }
-        .animation(.easeInOut(duration: 0.15), value: isApplySharedStyleHovered)
-        .iconOnlyHelp(localizer.text(.applySharedMenuSettings))
+        hints.append(("option", localizer.text(.optionDragToRotate)))
+        if onAddItem != nil {
+            hints.append(("pawprint", localizer.text(.tapCatToAddHint)))
+        }
+        return hints
     }
 }
 
@@ -826,9 +887,36 @@ extension MenuPreviewView {
         }
     }
 
+    /// Подпись сектора в превью: у команды — её название, у пункта — как в кольце.
+    private func previewHoverLabel(for item: PieMenuItem, at index: Int) -> PieHoverLabelText? {
+        if menu.isAppCommandsMenu {
+            guard index < menu.appCommandsDefaultEntries.count else { return nil }
+            let entry = menu.appCommandsDefaultEntries[index]
+            let appName = AppSubMenuEditorView.appName(for: previewAppBundleId)
+            return PieHoverLabelText(
+                title: entry.displayTitle(appName: appName, language: localizer.language),
+                detail: entry.shortcut?.displayString
+            )
+        }
+        return item.hoverLabel(language: localizer.language)
+    }
+
+    /// Копия сектора — следом за оригиналом, на первом свободном месте кольца.
+    private func duplicatePreviewItem(id: UUID) {
+        guard let original = menu.items.first(where: { $0.id == id }) else { return }
+        let copy = PieMenuItemPasteboard.itemForPasting(template: original, sectorIndex: menu.nextFreeSectorIndex)
+        withoutAnimation {
+            menu.items.append(copy)
+            menu.snapRotationToAestheticAnchor()
+        }
+        selectedItemId = copy.id
+    }
+
     private func removeAppSetEntry(id: UUID) {
+        guard menu.appCommandsDefaultEntries.count > 1 else { return }
         withoutAnimation {
             menu.appCommandsDefaultEntries.removeAll { $0.id == id }
+            menu.snapRotationToAestheticAnchor()
         }
         if selectedItemId == id { selectedItemId = nil }
     }
@@ -853,7 +941,6 @@ private struct MenuPreviewPreview: View {
             selectedItemId: $selectedItemId,
             hapticFeedbackEnabled: true,
             isAppearancePanelVisible: isAppearancePanelVisible,
-            onToggleAppearancePanel: { isAppearancePanelVisible.toggle() },
             onAddItem: {}
         )
             .frame(width: 500, height: 500)
