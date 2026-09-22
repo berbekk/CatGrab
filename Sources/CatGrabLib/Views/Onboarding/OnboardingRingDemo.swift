@@ -25,7 +25,7 @@ struct OnboardingRingDemo: View {
                 innerRadius: menu.effectiveInnerRadius * scale,
                 iconDistance: menu.iconDistance,
                 iconSize: menu.fittedIconSize(sectorCount: items.count) * scale,
-                rotationDegrees: menu.rotationDegrees,
+                rotationDegrees: menu.effectiveRotationDegrees(sectorCount: items.count),
                 liquidGlass: menu.liquidGlass,
                 menuCenter: center,
                 pawDecorationEnabled: menu.pawDecorationEnabled,

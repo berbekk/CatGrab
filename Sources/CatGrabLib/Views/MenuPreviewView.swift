@@ -95,7 +95,7 @@ struct MenuPreviewView: View {
     }
 
     private var rotationRadians: Double {
-        (menu.rotationDegrees + demoRotationOffsetDegrees) * .pi / 180
+        (menu.effectiveRotationDegrees(sectorCount: previewSectorCount) + demoRotationOffsetDegrees) * .pi / 180
     }
 
     private func isOptionKeyDown() -> Bool {

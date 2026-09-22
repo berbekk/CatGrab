@@ -17,6 +17,10 @@ enum PieConfigurationMigrator {
             upgradeAppCommandsDefaultSet(menus: &config.menus)
             config.schemaVersion = 3
         }
+        if config.schemaVersion < 4 {
+            centerRunningAppsRing(menus: &config.menus)
+            config.schemaVersion = 4
+        }
 
         if config.schemaVersion > PieConfiguration.currentSchemaVersion {
             // Конфиг из будущей версии — оставляем как есть, теряя то, что старый код не понимает.
@@ -53,6 +57,15 @@ enum PieConfigurationMigrator {
             guard kinds.count == previousDefault.count, Set(kinds) == previousDefault else { continue }
             menus[i].appCommandsDefaultEntries = AppSubMenuEntry.automaticBuiltIns
             menus[i].rotationDegrees = AppSubMenuEntry.automaticRingRotationDegrees
+        }
+    }
+
+    /// v3 → v4: у меню запущенных приложений поворот теперь считается от положения «первый сектор
+    /// ровно вверх» (`PieMenu.effectiveRotationDegrees`). Прежний сохранённый угол был попыткой
+    /// отцентровать кольцо под какое-то одно число приложений — со сдвигом 0 оно центрировано всегда.
+    private static func centerRunningAppsRing(menus: inout [PieMenu]) {
+        for i in menus.indices where menus[i].isRunningAppsMenu {
+            menus[i].rotationDegrees = 0
         }
     }
 

@@ -6,6 +6,13 @@ All notable changes to CatGrab are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- Active apps: on a quick repeated ⌘Tab the icon and paw of a sector could glide in from another
+  sector — a sector's identity is now its place in the ring, so changed contents appear in place.
+- Active apps: the ring is centered for any number of apps — the first sector (the app you came
+  from) always points straight up; a rotation you set is an offset from there.
+
 ## [1.2.0] - 2026-09-22
 
 ### Added

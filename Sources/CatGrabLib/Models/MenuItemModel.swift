@@ -644,6 +644,15 @@ struct PieMenu: Codable, Identifiable, Equatable {
         min(max(value, shortcutDigitOpacityAllowedRange.lowerBound), shortcutDigitOpacityAllowedRange.upperBound)
     }
 
+    /// Поворот, с которым кольцо рисуется. У меню запущенных приложений число секторов меняется от
+    /// вызова к вызову, и один сохранённый угол не может подходить всем: за основу берётся поворот,
+    /// при котором первый сектор (приложение, откуда пришли) смотрит ровно вверх, а `rotationDegrees`
+    /// — сдвиг от него шагами привязки.
+    func effectiveRotationDegrees(sectorCount: Int) -> Double {
+        guard isRunningAppsMenu, sectorCount > 0 else { return rotationDegrees }
+        return rotationDegrees - 180 / Double(sectorCount)
+    }
+
     var effectiveMenuRadius: Double { menuRadius * appearanceScale }
     var effectiveInnerRadius: Double { innerRadius * appearanceScale }
     var effectiveIconSize: Double { iconSize * appearanceScale }
@@ -1099,7 +1108,8 @@ struct PieConfiguration: Codable, Equatable {
     /// чтобы при декоде применять миграции и не терять совместимость со старыми установками.
     /// 2 — пустые пункты больше не получают общую иконку кота (см. `PieConfigurationMigrator`).
     /// 3 — в наборе по умолчанию меню команд восемь команд вместо шести.
-    static let currentSchemaVersion: Int = 3
+    /// 4 — поворот меню запущенных приложений считается от «первый сектор вверх» (см. `effectiveRotationDegrees`).
+    static let currentSchemaVersion: Int = 4
 
     var schemaVersion: Int
     var menus: [PieMenu]

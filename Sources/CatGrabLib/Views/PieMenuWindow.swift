@@ -299,7 +299,7 @@ final class PieMenuWindowController {
         displayedItems = sortedItems
         displayedShortcutLabels = PieMenu.resolvedShortcutLabels(for: sortedItems)
         displayedDisabledIndices = disabledIndices
-        displayedRotationRadians = menu.rotationDegrees * .pi / 180
+        displayedRotationRadians = menu.effectiveRotationDegrees(sectorCount: sortedItems.count) * .pi / 180
         displayedHapticFeedback = configuration.hapticFeedbackEnabled
         withoutAnimation { highlightState.highlightedIndex = menu.isRunningAppsMenu ? 0 : nil }
         displayedMenuId = menu.id
@@ -398,7 +398,7 @@ final class PieMenuWindowController {
             innerRadius: menu.effectiveInnerRadius,
             iconDistance: menu.iconDistance,
             iconSize: menu.fittedIconSize(sectorCount: items.count),
-            rotationDegrees: menu.rotationDegrees,
+            rotationDegrees: menu.effectiveRotationDegrees(sectorCount: items.count),
             liquidGlass: menu.liquidGlass,
             menuCenter: center,
             pawDecorationEnabled: menu.pawDecorationEnabled,

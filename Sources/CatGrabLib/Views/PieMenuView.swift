@@ -130,7 +130,10 @@ struct PieMenuView: View {
     private func sectorViews(layer: PieSegmentView.Layer) -> some View {
         ZStack {
             let labels = resolvedShortcutLabels
-            ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
+            // Идентичность — место в кольце, а не пункт. Дерево живёт между показами, и пункт, который
+            // в этот раз стоит на другом секторе (меню запущенных приложений), должен появиться там
+            // заново, а не переехать с анимацией со старого места.
+            ForEach(Array(items.enumerated()), id: \.offset) { index, item in
                 PieSegmentView(
                     item: item,
                     shortcutLabel: index < labels.count ? labels[index] : PieMenu.quickSelectLabel(for: index),
