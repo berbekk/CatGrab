@@ -268,29 +268,15 @@ struct MenuAppearanceControlsView: View {
     /// Свои темы — стиль целиком (цвет, форма, детали). Клик оформляет меню темой и привязывает к ней.
     @ViewBuilder
     private var themesTab: some View {
+        customColorsNotice
         themesHeader(localizer.text(.myThemesSection), caption: localizer.text(.myThemesCaption), topInset: 0)
         CustomThemesGrid(library: themeLibrary, menu: menu, onApply: applyTheme)
-    }
-
-    private func applyTheme(_ theme: CustomMenuTheme) {
-        var m = menu
-        m.applyTheme(theme)
-        menu = m
-    }
-
-    private func themesHeader(_ title: String, caption: String, topInset: CGFloat) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
-            DSSectionHeader(title: title, topInset: topInset)
-            Text(caption)
-                .font(DS.Typography.label)
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
-        }
     }
 
     /// Цвета: сначала готовые палитры — быстро перебрать, ниже — тонкая настройка.
     @ViewBuilder
     private var colorTab: some View {
+        customColorsNotice
         themesHeader(localizer.text(.builtInThemesSection), caption: localizer.text(.builtInThemesCaption), topInset: 0)
         ThemeGalleryView(selectedID: menu.colorScheme.presetID) { preset in
             var m = menu
@@ -357,24 +343,6 @@ struct MenuAppearanceControlsView: View {
                 hex: menu.shortcutDigitColorHex,
                 onPick: setColor(\.shortcutDigitColorHex)
             )
-        }
-
-        // Всегда последним: сбрасывает свои цвета отдельных секторов, а не настройки выше.
-        if menu.customColorCount > 0 {
-            HStack(spacing: DS.Spacing.s) {
-                Text(String(format: localizer.text(.sectorColorsCustomFormat), menu.customColorCount))
-                    .font(DS.Typography.label)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-                Spacer(minLength: DS.Spacing.s)
-                Button(localizer.text(.resetSectorColors)) {
-                    var m = menu
-                    m.resetSectorColors()
-                    menu = m
-                }
-                .buttonStyle(DSFieldButtonStyle())
-            }
-            .padding(.top, DS.Spacing.s)
         }
     }
 
@@ -848,5 +816,55 @@ private struct SteppedNumericField: View {
         model = min(max(model, range.lowerBound), range.upperBound)
         value = model
         fieldText = textFromModel(model)
+    }
+}
+
+// MARK: - Свои цвета секторов
+
+extension MenuAppearanceControlsView {
+    /// Секторы со своим цветом тему не слушают — иначе казалось бы, что тема не применилась.
+    /// Поэтому сверху, до галереи, а не в конце вкладки.
+    @ViewBuilder
+    private var customColorsNotice: some View {
+        if menu.customColorCount > 0 {
+            HStack(spacing: DS.Spacing.s) {
+                Text(String(format: localizer.text(.sectorColorsCustomFormat), menu.customColorCount))
+                    .font(DS.Typography.label)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                Spacer(minLength: DS.Spacing.s)
+                Button(localizer.text(.resetSectorColors)) {
+                    var m = menu
+                    m.resetSectorColors()
+                    menu = m
+                }
+                .buttonStyle(DSFieldButtonStyle())
+            }
+            .padding(DS.Spacing.s + 2)
+            .background(
+                RoundedRectangle(cornerRadius: DS.Radius.l, style: .continuous)
+                    .fill(Color.orange.opacity(0.08))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: DS.Radius.l, style: .continuous)
+                    .strokeBorder(Color.orange.opacity(0.35), lineWidth: DS.Border.hairline)
+            )
+        }
+    }
+
+    private func applyTheme(_ theme: CustomMenuTheme) {
+        var m = menu
+        m.applyTheme(theme)
+        menu = m
+    }
+
+    private func themesHeader(_ title: String, caption: String, topInset: CGFloat) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            DSSectionHeader(title: title, topInset: topInset)
+            Text(caption)
+                .font(DS.Typography.label)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
     }
 }

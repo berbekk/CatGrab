@@ -6,7 +6,23 @@ All notable changes to CatGrab are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- Welcome tour: a page where the cat is pressed and the ring makes room for a new sector, showing
+  how sectors are added.
+
+### Changed
+
+- New menus start with a visibly tinted ring (intensity 30%, as in the Classic palette) instead of
+  an almost grey one.
+- The “N sectors have their own colours” notice with its Reset button now sits at the top of the
+  Themes and Colour tabs, where it explains why a palette did not recolour everything.
+
 ### Fixed
+
+- Sectors coloured by CatGrab 1.0 and then reordered kept their palette colour at the “wrong” place
+  and were treated as custom, so palettes and themes seemed not to apply to them. Any colour from
+  the original palette now follows the theme.
 
 - A menu saved by an old version without an icon distance placed its icons inside the hub, on top
   of the cat; such menus now get the default distance.

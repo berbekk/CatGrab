@@ -78,7 +78,8 @@ final class MenuThemeTests: XCTestCase {
             return try JSONDecoder().decode(PieMenuItem.self, from: JSONSerialization.data(withJSONObject: json))
         }
         XCTAssertTrue(try decode(color: PieMenuItem.paletteColor(for: 2).lowercased(), sectorIndex: 2).usesThemeColor)
-        XCTAssertFalse(try decode(color: PieMenuItem.paletteColor(for: 3), sectorIndex: 2).usesThemeColor)
+        // 1.0 kept a sector's palette colour when the sector was moved: still a theme colour.
+        XCTAssertTrue(try decode(color: PieMenuItem.paletteColor(for: 3), sectorIndex: 2).usesThemeColor)
         XCTAssertFalse(try decode(color: "#123456", sectorIndex: 0).usesThemeColor)
     }
 

@@ -17,7 +17,15 @@ struct MenuPreviewView: View {
     var demoDrag: DemoDrag?
     /// Показательный поворот в знакомстве: добавка к повороту меню только для рисования.
     var demoRotationOffsetDegrees: Double = 0
+    /// Показательное добавление сектора в знакомстве: кот «нажат» на `press`, кольцо раздвинулось
+    /// и новый сектор вырос на `growth` от полной ширины. Конфиг не меняется.
+    var demoAdd: DemoAdd?
     @EnvironmentObject private var localizer: LocalizationStore
+
+    struct DemoAdd: Equatable {
+        let growth: Double
+        let press: Double
+    }
 
     struct DemoDrag: Equatable {
         let index: Int
@@ -90,8 +98,14 @@ struct MenuPreviewView: View {
         max(1, previewItems.count)
     }
 
+    /// На сколько секторов делить кольцо: во время показательного добавления — на дробное число,
+    /// чтобы новый сектор вырастал, а соседи плавно уступали ему место.
+    private var demoGrowth: Double {
+        min(1, max(0, demoAdd?.growth ?? 0))
+    }
+
     private var sectorAngle: Double {
-        (2 * .pi) / Double(previewSectorCount)
+        (2 * .pi) / (Double(previewSectorCount) + demoGrowth)
     }
 
     private var rotationRadians: Double {
@@ -136,24 +150,20 @@ struct MenuPreviewView: View {
         let contentSize = CGFloat(menu.effectiveMenuRadius * 2 + 30)
         return min(1.0, size.width / contentSize, size.height / contentSize)
     }
+    /// Как `PieSectorLayout.sectorAngles`, но шаг может быть дробным (см. `demoGrowth`).
     private func startAngle(for index: Int) -> Double {
-        PieSectorLayout.sectorAngles(
-            index: index,
-            sectorCount: previewSectorCount,
-            rotationRadians: rotationRadians,
-            innerRadius: menu.effectiveInnerRadius,
-            outerRadius: displayRadius
-        ).start
+        sectorAngle * Double(index) - .pi / 2 + rotationRadians
     }
 
     private func endAngle(for index: Int) -> Double {
-        PieSectorLayout.sectorAngles(
-            index: index,
-            sectorCount: previewSectorCount,
-            rotationRadians: rotationRadians,
-            innerRadius: menu.effectiveInnerRadius,
-            outerRadius: displayRadius
-        ).end
+        startAngle(for: index) + sectorAngle
+    }
+
+    /// Углы вырастающего сектора после последнего настоящего: его ширина — доля шага.
+    private var demoSectorAngles: (start: Double, end: Double)? {
+        guard demoGrowth > 0.02 else { return nil }
+        let start = startAngle(for: previewSectorCount)
+        return (start, start + sectorAngle * demoGrowth)
     }
 
     private func absoluteSectorIndex(from angle: Double, radiusAtPoint: Double) -> Int? {
@@ -440,6 +450,30 @@ struct MenuPreviewView: View {
                     }
                 }
 
+                // Вырастающий сектор в показательном добавлении: пунктирный контур и «+», как место
+                // под то, что ещё предстоит выбрать.
+                if let angles = demoSectorAngles {
+                    let ghostShape = PieSectorShape(
+                        startAngle: angles.start,
+                        endAngle: angles.end,
+                        innerRadius: drawInnerRadius,
+                        outerRadius: drawRadius,
+                        cornerRadius: drawCornerRadius
+                    )
+                    let mid = (angles.start + angles.end) / 2
+                    ghostShape
+                        .stroke(
+                            Color.white.opacity(0.5 * demoGrowth),
+                            style: StrokeStyle(lineWidth: 1.2, dash: [5, 4])
+                        )
+                    Image(systemName: "plus")
+                        .font(.system(size: max(9, menu.fittedIconSize(sectorCount: previewSectorCount + 1) * scale * 0.6), weight: .semibold))
+                        .foregroundStyle(Color.white.opacity(0.85))
+                        .opacity(demoGrowth)
+                        .position(x: cx + cos(mid) * drawIconDist, y: cy + sin(mid) * drawIconDist)
+                        .allowsHitTesting(false)
+                }
+
                 // Лапка у каждого сектора, как в самом кольце: появляется на месте, а не скользит
                 // от соседа. Без наведения держится на выбранном или последнем секторе — по ней
                 // настраивают размер и положение лапки в «Параметрах».
@@ -524,7 +558,7 @@ struct MenuPreviewView: View {
                         ),
                         headColor: Color(hex: menu.catColorHex) ?? .black
                     )
-                    .scaleEffect(isCenterHovered && onAddItem != nil ? 1.06 : 1)
+                    .scaleEffect((isCenterHovered && onAddItem != nil ? 1.06 : 1) * (1 - 0.12 * (demoAdd?.press ?? 0)))
                     .position(hubCenter)
                     .animation(.easeOut(duration: 0.14), value: menu.centerCatScale)
                     .allowsHitTesting(false)
@@ -782,6 +816,19 @@ extension MenuPreviewView {
                     cornerRadius: cornerRadius,
                     tintColor: Color(hex: item.color) ?? .accentColor,
                     fillOpacityFactor: fillFactor(for: item),
+                    glassSettings: menu.liquidGlass,
+                    interactiveGlass: false
+                )
+            }
+            if let angles = demoSectorAngles {
+                PieSectorFillView(
+                    startAngle: angles.start,
+                    endAngle: angles.end,
+                    innerRadius: innerRadius,
+                    outerRadius: outerRadius,
+                    cornerRadius: cornerRadius,
+                    tintColor: Color(hex: menu.colorScheme.color(at: items.count, count: items.count + 1)) ?? .accentColor,
+                    fillOpacityFactor: demoGrowth,
                     glassSettings: menu.liquidGlass,
                     interactiveGlass: false
                 )

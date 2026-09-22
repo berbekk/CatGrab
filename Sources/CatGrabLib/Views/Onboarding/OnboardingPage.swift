@@ -8,6 +8,7 @@ enum OnboardingPage: Int, CaseIterable, Equatable {
     case open
     case reorder
     case rotate
+    case add
     case builtIn
     case style
     case permissions

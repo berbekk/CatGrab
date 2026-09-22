@@ -122,10 +122,12 @@ struct PieMenuItem: Codable, Identifiable, Equatable {
         color = try container.decodeIfPresent(String.self, forKey: .color) ?? PieMenuItem.paletteColor(for: 0)
         iconColor = try container.decodeIfPresent(String.self, forKey: .iconColor)
         sectorIndex = try container.decodeIfPresent(Int.self, forKey: .sectorIndex) ?? 0
-        // До тем у каждого сектора был свой цвет. Цвет «по умолчанию для своего места» считаем цветом
-        // темы — тема «Классика» даёт ровно его, и кольцо после обновления выглядит как раньше.
+        // До тем у каждого сектора был свой цвет: при создании — из стандартной палитры, и он оставался
+        // за сектором при перестановках. Любой цвет из той палитры считаем цветом темы — иначе после
+        // обновления такие секторы не откликались бы на выбор палитры, и казалось, что темы не работают.
+        let storedColor = color
         usesThemeColor = try container.decodeIfPresent(Bool.self, forKey: .usesThemeColor)
-            ?? (color.caseInsensitiveCompare(PieMenuItem.paletteColor(for: sectorIndex)) == .orderedSame)
+            ?? PieMenuItem.sectorPalette.contains { $0.caseInsensitiveCompare(storedColor) == .orderedSame }
         // Старый системный пикер цвета иконки записывал цвет сам — почти тот же, что у сектора, — и такая
         // иконка переставала следовать теме («Белые» её не красили). Похожий на цвет сектора цвет снимаем:
         // в цвет сектора иконку и так красит тема.

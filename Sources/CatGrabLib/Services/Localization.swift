@@ -359,6 +359,8 @@ enum L10nKey {
     case onboardingRotateTitle
     case onboardingRotateBody
     case onboardingArrangeNote
+    case onboardingAddTitle
+    case onboardingAddBody
 }
 
 /// Хранилище локализации уровня приложения. Один экземпляр на процесс (`.shared`),
@@ -711,6 +713,8 @@ final class LocalizationStore: ObservableObject {
         case .onboardingRotateTitle: return "Поверните кольцо"
         case .onboardingRotateBody: return "Зажмите ⌥ и потяните по кольцу: оно повернётся и прилипнет так, что ровно вверх, вниз, влево и вправо встанут секторы или зазоры между ними. Попробуйте слева."
         case .onboardingArrangeNote: return "Такое же превью есть в настройках у каждого меню."
+        case .onboardingAddTitle: return "Новый сектор"
+        case .onboardingAddBody: return "Нажмите на кота в центре — кольцо раздвинется и освободит место под новый сектор. Затем выберите, что он делает: приложение, ссылку, сочетание клавиш, действие macOS или текст, и любую иконку. В настройках у каждого сектора свой инспектор."
         }
     }
 
@@ -1015,6 +1019,8 @@ final class LocalizationStore: ObservableObject {
         case .onboardingRotateTitle: return "Turn the ring"
         case .onboardingRotateBody: return "Hold ⌥ and drag along the ring: it rotates and snaps so that sectors, or the gaps between them, sit exactly up, down, left and right. Try it on the left."
         case .onboardingArrangeNote: return "The same preview is in Settings for every menu."
+        case .onboardingAddTitle: return "Add a sector"
+        case .onboardingAddBody: return "Click the cat in the center: the ring makes room for a new sector. Then choose what it does — an app, a link, a key combination, a macOS action or a snippet — and any icon. Every sector opens its own inspector in Settings."
         }
     }
 
@@ -1319,6 +1325,8 @@ final class LocalizationStore: ObservableObject {
         case .onboardingRotateTitle: return "旋转圆环"
         case .onboardingRotateBody: return "按住 ⌥ 沿圆环拖动：它会旋转并吸附，让扇区或扇区之间的间隙正好朝上、下、左、右。在左边试试。"
         case .onboardingArrangeNote: return "设置里每个菜单都有同样的预览。"
+        case .onboardingAddTitle: return "添加扇区"
+        case .onboardingAddBody: return "点击中心的猫：圆环会为新扇区腾出位置。然后选择它的作用 —— 应用、链接、快捷键、macOS 操作或文本片段 —— 以及任意图标。在设置里每个扇区都有自己的检查器。"
         }
     }
 
@@ -1623,6 +1631,8 @@ final class LocalizationStore: ObservableObject {
         case .onboardingRotateTitle: return "रिंग घुमाएँ"
         case .onboardingRotateBody: return "⌥ दबाकर रिंग पर खींचें: यह घूमकर ऐसे चिपकती है कि सेक्टर या उनके बीच की जगह ठीक ऊपर, नीचे, बाएँ और दाएँ आए। बाईं ओर आज़माएँ।"
         case .onboardingArrangeNote: return "सेटिंग्स में हर मेनू के लिए यही प्रीव्यू है।"
+        case .onboardingAddTitle: return "सेक्टर जोड़ें"
+        case .onboardingAddBody: return "बीच में बिल्ली पर क्लिक करें: रिंग नए सेक्टर के लिए जगह बना देती है। फिर चुनें कि वह क्या करे — ऐप, लिंक, की-संयोजन, macOS क्रिया या स्निपेट — और कोई भी आइकन। सेटिंग्स में हर सेक्टर का अपना इंस्पेक्टर है।"
         }
     }
 
@@ -1927,6 +1937,8 @@ final class LocalizationStore: ObservableObject {
         case .onboardingRotateTitle: return "Gira el anillo"
         case .onboardingRotateBody: return "Mantén ⌥ y arrastra por el anillo: gira y se ajusta para que los sectores, o los huecos entre ellos, queden justo arriba, abajo, izquierda y derecha. Pruébalo a la izquierda."
         case .onboardingArrangeNote: return "La misma vista previa está en Ajustes para cada menú."
+        case .onboardingAddTitle: return "Añade un sector"
+        case .onboardingAddBody: return "Haz clic en el gato del centro: el anillo hace sitio a un sector nuevo. Luego elige qué hace — una app, un enlace, una combinación de teclas, una acción de macOS o un fragmento — y cualquier icono. En Ajustes cada sector tiene su propio inspector."
         }
     }
 
@@ -2231,6 +2243,8 @@ final class LocalizationStore: ObservableObject {
         case .onboardingRotateTitle: return "أدر الحلقة"
         case .onboardingRotateBody: return "اضغط ⌥ مع الاستمرار واسحب على طول الحلقة: تدور وتلتصق بحيث تقع القطاعات، أو الفجوات بينها، تمامًا أعلى وأسفل ويسارًا ويمينًا. جرّب على اليسار."
         case .onboardingArrangeNote: return "المعاينة نفسها موجودة في الإعدادات لكل قائمة."
+        case .onboardingAddTitle: return "أضف قطاعًا"
+        case .onboardingAddBody: return "انقر على القطة في المنتصف: تفسح الحلقة مكانًا لقطاع جديد. ثم اختر ما يفعله — تطبيق أو رابط أو اختصار لوحة مفاتيح أو إجراء macOS أو مقتطف نصي — وأي أيقونة. في الإعدادات لكل قطاع مفتّشه الخاص."
         }
     }
 
@@ -2535,6 +2549,8 @@ final class LocalizationStore: ObservableObject {
         case .onboardingRotateTitle: return "Tournez l'anneau"
         case .onboardingRotateBody: return "Maintenez ⌥ et glissez le long de l'anneau : il tourne et s'aligne pour que les secteurs, ou les espaces entre eux, soient exactement en haut, en bas, à gauche et à droite. Essayez à gauche."
         case .onboardingArrangeNote: return "Le même aperçu se trouve dans les Réglages pour chaque menu."
+        case .onboardingAddTitle: return "Ajouter un secteur"
+        case .onboardingAddBody: return "Cliquez sur le chat au centre : l'anneau fait de la place à un nouveau secteur. Choisissez ensuite ce qu'il fait — une app, un lien, un raccourci clavier, une action macOS ou un extrait — et n'importe quelle icône. Dans les Réglages, chaque secteur a son propre inspecteur."
         }
     }
 
@@ -2839,6 +2855,8 @@ final class LocalizationStore: ObservableObject {
         case .onboardingRotateTitle: return "রিং ঘোরান"
         case .onboardingRotateBody: return "⌥ চেপে রিং বরাবর টানুন: এটি ঘুরে এমনভাবে আটকে যায় যাতে সেক্টর বা তাদের মাঝের ফাঁক ঠিক উপরে, নিচে, বাঁয়ে ও ডানে বসে। বাঁদিকে চেষ্টা করুন।"
         case .onboardingArrangeNote: return "সেটিংসে প্রতিটি মেনুর জন্য একই প্রিভিউ আছে।"
+        case .onboardingAddTitle: return "সেক্টর যোগ করুন"
+        case .onboardingAddBody: return "মাঝের বিড়ালে ক্লিক করুন: রিং নতুন সেক্টরের জন্য জায়গা করে দেয়। তারপর বেছে নিন এটি কী করবে — অ্যাপ, লিংক, কী-সমন্বয়, macOS অ্যাকশন বা স্নিপেট — এবং যেকোনো আইকন। সেটিংসে প্রতিটি সেক্টরের নিজস্ব ইন্সপেক্টর আছে।"
         }
     }
 
@@ -3143,6 +3161,8 @@ final class LocalizationStore: ObservableObject {
         case .onboardingRotateTitle: return "Gire o anel"
         case .onboardingRotateBody: return "Segure ⌥ e arraste ao longo do anel: ele gira e encaixa para que os setores, ou os espaços entre eles, fiquem exatamente em cima, embaixo, à esquerda e à direita. Experimente à esquerda."
         case .onboardingArrangeNote: return "A mesma pré-visualização está nos Ajustes para cada menu."
+        case .onboardingAddTitle: return "Adicione um setor"
+        case .onboardingAddBody: return "Clique no gato no centro: o anel abre espaço para um setor novo. Depois escolha o que ele faz — um app, um link, uma combinação de teclas, uma ação do macOS ou um trecho de texto — e qualquer ícone. Nos Ajustes, cada setor tem o seu próprio inspetor."
         }
     }
 
@@ -3447,6 +3467,8 @@ final class LocalizationStore: ObservableObject {
         case .onboardingRotateTitle: return "رِنگ گھمائیں"
         case .onboardingRotateBody: return "⌥ دبا کر رِنگ کے ساتھ گھسیٹیں: یہ گھوم کر ایسے جمتا ہے کہ سیکٹر یا ان کے درمیان کی جگہ بالکل اوپر، نیچے، بائیں اور دائیں آئے۔ بائیں طرف آزمائیں۔"
         case .onboardingArrangeNote: return "سیٹنگز میں ہر مینو کے لیے یہی پیش منظر ہے۔"
+        case .onboardingAddTitle: return "سیکٹر شامل کریں"
+        case .onboardingAddBody: return "درمیان میں بلی پر کلک کریں: رِنگ نئے سیکٹر کے لیے جگہ بنا دیتا ہے۔ پھر چنیں کہ وہ کیا کرے — ایپ، لنک، کلیدی امتزاج، macOS ایکشن یا اسنیپٹ — اور کوئی بھی آئیکن۔ سیٹنگز میں ہر سیکٹر کا اپنا انسپکٹر ہے۔"
         }
     }
 
@@ -3751,6 +3773,8 @@ final class LocalizationStore: ObservableObject {
         case .onboardingRotateTitle: return "Putar cincin"
         case .onboardingRotateBody: return "Tahan ⌥ dan seret di sepanjang cincin: ia berputar dan mengunci agar sektor, atau celah di antaranya, tepat di atas, bawah, kiri, dan kanan. Coba di sebelah kiri."
         case .onboardingArrangeNote: return "Pratinjau yang sama ada di Pengaturan untuk setiap menu."
+        case .onboardingAddTitle: return "Tambah sektor"
+        case .onboardingAddBody: return "Klik kucing di tengah: cincin membuka ruang untuk sektor baru. Lalu pilih fungsinya — aplikasi, tautan, kombinasi tombol, aksi macOS, atau cuplikan teks — dan ikon apa pun. Di Pengaturan, setiap sektor punya inspektur sendiri."
         }
     }
 
@@ -4055,6 +4079,8 @@ final class LocalizationStore: ObservableObject {
         case .onboardingRotateTitle: return "Dreh den Ring"
         case .onboardingRotateBody: return "Halte ⌥ und ziehe am Ring entlang: er dreht sich und rastet so ein, dass Sektoren oder die Lücken dazwischen genau oben, unten, links und rechts sitzen. Probier es links aus."
         case .onboardingArrangeNote: return "Dieselbe Vorschau gibt es in den Einstellungen für jedes Menü."
+        case .onboardingAddTitle: return "Sektor hinzufügen"
+        case .onboardingAddBody: return "Klicke auf die Katze in der Mitte: der Ring macht Platz für einen neuen Sektor. Dann wähle, was er tut – eine App, ein Link, ein Tastenkürzel, eine macOS-Aktion oder ein Textbaustein – und ein beliebiges Symbol. In den Einstellungen hat jeder Sektor seinen eigenen Inspektor."
         }
     }
 
@@ -4359,6 +4385,8 @@ final class LocalizationStore: ObservableObject {
         case .onboardingRotateTitle: return "リングを回す"
         case .onboardingRotateBody: return "⌥ を押しながらリングに沿ってドラッグ：回転して、セクタかその間の隙間がちょうど上下左右に来るように吸着します。左で試してみましょう。"
         case .onboardingArrangeNote: return "同じプレビューは設定の各メニューにもあります。"
+        case .onboardingAddTitle: return "セクタを追加"
+        case .onboardingAddBody: return "中央の猫をクリック：リングが新しいセクタの場所を空けます。次に何をするか（アプリ、リンク、キーの組み合わせ、macOS の操作、テキスト片）と好きなアイコンを選びます。設定では各セクタに専用のインスペクタがあります。"
         }
     }
 }

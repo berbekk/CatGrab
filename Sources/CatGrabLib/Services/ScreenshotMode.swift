@@ -32,6 +32,11 @@ enum ScreenshotMode {
         environment["CATGRAB_SCREENSHOT_NAME"] ?? target.rawValue
     }
 
+    /// Страница знакомства для снимка (`CATGRAB_SCREENSHOT_PAGE`, номер с нуля); по умолчанию первая.
+    static var onboardingPage: OnboardingPage {
+        environment["CATGRAB_SCREENSHOT_PAGE"].flatMap(Int.init).flatMap(OnboardingPage.init(rawValue:)) ?? .welcome
+    }
+
     /// Какое меню открыть в настройках; `nil` — первое в списке.
     static func initialMenu(in configuration: PieConfiguration) -> PieMenu? {
         switch environment["CATGRAB_SCREENSHOT_MENU"] {

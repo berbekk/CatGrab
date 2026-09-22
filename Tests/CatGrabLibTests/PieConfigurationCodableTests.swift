@@ -73,4 +73,19 @@ final class PieConfigurationCodableTests: XCTestCase {
         let broken = json.replacingOccurrences(of: "\"menuRadius\":150", with: "\"menuRadius\":150,\"iconDistance\":-0.3")
         XCTAssertEqual(try JSONDecoder().decode(PieMenu.self, from: Data(broken.utf8)).iconDistance, 0.5)
     }
+
+    func test_legacyPaletteColoursFollowTheThemeEvenAfterReordering() throws {
+        // 1.0 stored a colour per sector and kept it when sectors were reordered, so a palette colour
+        // can sit at the "wrong" index. It must still follow the theme; a hand-picked colour must not.
+        let json = ##"[{"title":"A","icon":"star","color":"#FF9500","sectorIndex":0},{"title":"B","icon":"star","color":"#123456","sectorIndex":1}]"##
+        let items = try JSONDecoder().decode([PieMenuItem].self, from: Data(json.utf8))
+        XCTAssertTrue(items[0].usesThemeColor)
+        XCTAssertFalse(items[1].usesThemeColor)
+    }
+
+    func test_defaultGlassIsVisiblyTinted() throws {
+        XCTAssertEqual(LiquidGlassSettings.default.tintOpacity, MenuThemePreset.classic.intensity)
+        let decoded = try JSONDecoder().decode(LiquidGlassSettings.self, from: Data(#"{"variant":"regular"}"#.utf8))
+        XCTAssertEqual(decoded.tintOpacity, LiquidGlassSettings.defaultTintOpacity)
+    }
 }

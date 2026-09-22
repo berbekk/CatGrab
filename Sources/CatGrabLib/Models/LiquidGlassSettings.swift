@@ -9,9 +9,13 @@ struct LiquidGlassSettings: Codable, Equatable {
     var variant: LiquidGlassVariant
     var tintOpacity: Double
 
+    /// Насыщенность как у палитры «Классика»: при 0.07 цвета секторов почти не читались, и новое
+    /// кольцо выглядело серым, пока пользователь не находил ползунок.
+    static let defaultTintOpacity = 0.3
+
     static let `default` = LiquidGlassSettings(
         variant: .regular,
-        tintOpacity: 0.07
+        tintOpacity: defaultTintOpacity
     )
 
     private enum CodingKeys: String, CodingKey {
@@ -21,7 +25,7 @@ struct LiquidGlassSettings: Codable, Equatable {
 
     init(
         variant: LiquidGlassVariant = .regular,
-        tintOpacity: Double = 0.07
+        tintOpacity: Double = LiquidGlassSettings.defaultTintOpacity
     ) {
         self.variant = variant
         self.tintOpacity = tintOpacity
@@ -30,6 +34,6 @@ struct LiquidGlassSettings: Codable, Equatable {
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         variant = try container.decodeIfPresent(LiquidGlassVariant.self, forKey: .variant) ?? .regular
-        tintOpacity = try container.decodeIfPresent(Double.self, forKey: .tintOpacity) ?? 0.07
+        tintOpacity = try container.decodeIfPresent(Double.self, forKey: .tintOpacity) ?? Self.defaultTintOpacity
     }
 }

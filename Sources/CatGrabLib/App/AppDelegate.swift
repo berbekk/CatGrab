@@ -195,7 +195,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
             guard let self else { return }
             switch ScreenshotMode.target {
             case .settings: self.openSettings()
-            case .onboarding: self.showOnboarding(startPage: .welcome)
+            case .onboarding: self.showOnboarding(startPage: ScreenshotMode.onboardingPage)
             }
             DispatchQueue.main.asyncAfter(deadline: .now() + ScreenshotMode.settleDelay) {
                 if let window = NSApp.keyWindow ?? NSApp.windows.first(where: \.isVisible) {

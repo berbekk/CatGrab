@@ -88,8 +88,10 @@ struct OnboardingView: View {
     @State private var pickedResetTask: Task<Void, Never>?
     /// Выбранный сектор в превью на страницах расстановки — только подсветка, инспектора здесь нет.
     @State private var arrangeSelection: UUID?
-    /// Показательное движение: сдвиг сектора (радианы) или поворот кольца (градусы).
+    /// Показательное движение: сдвиг сектора (радианы), поворот кольца (градусы) или рост нового сектора (0…1).
     @StateObject private var demo = DemoAnimator()
+    /// Нажатие на кота перед ростом сектора.
+    @StateObject private var demoPress = DemoAnimator()
 
     static let windowSize = NSSize(width: 780, height: 500)
     private static let heroWidth: CGFloat = 340
@@ -133,7 +135,7 @@ struct OnboardingView: View {
     // MARK: - Кольцо
 
     private var isArrangePage: Bool {
-        model.page == .reorder || model.page == .rotate
+        model.page == .reorder || model.page == .rotate || model.page == .add
     }
 
     /// Показать движение, о котором страница: сектор проезжает на соседнее место и возвращается,
@@ -141,6 +143,7 @@ struct OnboardingView: View {
     /// движение» не проигрывается — жест описан текстом.
     private func playDemo(for page: OnboardingPage) {
         demo.cancel()
+        demoPress.cancel()
         guard !reduceMotion else { return }
         let sectorCount = max(1, model.mainMenu?.items.count ?? 1)
         switch page {
@@ -164,6 +167,19 @@ struct OnboardingView: View {
                 .hold(-step, 0.35),
                 .init(value: 0, duration: 0.9, response: 0.6, damping: 0.62)
             ])
+        case .add:
+            // Кот «нажимается», кольцо раздвигается, и в нём вырастает новый сектор; постояв,
+            // он снова закрывается — это только показ, сектор в меню не добавляется.
+            demoPress.play(after: 0.7, keyframes: [
+                .init(value: 1, duration: 0.14, response: 0.14, damping: 1),
+                .hold(1, 0.06),
+                .init(value: 0, duration: 0.35, response: 0.3, damping: 0.6)
+            ])
+            demo.play(after: 0.95, keyframes: [
+                .init(value: 1, duration: 1.1, response: 0.65, damping: 0.62),
+                .hold(1, 1.4),
+                .init(value: 0, duration: 0.8, response: 0.5, damping: 0.9)
+            ])
         default:
             break
         }
@@ -184,7 +200,10 @@ struct OnboardingView: View {
                         isAppearancePanelVisible: false,
                         showsEditorChrome: false,
                         demoDrag: model.page == .reorder && demo.isActive ? .init(index: 0, angleOffset: demo.value) : nil,
-                        demoRotationOffsetDegrees: model.page == .rotate ? demo.value : 0
+                        demoRotationOffsetDegrees: model.page == .rotate ? demo.value : 0,
+                        demoAdd: model.page == .add && (demo.isActive || demoPress.isActive)
+                            ? .init(growth: demo.value, press: demoPress.value)
+                            : nil
                     )
                     .onAppear { playDemo(for: model.page) }
                 } else if let menu = model.mainMenu {
@@ -215,6 +234,7 @@ struct OnboardingView: View {
         switch model.page {
         case .reorder: return localizer.text(.dragToReorder)
         case .rotate: return localizer.text(.optionDragToRotate)
+        case .add: return localizer.text(.tapCatToAddHint)
         default: return pickedTitle.map { String(format: localizer.text(.onboardingPickedFormat), $0) } ?? " "
         }
     }
@@ -228,6 +248,7 @@ struct OnboardingView: View {
         case .open: openPage
         case .reorder: reorderPage
         case .rotate: rotatePage
+        case .add: addPage
         case .builtIn: builtInPage
         case .style: stylePage
         case .permissions: permissionsPage
@@ -273,6 +294,18 @@ struct OnboardingView: View {
     private var rotatePage: some View {
         page(title: localizer.text(.onboardingRotateTitle), body: localizer.text(.onboardingRotateBody)) {
             Label(localizer.text(.optionDragToRotate), systemImage: "option")
+                .font(DS.Typography.body)
+                .foregroundStyle(.secondary)
+            Text(localizer.text(.onboardingArrangeNote))
+                .font(DS.Typography.label)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    private var addPage: some View {
+        page(title: localizer.text(.onboardingAddTitle), body: localizer.text(.onboardingAddBody)) {
+            Label(localizer.text(.tapCatToAddHint), systemImage: "pawprint")
                 .font(DS.Typography.body)
                 .foregroundStyle(.secondary)
             Text(localizer.text(.onboardingArrangeNote))
