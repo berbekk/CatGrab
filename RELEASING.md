@@ -31,10 +31,9 @@ make verify-release  # mounts it and checks layout, version, architectures and s
 
 ## The website
 
-`site/index.html` is published to <https://berbekk.github.io/CatGrab/> by
-[`.github/workflows/pages.yml`](.github/workflows/pages.yml) on every push that touches it. Turn it on
-once: **Settings → Pages → Build and deployment → Source: GitHub Actions**. Preview locally with
-`make site`.
+The site lives at <https://berbekk.neocities.org/> and is uploaded there by hand: `site/index.html`
+plus the images that `make site` copies into `site/assets/` (the README screenshots and the icon).
+Preview locally with `make site`.
 
 ## Signing (optional)
 

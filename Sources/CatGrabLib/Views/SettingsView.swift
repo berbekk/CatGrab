@@ -30,7 +30,7 @@ struct SettingsView: View {
     init() {
         let cfg = ConfigManager.shared.configuration
         _config = State(initialValue: cfg)
-        _selectedMenuId = State(initialValue: cfg.menus.first?.id)
+        _selectedMenuId = State(initialValue: (ScreenshotMode.initialMenu(in: cfg) ?? cfg.menus.first)?.id)
     }
 
     var body: some View {

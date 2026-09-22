@@ -59,4 +59,18 @@ final class PieConfigurationCodableTests: XCTestCase {
         XCTAssertEqual(decoded.keyCode, original.keyCode)
         XCTAssertEqual(decoded.carbonModifiers, original.carbonModifiers)
     }
+
+    func test_menuWithoutIconDistanceKeepsIconsInsideTheRing() throws {
+        // A 1.0-era menu: no iconDistance, no innerRadius. The old formula (55 pt from the center)
+        // would put icons inside today's wider hub.
+        let json = #"{"id":"6E48EB70-6155-429C-B6DF-0CFCBACAD575","name":"Main","hotkey":{"keyCode":49,"carbonModifiers":6144},"items":[],"menuRadius":150,"animationDuration":0.2}"#
+        let menu = try JSONDecoder().decode(PieMenu.self, from: Data(json.utf8))
+        XCTAssertEqual(menu.iconDistance, 0.5)
+        XCTAssertTrue(PieMenu.iconDistanceAllowedRange.contains(menu.iconDistance))
+
+        let stored = json.replacingOccurrences(of: "\"menuRadius\":150", with: "\"menuRadius\":150,\"iconDistance\":0.8")
+        XCTAssertEqual(try JSONDecoder().decode(PieMenu.self, from: Data(stored.utf8)).iconDistance, 0.8)
+        let broken = json.replacingOccurrences(of: "\"menuRadius\":150", with: "\"menuRadius\":150,\"iconDistance\":-0.3")
+        XCTAssertEqual(try JSONDecoder().decode(PieMenu.self, from: Data(broken.utf8)).iconDistance, 0.5)
+    }
 }

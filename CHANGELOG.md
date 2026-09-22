@@ -6,6 +6,11 @@ All notable changes to CatGrab are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- A menu saved by an old version without an icon distance placed its icons inside the hub, on top
+  of the cat; such menus now get the default distance.
+
 ## [1.2.1] - 2026-09-22
 
 ### Fixed

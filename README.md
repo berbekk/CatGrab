@@ -12,7 +12,7 @@ your app, shortcut, window command or snippet fires. No trip to the Dock, no dig
 [![macOS 13+](https://img.shields.io/badge/macOS-13%2B-blue)](#requirements)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
-**[Download CatGrab.dmg](https://github.com/berbekk/CatGrab/releases/latest)** · [Website](https://berbekk.github.io/CatGrab/) · [Русский](README.ru.md) · [Changelog](CHANGELOG.md)
+**[Download CatGrab.dmg](https://github.com/berbekk/CatGrab/releases/latest)** · [Website](https://berbekk.neocities.org/) · [Русский](README.ru.md) · [Changelog](CHANGELOG.md)
 
 <br>
 
@@ -28,8 +28,9 @@ your app, shortcut, window command or snippet fires. No trip to the Dock, no dig
 - **Six kinds of action per sector:** launch an app, open a link, send a keystroke to the app in
   front, run a macOS action (Mission Control, App Exposé, Quick Note, Screen Saver, Display Sleep,
   Lock Screen), or put a text snippet on the clipboard ready for <kbd>⌘</kbd><kbd>V</kbd>.
-- **Active apps.** A built-in ring of everything that is running — a radial <kbd>⌘</kbd><kbd>Tab</kbd>
-  that also switches to the app's Space and restores minimized windows.
+- **Active apps.** A built-in ring of the apps you used last — a radial <kbd>⌘</kbd><kbd>Tab</kbd>
+  that also switches to the app's Space and restores minimized windows. Six by default, up to twelve
+  or all.
 - **App commands.** One hotkey opens the commands of the app you are in: move the window to a half of
   the screen, fill or center it, full screen, quit. Give any app its own set — anything from its menu
   bar — and the same hotkey shows Figma's commands in Figma and Xcode's in Xcode.
@@ -39,9 +40,10 @@ your app, shortcut, window command or snippet fires. No trip to the Dock, no dig
 - **Quick select.** While a menu is open, press the digit or letter shown on a sector, or use the
   arrow keys, Tab and Return.
 - **Icons from anywhere:** SF Symbols, emoji, website favicons, your own image or text.
-- **Make it yours:** 24 colour themes to start from — palettes, gradients, single colours — then
-  fine-tune the colours, intensity, glass and icons, or give any sector its own colour. Size,
-  rotation and a cat in the middle whose eyes follow the pointer. Settings come in light or dark.
+- **Make it yours:** drag sectors around the ring and <kbd>⌥</kbd>-drag to rotate it, so every
+  sector sits where your hand expects. 24 colour themes to start from — palettes, gradients, single
+  colours — then fine-tune the colours, intensity, glass and icons, or give any sector its own colour.
+  A cat in the middle whose eyes follow the pointer. Settings come in light or dark.
 - **13 languages**, and backup/restore of your whole setup as one JSON file.
 
 <p align="center">
@@ -78,8 +80,12 @@ any other app.
 
 ### Permissions
 
-CatGrab then opens a short tour: try the ring, pick a hotkey, and on the last pages grant two
-permissions. Click **Allow** and turn **CatGrab** on in each:
+CatGrab then opens a short tour: try the ring, pick a hotkey, watch the cat rearrange and rotate
+the ring, and on the last pages grant two permissions. Click **Allow** and turn **CatGrab** on in each:
+
+<p align="center">
+  <img src="docs/screenshots/welcome.png" width="720" alt="The welcome tour: a live ring on the left, the steps on the right">
+</p>
 
 | Permission | Why |
 | --- | --- |

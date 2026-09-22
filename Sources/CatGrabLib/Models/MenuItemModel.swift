@@ -714,6 +714,14 @@ struct PieMenu: Codable, Identifiable, Equatable {
         return (radius - innerRadius) / (menuRadius - innerRadius)
     }
 
+    /// Диапазон ползунка «Расстояние иконок»; значение вне него — из старого или правленого конфига.
+    static let iconDistanceAllowedRange: ClosedRange<Double> = 0.3...1.0
+
+    static func clampedIconDistance(_ value: Double) -> Double {
+        guard value.isFinite, iconDistanceAllowedRange.contains(value) else { return defaultIconDistanceRatio }
+        return value
+    }
+
     init(id: UUID = UUID(),
          name: String = "New menu",
          hotkey: HotkeyConfig = .defaultHotkey,
@@ -795,8 +803,12 @@ struct PieMenu: Codable, Identifiable, Equatable {
         menuRadius = try container.decode(Double.self, forKey: .menuRadius)
         innerRadius = try container.decodeIfPresent(Double.self, forKey: .innerRadius) ?? Self.defaultInnerRadius
         innerRadius = Self.clampedInnerRadius(innerRadius, outerRadius: menuRadius)
-        iconDistance = try container.decodeIfPresent(Double.self, forKey: .iconDistance)
-            ?? Self.iconDistanceForRadius(Self.defaultIconDistanceFromCenter, menuRadius: menuRadius, innerRadius: innerRadius)
+        // Старые конфиги хранили расстояние иконки в поинтах от центра при узком центре; с нынешним
+        // центром эта величина может оказаться внутри него — тогда иконки сбивались бы к коту.
+        iconDistance = Self.clampedIconDistance(
+            try container.decodeIfPresent(Double.self, forKey: .iconDistance)
+                ?? Self.iconDistanceForRadius(Self.defaultIconDistanceFromCenter, menuRadius: menuRadius, innerRadius: innerRadius)
+        )
         iconSize = try container.decodeIfPresent(Double.self, forKey: .iconSize) ?? 42
         appearanceScale = Self.clampedAppearanceScale(
             try container.decodeIfPresent(Double.self, forKey: .appearanceScale) ?? Self.defaultAppearanceScale

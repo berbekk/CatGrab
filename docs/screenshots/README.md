@@ -1,18 +1,18 @@
 # Screenshots
 
-Images used by the READMEs.
-
-| File | What it shows |
-| --- | --- |
-| `settings.png` | The settings window with a menu selected: sidebar, hotkey and gesture, ring preview |
-| `app-commands.png` | The App commands menu with its window commands around the app icon |
-
-Worth adding: `pie.png` — the ring open over a real desktop, one sector highlighted. It is the image
-people judge the app by; the ring is an overlay, so capture a region:
+`settings.png`, `app-commands.png` and `welcome.png` are used by the READMEs and the website.
+They are taken by the app itself, so glass and icons look exactly as users see them:
 
 ```bash
-screencapture -i -o docs/screenshots/pie.png
+make build
+DEMO=/tmp/catgrab-demo   # a folder with a demo config.json, see below
+OUT=docs/screenshots
+B=build/CatGrab.app/Contents/MacOS/CatGrab
+CATGRAB_CONFIG_DIR=$DEMO CATGRAB_SCREENSHOT_DIR=$OUT CATGRAB_SCREENSHOT_TARGET=settings   CATGRAB_SCREENSHOT_MENU=main        CATGRAB_SCREENSHOT_NAME=settings     $B
+CATGRAB_CONFIG_DIR=$DEMO CATGRAB_SCREENSHOT_DIR=$OUT CATGRAB_SCREENSHOT_TARGET=settings   CATGRAB_SCREENSHOT_MENU=appCommands CATGRAB_SCREENSHOT_NAME=app-commands $B
+CATGRAB_CONFIG_DIR=$DEMO CATGRAB_SCREENSHOT_DIR=$OUT CATGRAB_SCREENSHOT_TARGET=onboarding                                     CATGRAB_SCREENSHOT_NAME=welcome      $B
 ```
 
-Capture on a Retina display and keep the window unmaximised. GitHub scales images down to the width
-set in the README, so keep the full-resolution file.
+The app opens the window, waits for it to render, captures it through the window server at Retina
+scale and quits (see `ScreenshotMode`). The demo config used for the current images has two menus
+(Main and Work), command sets for Safari and Finder, English, dark appearance.

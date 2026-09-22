@@ -177,11 +177,32 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
             Task { @MainActor [weak self] in self?.evaluateStatusItemVisibility(openSettingsIfHidden: false) }
         }
 
+        if ScreenshotMode.isEnabled {
+            runScreenshotMode()
+            return
+        }
         DispatchQueue.main.async { [weak self] in
             self?.resumeAfterRelaunchOrPresentOnboarding()
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + Timings.statusItemLayoutSettleDelay) { [weak self] in
             self?.evaluateStatusItemVisibility(openSettingsIfHidden: true)
+        }
+    }
+
+    /// Скриншоты для README: открыть окно, снять, выйти. См. `ScreenshotMode`.
+    private func runScreenshotMode() {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
+            guard let self else { return }
+            switch ScreenshotMode.target {
+            case .settings: self.openSettings()
+            case .onboarding: self.showOnboarding(startPage: .welcome)
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + ScreenshotMode.settleDelay) {
+                if let window = NSApp.keyWindow ?? NSApp.windows.first(where: \.isVisible) {
+                    ScreenshotMode.capture(window: window)
+                }
+                NSApp.terminate(nil)
+            }
         }
     }
 

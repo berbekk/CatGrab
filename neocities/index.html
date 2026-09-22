@@ -1,0 +1,668 @@
+<!doctype html>
+<html lang="en">
+<!--
+  Hello, source viewer. This page is one hand-written HTML file plus a few PNGs.
+  Everything is inline: no framework, no build step, no tracking.
+  Before uploading, replace the og:image below with the absolute address of settings.png
+  on your Neocities site (for example https://yourname.neocities.org/settings.png).
+-->
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>CatGrab</title>
+<meta name="description" content="CatGrab is a free, open-source radial launcher for macOS. Hold a hotkey, flick toward a sector, let go. Apps, links, keystrokes, window commands and snippets, one gesture away.">
+<meta property="og:title" content="CatGrab — a radial launcher for macOS">
+<meta property="og:description" content="Hold a hotkey or tap the trackpad, flick toward what you want, let go. Free, open source, nothing leaves your Mac.">
+<meta property="og:image" content="settings.png">
+<meta name="theme-color" content="#4A7EA8">
+<link rel="icon" href="favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&display=swap">
+<style>
+:root {
+  --desk: #4A7EA8;
+  --desk-dot: #6A9AC2;
+  --plat: #DDDDDD;
+  --plat-dk: #8E8E8E;
+  --plat-lt: #F4F4F4;
+  --paper: #FFFFFF;
+  --ink: #111111;
+  --muted: #5B5B5B;
+  --line: #000000;
+  --link: #0A2FB5;
+  --visited: #6A2E9E;
+  --amber: #FFC940;
+  --amber-ink: #2B1F00;
+  --night: #1A1622;
+  --pixel: "Silkscreen", "Chicago", "Monaco", monospace;
+  --body: Geneva, Verdana, Tahoma, "DejaVu Sans", sans-serif;
+  --mono: Monaco, Menlo, "Courier New", monospace;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+html { background: var(--desk); }
+body {
+  margin: 0;
+  color: var(--ink);
+  font: 14px/1.55 var(--body);
+  background-color: var(--desk);
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='8' height='8'><rect width='8' height='8' fill='%234A7EA8'/><rect width='1' height='1' fill='%236A9AC2'/><rect x='4' y='4' width='1' height='1' fill='%236A9AC2'/></svg>");
+  -webkit-font-smoothing: antialiased;
+}
+a { color: var(--link); }
+a:visited { color: var(--visited); }
+a:hover { background: var(--amber); color: var(--ink); }
+:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
+img { max-width: 100%; height: auto; display: block; }
+p { margin: 0 0 .8em; }
+p:last-child { margin-bottom: 0; }
+h1, h2, h3 { font-family: var(--pixel); font-weight: 400; margin: 0; text-wrap: balance; line-height: 1.25; }
+h3 { font-size: 12px; margin: 14px 0 6px; text-transform: uppercase; letter-spacing: .04em; }
+h3:first-child { margin-top: 0; }
+kbd {
+  font: 12px/1 var(--body); padding: 2px 5px 1px; border: 1px solid var(--line); border-radius: 3px;
+  background: var(--plat-lt); box-shadow: 1px 1px 0 var(--line); white-space: nowrap; vertical-align: 1px;
+}
+code, pre { font: 12.5px/1.5 var(--mono); }
+code { background: var(--plat-lt); padding: 0 3px; border: 1px solid #ccc; }
+pre { margin: 8px 0; padding: 8px 10px; background: var(--plat-lt); border: 1px solid var(--line); overflow-x: auto; }
+pre code { background: none; border: 0; padding: 0; }
+ul, ol { margin: 0 0 .8em; padding-left: 1.4em; }
+li { margin-bottom: .3em; }
+hr { border: 0; border-top: 1px solid var(--line); margin: 14px 0; }
+.skip { position: absolute; left: -999px; top: 0; background: var(--paper); padding: 6px 10px; z-index: 99; }
+.skip:focus { left: 8px; top: 30px; }
+.muted { color: var(--muted); }
+.small { font-size: 12px; }
+.pixel { font-family: var(--pixel); }
+
+/* ——— Menu bar ——— */
+.menubar {
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 20;
+  display: flex; align-items: center; gap: 2px; height: 24px; padding: 0 8px;
+  background: var(--plat); border-bottom: 1px solid var(--line);
+  font-family: var(--pixel); font-size: 11px; overflow: hidden;
+}
+.menubar a { color: var(--ink); text-decoration: none; padding: 3px 8px; white-space: nowrap; }
+.menubar a:hover { background: var(--ink); color: var(--paper); }
+.menubar .home { display: inline-flex; padding: 2px 6px; }
+.menubar .home svg { width: 16px; height: 15px; }
+.menubar .spacer { flex: 1; }
+.menubar .right { display: inline-flex; gap: 12px; white-space: nowrap; }
+.menubar nav { display: flex; overflow-x: auto; scrollbar-width: none; }
+.menubar nav::-webkit-scrollbar { display: none; }
+
+/* ——— Ticker ——— */
+.ticker {
+  background: var(--night); color: var(--amber); border-bottom: 1px solid var(--line);
+  font-family: var(--pixel); font-size: 11px; line-height: 22px; overflow: hidden; white-space: nowrap;
+}
+.ticker-track { display: inline-flex; animation: ticker 42s linear infinite; }
+.ticker-track:hover { animation-play-state: paused; }
+.ticker-track > span { padding-right: 4em; }
+.ticker b { color: var(--paper); font-weight: 400; }
+@keyframes ticker { to { transform: translateX(-50%); } }
+
+/* ——— Desktop ——— */
+.desk { max-width: 900px; margin-inline: auto; padding-inline: 16px; padding-block: 18px 28px; }
+.desk-icons { display: flex; flex-wrap: wrap; gap: 6px 22px; justify-content: flex-end; margin-bottom: 18px; }
+.dicon { display: flex; flex-direction: column; align-items: center; gap: 4px; width: 84px; text-decoration: none; color: var(--paper); }
+.dicon svg { width: 36px; height: 36px; shape-rendering: crispEdges; filter: drop-shadow(1px 1px 0 rgba(0,0,0,.5)); }
+.dicon span { font-family: var(--pixel); font-size: 10px; background: var(--paper); color: var(--ink); padding: 1px 4px; border: 1px solid var(--line); text-align: center; line-height: 1.2; }
+.dicon:hover { background: none; }
+.dicon:hover span { background: var(--ink); color: var(--paper); }
+.cols { display: grid; grid-template-columns: minmax(0, 1fr) 236px; gap: 18px; align-items: start; }
+.col { display: grid; gap: 18px; min-width: 0; }
+
+/* ——— Windows ——— */
+.win { background: var(--plat); border: 1px solid var(--line); box-shadow: 2px 2px 0 var(--line); }
+.tb {
+  display: flex; align-items: center; height: 21px; padding: 0 5px;
+  background: repeating-linear-gradient(to bottom, var(--plat) 0 2px, var(--plat-dk) 2px 3px);
+  background-clip: content-box; padding-block: 3px; border-bottom: 1px solid var(--line);
+}
+.tb .box { width: 11px; height: 11px; border: 1px solid var(--line); background: var(--plat); box-shadow: 0 0 0 2px var(--plat), inset 1px 1px 0 #fff, inset -1px -1px 0 #999; flex: none; }
+.tb .box.zoom { position: relative; }
+.tb .box.zoom::after { content: ""; position: absolute; inset: 1px 4px 4px 1px; border: 1px solid var(--line); border-width: 0 1px 1px 0; }
+.tb h2 { flex: 1; text-align: center; font-size: 12px; padding: 0 8px; margin: 0; }
+.tb h2 span { background: var(--plat); padding: 0 6px; }
+.wc { background: var(--paper); margin: 0 1px 1px; padding: 14px 16px; border-top: 1px solid var(--line); }
+.dialog .wc { background: var(--plat); }
+.win:target { box-shadow: 2px 2px 0 var(--line), 0 0 0 3px var(--amber); }
+
+/* ——— About ——— */
+.about { display: flex; gap: 16px; align-items: flex-start; }
+.about img { width: 72px; height: 72px; flex: none; }
+.about h1 { font-size: 28px; font-weight: 700; letter-spacing: .02em; }
+.tagline { font-size: 16px; margin: 4px 0 10px; }
+.stamps { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 14px; padding: 0; list-style: none; }
+.stamps li { font-family: var(--pixel); font-size: 10px; border: 1px solid var(--line); padding: 3px 6px 2px; background: var(--plat-lt); }
+.btnrow { display: flex; flex-wrap: wrap; gap: 12px 14px; align-items: center; }
+.btn {
+  display: inline-block; font: 13px/1 var(--body); color: var(--ink); text-decoration: none;
+  padding: 8px 18px; border: 1px solid var(--line); border-radius: 7px;
+  background: linear-gradient(#fff, #ddd); box-shadow: inset 1px 1px 0 #fff, inset -1px -1px 0 #999, 1px 1px 0 var(--line);
+  white-space: nowrap;
+}
+.btn:visited { color: var(--ink); }
+.btn:hover { background: var(--amber); }
+.btn:active { background: var(--ink); color: var(--paper); }
+.btn.default { box-shadow: inset 1px 1px 0 #fff, inset -1px -1px 0 #999, 0 0 0 2px var(--paper), 0 0 0 5px var(--line); margin: 5px; }
+.dialog .btn.default { box-shadow: inset 1px 1px 0 #fff, inset -1px -1px 0 #999, 0 0 0 2px var(--plat), 0 0 0 5px var(--line); }
+
+/* ——— Ring ——— */
+.stage {
+  position: relative; display: grid; place-items: center; padding: 10px;
+  background: var(--night) url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='8' height='8'><rect width='8' height='8' fill='%231A1622'/><rect width='1' height='1' fill='%232D2738'/><rect x='4' y='4' width='1' height='1' fill='%232D2738'/></svg>");
+  border: 1px solid var(--line); touch-action: none; user-select: none; -webkit-user-select: none;
+  cursor: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='32' viewBox='0 0 32 43'><path d='M16.66 1.25c1-2 7-2 8.28 3 4.44.68 8.22 4 5.67 11.87 0 .05-.21 4.89-2.67 8.36l.87 8.37c.55 5.3-3.6 9.9-8.93 9.9h-6.87c-4.96 0-8.98-4.02-8.98-8.98V23.4c-.4-.4-.77-.82-1.12-1.28-5.25-6.87-3.25-18.88 4.75-17.88.5-3 5-5.5 9-3z' fill='%23000' stroke='%23fff' stroke-width='2'/><path d='M15.58 13.96c2.2-.07 4.05 1.33 4.24 3.17 2.06.97 3.07 3.17 2.25 4.93-.83 1.75-3.17 2.4-5.24 1.43-.5-.24-.95-.55-1.32-.92l-.15.14c-1.71 1.51-4.14 1.56-5.42.1-1.29-1.45-.94-3.86.77-5.37.3-.26.61-.48.94-.65.38-1.56 1.98-2.77 3.93-2.83z' fill='%23fff'/><ellipse cx='20' cy='7.8' rx='2.9' ry='3.4' fill='%23fff'/><ellipse cx='25.5' cy='13.2' rx='2.7' ry='3.4' fill='%23fff'/><ellipse cx='12.7' cy='7.4' rx='2.8' ry='3.4' fill='%23fff'/><ellipse cx='6.6' cy='11.9' rx='2.9' ry='3.4' fill='%23fff'/></svg>") 12 4, pointer;
+}
+.stage svg { width: min(100%, 320px); height: auto; display: block; }
+.sec path { fill: #3C3648; stroke: #15121B; stroke-width: 1; transition: fill .12s; }
+.sec.on path { fill: var(--amber); }
+.sec.fired path { fill: #fff; }
+.sec text { pointer-events: none; }
+.sec .ic { font-size: 30px; text-anchor: middle; dominant-baseline: central; }
+.sec .dg { font: 10px var(--pixel); fill: rgba(255,255,255,.55); text-anchor: middle; dominant-baseline: central; }
+.sec.on .dg { fill: var(--amber-ink); }
+.hub { fill: #2A2434; stroke: #15121B; }
+.ring-label { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; margin-top: 12px; min-height: 44px; }
+.ring-label b { font: 700 14px var(--pixel); }
+.ring-label .kind { font: 10px var(--pixel); color: var(--amber-ink); background: var(--amber); padding: 2px 5px 1px; }
+.ring-label .detail { flex-basis: 100%; }
+@media (prefers-reduced-motion: reduce) {
+  .ticker-track { animation: none; white-space: normal; display: block; padding: 0 8px; }
+  .ticker-track > span:last-child { display: none; }
+  .sec path { transition: none; }
+}
+
+/* ——— Steps ——— */
+.steps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.step { border: 1px solid var(--line); padding: 10px 12px; background: var(--plat-lt); }
+.step .n { font: 700 24px var(--pixel); color: var(--amber); -webkit-text-stroke: 1px var(--line); text-shadow: 2px 2px 0 var(--line); display: block; margin-bottom: 4px; }
+.step h3 { margin: 0 0 4px; }
+
+/* ——— Tables ——— */
+table { border-collapse: collapse; width: 100%; font-size: 13px; }
+th, td { border: 1px solid var(--line); padding: 6px 8px; vertical-align: top; text-align: left; }
+th { background: var(--plat); font: 11px var(--pixel); text-transform: uppercase; }
+td:first-child { width: 8.5em; font-weight: bold; background: var(--plat-lt); }
+.tablewrap { overflow-x: auto; }
+
+/* ——— Figures ——— */
+figure { margin: 0 0 14px; }
+figure a { display: block; border: 1px solid var(--line); background: var(--plat); padding: 4px; box-shadow: 2px 2px 0 var(--line); }
+figure a:hover { background: var(--amber); }
+figcaption { font-size: 12px; color: var(--muted); margin-top: 6px; }
+
+/* ——— News ——— */
+.news { list-style: none; padding: 0; margin: 0; }
+.news li { display: grid; grid-template-columns: 8.5em 1fr; gap: 10px; padding: 8px 0; border-top: 1px dotted #999; }
+.news li:first-child { border-top: 0; padding-top: 0; }
+.news time { font: 10px/1.6 var(--pixel); color: var(--muted); }
+.news b { font-family: var(--pixel); font-weight: 400; font-size: 12px; }
+
+/* ——— Sidebar ——— */
+.side .wc { padding: 10px 12px; }
+.sitemap { list-style: none; padding: 0; margin: 0; }
+.sitemap li { margin: 0; border-top: 1px dotted #aaa; }
+.sitemap li:first-child { border-top: 0; }
+.sitemap a { display: block; padding: 4px 2px; text-decoration: none; font-family: var(--pixel); font-size: 11px; color: var(--ink); }
+.sitemap a:hover { background: var(--ink); color: var(--paper); }
+.stats { display: grid; grid-template-columns: auto 1fr; gap: 3px 10px; font-size: 12px; margin: 0; }
+.stats dt { color: var(--muted); }
+.stats dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; }
+.counter { display: inline-flex; gap: 1px; background: var(--line); padding: 2px; margin-top: 2px; }
+.counter span { font: 12px/18px var(--pixel); color: var(--amber); background: var(--night); width: 12px; text-align: center; }
+.b88 { display: flex; flex-wrap: wrap; gap: 6px; }
+.b88 .css88 {
+  width: 88px; height: 31px; display: flex; align-items: center; justify-content: center; text-align: center;
+  font: 8px/1.1 var(--pixel); color: var(--paper); background: var(--night); border: 1px solid; border-color: #888 #444 #444 #888; padding: 0 4px;
+}
+.b88 .css88.amber { background: var(--amber); color: var(--amber-ink); }
+.b88 .css88.plat { background: var(--plat); color: var(--ink); border-color: #fff #666 #666 #fff; }
+.b88 img { image-rendering: pixelated; }
+textarea { width: 100%; font: 11px/1.4 var(--mono); border: 1px solid var(--line); background: var(--plat-lt); padding: 6px; resize: vertical; min-height: 64px; }
+.links { list-style: none; padding: 0; margin: 0; font-size: 12.5px; }
+.links li { margin: 0 0 4px; }
+.links small { color: var(--muted); display: block; }
+
+/* ——— Footer ——— */
+footer { margin-top: 22px; color: var(--paper); font-family: var(--pixel); font-size: 10px; text-align: center; line-height: 1.9; text-shadow: 1px 1px 0 rgba(0,0,0,.5); }
+footer a { color: var(--paper); }
+footer a:hover { background: var(--amber); color: var(--ink); }
+
+@media (max-width: 720px) {
+  .cols { grid-template-columns: minmax(0, 1fr); }
+  .steps { grid-template-columns: minmax(0, 1fr); }
+  .about { flex-direction: column; }
+  .about h1 { font-size: 24px; }
+  .desk-icons { justify-content: center; }
+  .news li { grid-template-columns: minmax(0, 1fr); gap: 2px; }
+  .menubar .right .date { display: none; }
+}
+</style>
+</head>
+<body>
+<a class="skip" href="#about">Skip to content</a>
+
+<header class="menubar">
+  <a class="home" href="#top" aria-label="Top of page"><svg viewBox="0 0 99 93" aria-hidden="true"><path d="M62.9 17.8C71.4 4.7 82.5-2.6 90.4.8c7.2 3.1 6.8 21.1 3.8 38.6 2.5 4.6 3.8 9.6 3.8 14.8 0 21-21.9 38-49 38S0 75.3 0 54.3c0-4.7 1.1-9.1 3-13.3C-.2 23 -.9 4.1 6.5.9c8-3.4 19.1 3.9 27.6 17.1 4.7-1.2 9.7-1.8 14.9-1.8 4.8 0 9.5.5 13.9 1.6z" fill="#000"/><circle cx="72.5" cy="46" r="13.5" fill="#fff"/><circle cx="74" cy="44.5" r="7" fill="#000"/><circle cx="29.5" cy="46" r="13.5" fill="#fff"/><circle cx="31" cy="44.5" r="7" fill="#000"/></svg></a>
+  <nav aria-label="Sections">
+    <a href="#about">About</a>
+    <a href="#try">Try it</a>
+    <a href="#features">Features</a>
+    <a href="#download">Download</a>
+    <a href="#news">News</a>
+    <a href="#links">Links</a>
+  </nav>
+  <span class="spacer"></span>
+  <span class="right"><span class="date" id="mb-date"></span><span id="mb-clock" aria-label="Current time"></span></span>
+</header>
+
+<div class="ticker" aria-label="News ticker">
+  <div class="ticker-track">
+    <span><b>CatGrab 1.2.1</b> is out &middot; a welcome tour on first launch &middot; the ring now says what it will do before you let go &middot; keyboard works in an open menu &middot; 24 cat-named palettes &middot; 13 languages &middot; free, MIT, no telemetry &middot; <b>meow</b></span>
+    <span aria-hidden="true"><b>CatGrab 1.2.1</b> is out &middot; a welcome tour on first launch &middot; the ring now says what it will do before you let go &middot; keyboard works in an open menu &middot; 24 cat-named palettes &middot; 13 languages &middot; free, MIT, no telemetry &middot; <b>meow</b></span>
+  </div>
+</div>
+
+<main class="desk" id="top">
+
+  <div class="desk-icons">
+    <a class="dicon" href="https://github.com/berbekk/CatGrab/releases/latest">
+      <svg viewBox="0 0 36 36" aria-hidden="true"><rect x="4.5" y="2.5" width="27" height="31" fill="#fff" stroke="#000"/><path d="M22.5 2.5v9h9" fill="#ddd" stroke="#000"/><circle cx="18" cy="21" r="8.5" fill="#bbb" stroke="#000"/><circle cx="18" cy="21" r="2.5" fill="#fff" stroke="#000"/></svg>
+      <span>CatGrab.dmg</span>
+    </a>
+    <a class="dicon" href="https://github.com/berbekk/CatGrab">
+      <svg viewBox="0 0 36 36" aria-hidden="true"><path d="M2.5 8.5h11l3 3h17v20h-31z" fill="#fff" stroke="#000"/><path d="M2.5 13.5h31" stroke="#000"/><path d="M16.5 11.5h-14" stroke="#000"/></svg>
+      <span>Source</span>
+    </a>
+    <a class="dicon" href="https://github.com/berbekk/CatGrab/issues/new/choose">
+      <svg viewBox="0 0 36 36" aria-hidden="true"><path d="M4.5 5.5h12v26h-12z" fill="#fff" stroke="#000"/><path d="M16.5 5.5h15v26h-15z" fill="#fff" stroke="#000"/><path d="M7.5 10.5h6M7.5 14.5h6M7.5 18.5h6M20.5 10.5h8M20.5 14.5h8M20.5 18.5h8M20.5 22.5h5" stroke="#000"/><path d="M4.5 31.5v2h27v-2" fill="none" stroke="#000"/></svg>
+      <span>Guestbook</span>
+    </a>
+  </div>
+
+  <div class="cols">
+  <div class="col main">
+
+    <section class="win" id="about" aria-labelledby="about-t">
+      <div class="tb"><span class="box" aria-hidden="true"></span><h2 id="about-t"><span>About CatGrab</span></h2><span class="box zoom" aria-hidden="true"></span></div>
+      <div class="wc">
+        <div class="about">
+          <img src="icon.png" width="72" height="72" alt="CatGrab icon: a black cat with big round eyes">
+          <div>
+            <h1>CatGrab</h1>
+            <p class="tagline">A radial launcher for macOS.</p>
+            <p>Hold a hotkey, or tap the trackpad with three fingers, and a ring opens around the pointer with the things you use most. Flick toward one, let go. That is the whole trick.</p>
+            <p>Apps, links, key combinations, macOS actions, text snippets, window commands. Six kinds of thing, one gesture. There is a cat in the middle. Its eyes follow the pointer.</p>
+            <ul class="stamps">
+              <li>FREE</li><li>OPEN SOURCE &middot; MIT</li><li>macOS 13+</li><li>NO TELEMETRY</li><li>≈ 3.7 MB</li>
+            </ul>
+            <div class="btnrow">
+              <a class="btn default" href="https://github.com/berbekk/CatGrab/releases/latest">Download CatGrab.dmg</a>
+              <a class="btn" href="https://github.com/berbekk/CatGrab">Source on GitHub</a>
+            </div>
+            <p class="small muted" style="margin-top:12px">Version 1.2.1, 2026-09-22. macOS 13 Ventura or newer, Apple silicon and Intel.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="win" id="try" aria-labelledby="try-t">
+      <div class="tb"><span class="box" aria-hidden="true"></span><h2 id="try-t"><span>Ring &mdash; pretend mode</span></h2><span class="box zoom" aria-hidden="true"></span></div>
+      <div class="wc">
+        <div class="stage" id="stage" tabindex="0" role="application" aria-label="A pretend CatGrab ring. Move the pointer to pick a sector, click or press Return to fire, arrows and digits work too.">
+          <svg id="ring" viewBox="0 0 320 320" aria-hidden="true"></svg>
+        </div>
+        <div class="ring-label" aria-live="polite">
+          <b id="rl-name">Safari</b><span class="kind" id="rl-kind">APP</span>
+          <span class="detail" id="rl-detail">Launch Safari</span>
+        </div>
+        <p class="small muted">Move the pointer around the ring: the sector in that <em>direction</em> lights up and says what it will do, exactly like the real thing. Click to fire. Keyboard: arrows, <kbd>1</kbd>&ndash;<kbd>6</kbd>, <kbd>Return</kbd>. The cat watches the pointer in the app too.</p>
+      </div>
+    </section>
+
+    <section class="win" id="how" aria-labelledby="how-t">
+      <div class="tb"><span class="box" aria-hidden="true"></span><h2 id="how-t"><span>Three moves</span></h2><span class="box zoom" aria-hidden="true"></span></div>
+      <div class="wc">
+        <div class="steps">
+          <div class="step">
+            <span class="n">1</span>
+            <h3>Hold</h3>
+            <p>Press the menu&rsquo;s hotkey. Any combination works, even a bare <kbd>Fn</kbd>. Or tap the trackpad lightly with three, four or five fingers.</p>
+          </div>
+          <div class="step">
+            <span class="n">2</span>
+            <h3>Flick</h3>
+            <p>Move the pointer toward a sector. Its name and what it will do appear right there. Near a screen edge the ring stays on screen and pulls the pointer to its center, so the same flick works everywhere.</p>
+          </div>
+          <div class="step">
+            <span class="n">3</span>
+            <h3>Release</h3>
+            <p>Let go. The app launches, the link opens, the keys are sent, the text lands on the clipboard. Or press the digit shown on the sector, or <kbd>Return</kbd>.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="win" id="features" aria-labelledby="features-t">
+      <div class="tb"><span class="box" aria-hidden="true"></span><h2 id="features-t"><span>What it does</span></h2><span class="box zoom" aria-hidden="true"></span></div>
+      <div class="wc">
+        <div class="tablewrap">
+        <table>
+          <thead><tr><th>Thing</th><th>Details</th></tr></thead>
+          <tbody>
+            <tr><td>Opens with</td><td>A hotkey per menu, including a bare <kbd>Fn</kbd>/<kbd>🌐</kbd> press, or a light tap of three, four or five fingers on the trackpad.</td></tr>
+            <tr><td>Six kinds of action</td><td>Launch an app. Open a link. Send a keystroke to the app in front. Run a macOS action: Mission Control, App Expos&eacute;, Quick Note, Screen Saver, Display Sleep, Lock Screen. Put a snippet on the clipboard, ready for <kbd>⌘</kbd><kbd>V</kbd>. Run a command from the front app&rsquo;s menu bar.</td></tr>
+            <tr><td>Active apps</td><td>A built-in ring of everything that is running: a radial <kbd>⌘</kbd><kbd>Tab</kbd> that also switches to the app&rsquo;s Space and restores minimized windows. Show the six most recent, or all of them.</td></tr>
+            <tr><td>App commands</td><td>One hotkey opens the commands of the app you are in: move the window to a half, fill, center, full screen, quit. Give any app its own set from its menu bar. The same hotkey shows Figma&rsquo;s commands in Figma and Xcode&rsquo;s in Xcode.</td></tr>
+            <tr><td>Always readable</td><td>The sector under the pointer shows its name and what will happen: the site, the key combination, the first words of the snippet. No guessing from icons.</td></tr>
+            <tr><td>Quick select</td><td>Digits and letters on the sectors, arrow keys, <kbd>Tab</kbd>, <kbd>Return</kbd>. Right-click or <kbd>Esc</kbd> cancels.</td></tr>
+            <tr><td>Icons</td><td>SF Symbols, emoji, website favicons, your own image, or plain text.</td></tr>
+            <tr><td>Looks</td><td>24 cat-named palettes to start from (Toe Beans, Catnip, Fat Cat&hellip;), gradients, glass, a colour for any single sector, size, rotation, and the cat in the middle. Settings come in light or dark.</td></tr>
+            <tr><td>Languages</td><td>13: English, Russian, Chinese, Hindi, Spanish, Arabic, French, Bengali, Portuguese, Urdu, Indonesian, German, Japanese.</td></tr>
+            <tr><td>Backup</td><td>Your whole setup is one JSON file. Export it, restore it, keep it with your dotfiles.</td></tr>
+          </tbody>
+        </table>
+        </div>
+      </div>
+    </section>
+
+    <section class="win" id="screens" aria-labelledby="screens-t">
+      <div class="tb"><span class="box" aria-hidden="true"></span><h2 id="screens-t"><span>Screenshots</span></h2><span class="box zoom" aria-hidden="true"></span></div>
+      <div class="wc">
+        <figure>
+          <a href="settings.png"><img src="settings.png" width="1120" height="760" alt="CatGrab settings: a list of menus on the left, the hotkey and trackpad gesture on the right, and a live preview of a six-sector ring with a paw on the highlighted sector"></a>
+          <figcaption>Settings. The menu list, the hotkey and the gesture, and the ring itself, which you edit by clicking and dragging its sectors. Click for full size.</figcaption>
+        </figure>
+        <figure>
+          <a href="app-commands.png"><img src="app-commands.png" width="1120" height="760" alt="The App commands menu: eight window commands arranged around the icon of the app in front, with the cat peeking from behind it"></a>
+          <figcaption>App commands. Window halves, fill, center, full screen and quit, around the icon of whatever app is in front.</figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <section class="win dialog" id="download" aria-labelledby="download-t">
+      <div class="tb"><span class="box" aria-hidden="true"></span><h2 id="download-t"><span>Download &amp; install</span></h2><span class="box zoom" aria-hidden="true"></span></div>
+      <div class="wc">
+        <ol>
+          <li>Download <a href="https://github.com/berbekk/CatGrab/releases/latest">CatGrab.dmg</a>.</li>
+          <li>Open it and drag <b>CatGrab</b> into <b>Applications</b>.</li>
+          <li>Open CatGrab from Applications.</li>
+        </ol>
+        <h3>First launch</h3>
+        <p>CatGrab is not notarized by Apple. That needs a paid developer account, and this is a free app made by one person. So macOS asks you to confirm, once:</p>
+        <ul>
+          <li><b>macOS 15 and newer:</b> macOS says it could not verify CatGrab. Click <b>Done</b>, open <b>System Settings &rarr; Privacy &amp; Security</b>, scroll to <i>&ldquo;CatGrab&rdquo; was blocked&hellip;</i>, click <b>Open Anyway</b>, then <b>Open</b>.</li>
+          <li><b>macOS 13 and 14:</b> in Applications, Control-click <b>CatGrab</b>, choose <b>Open</b>, then <b>Open</b> again.</li>
+          <li><b>Terminal people:</b> one command removes the download mark from CatGrab only.</li>
+        </ul>
+<pre><code>xattr -dr com.apple.quarantine /Applications/CatGrab.app</code></pre>
+        <h3>Permissions</h3>
+        <p>A short tour then asks for two permissions. <b>Accessibility</b> sends keystrokes, runs window and system commands and reads the menus of the app in front. <b>Input Monitoring</b> catches global hotkeys, including <kbd>⌘</kbd><kbd>Tab</kbd> and a bare <kbd>Fn</kbd>. Settings live under the cat in the menu bar.</p>
+        <h3>Updating</h3>
+        <p>Download the new DMG, quit CatGrab, drag the new app over the old one. Menus and settings stay put.</p>
+        <h3>Build it yourself</h3>
+        <p>Xcode 26 or its Command Line Tools, then:</p>
+<pre><code>git clone https://github.com/berbekk/CatGrab.git
+cd CatGrab
+make install</code></pre>
+        <div class="btnrow" style="margin-top:14px">
+          <a class="btn default" href="https://github.com/berbekk/CatGrab/releases/latest">Download CatGrab.dmg</a>
+          <span class="small muted">Something stuck? <a href="https://github.com/berbekk/CatGrab/issues/new/choose">Open an issue</a> with your macOS version.</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="win" id="news" aria-labelledby="news-t">
+      <div class="tb"><span class="box" aria-hidden="true"></span><h2 id="news-t"><span>News</span></h2><span class="box zoom" aria-hidden="true"></span></div>
+      <div class="wc">
+        <ul class="news">
+          <li><time datetime="2026-09-22">2026-09-22</time><div><b>1.2.1</b> &mdash; Active apps: sectors stay in place on a quick repeated <kbd>⌘</kbd><kbd>Tab</kbd>, and the ring is centered for any number of apps. The app you came from always points straight up.</div></li>
+          <li><time datetime="2026-09-22">2026-09-22</time><div><b>1.2.0</b> &mdash; A welcome tour on first launch, with the real ring to play with. &ldquo;Apps in the ring&rdquo; limits Active apps to the most recent ones. A new Main menu starts on <kbd>⇧</kbd><kbd>1</kbd>.</div></li>
+          <li><time datetime="2026-09-22">2026-09-22</time><div><b>1.1.0</b> &mdash; The name under the pointer in every menu. Keyboard in an open menu. Duplicate menus and sectors. The ring stays fully on screen near edges. Links typed without <code>https://</code> open now.</div></li>
+          <li><time datetime="2026-09-22">2026-09-22</time><div><b>1.0.0</b> &mdash; First public release.</div></li>
+        </ul>
+        <hr>
+        <p class="small muted">Yes, four releases in one day. It was a long day. The full story is in the <a href="https://github.com/berbekk/CatGrab/blob/main/CHANGELOG.md">changelog</a>.</p>
+      </div>
+    </section>
+
+    <section class="win" id="privacy" aria-labelledby="privacy-t">
+      <div class="tb"><span class="box" aria-hidden="true"></span><h2 id="privacy-t"><span>Privacy</span></h2><span class="box zoom" aria-hidden="true"></span></div>
+      <div class="wc">
+        <p>Everything stays on your Mac, in <code>~/Library/Application Support/CatGrab/config.json</code>. No account, no telemetry, no analytics, no update pings. The app ships a privacy manifest that says so.</p>
+        <p>The one network request: when you pick a <b>website favicon</b> as an icon, CatGrab fetches it from the site, or from Google&rsquo;s or DuckDuckGo&rsquo;s favicon service, and caches it. That request contains the domain you typed. Nothing else leaves your machine.</p>
+        <p>This page has no trackers either. The visit counter in the sidebar lives in your own browser and counts only you.</p>
+      </div>
+    </section>
+
+  </div>
+
+  <aside class="col side">
+
+    <section class="win" id="sitemap" aria-labelledby="sitemap-t">
+      <div class="tb"><span class="box" aria-hidden="true"></span><h2 id="sitemap-t"><span>Navigation</span></h2><span class="box zoom" aria-hidden="true"></span></div>
+      <div class="wc">
+        <ul class="sitemap">
+          <li><a href="#about">&rarr; About</a></li>
+          <li><a href="#try">&rarr; Try the ring</a></li>
+          <li><a href="#how">&rarr; Three moves</a></li>
+          <li><a href="#features">&rarr; What it does</a></li>
+          <li><a href="#screens">&rarr; Screenshots</a></li>
+          <li><a href="#download">&rarr; Download &amp; install</a></li>
+          <li><a href="#news">&rarr; News</a></li>
+          <li><a href="#privacy">&rarr; Privacy</a></li>
+          <li><a href="#links">&rarr; Links</a></li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="win" id="stats" aria-labelledby="stats-t">
+      <div class="tb"><span class="box" aria-hidden="true"></span><h2 id="stats-t"><span>Stats</span></h2><span class="box zoom" aria-hidden="true"></span></div>
+      <div class="wc">
+        <dl class="stats">
+          <dt>Version</dt><dd>1.2.1</dd>
+          <dt>Released</dt><dd>2026-09-22</dd>
+          <dt>Download</dt><dd>≈ 3.7 MB</dd>
+          <dt>Needs</dt><dd>macOS 13+</dd>
+          <dt>Runs on</dt><dd>Apple silicon, Intel</dd>
+          <dt>License</dt><dd>MIT</dd>
+          <dt>Languages</dt><dd>13</dd>
+          <dt>Palettes</dt><dd>24</dd>
+          <dt>Telemetry</dt><dd>none</dd>
+          <dt>Cats</dt><dd>1</dd>
+        </dl>
+        <hr>
+        <p class="small muted" style="margin-bottom:4px">Your visits to this page</p>
+        <div class="counter" id="counter" aria-label="Visit counter"><span>0</span><span>0</span><span>0</span><span>0</span><span>0</span><span>1</span></div>
+      </div>
+    </section>
+
+    <section class="win" id="buttons" aria-labelledby="buttons-t">
+      <div class="tb"><span class="box" aria-hidden="true"></span><h2 id="buttons-t"><span>Buttons</span></h2><span class="box zoom" aria-hidden="true"></span></div>
+      <div class="wc">
+        <div class="b88">
+          <img src="catgrab-88x31.png" width="88" height="31" alt="CatGrab for macOS, an 88 by 31 pixel button">
+          <span class="css88 plat">MADE ON<br>A MAC</span>
+          <span class="css88">NO TRACKING<br>NO COOKIES</span>
+          <span class="css88 amber">MIT<br>LICENSED</span>
+          <span class="css88 plat">HTML BY<br>HAND</span>
+        </div>
+        <p class="small muted" style="margin:10px 0 4px">Take the button for your own site:</p>
+        <textarea readonly rows="3" aria-label="HTML for the CatGrab button">&lt;a href="https://github.com/berbekk/CatGrab"&gt;&lt;img src="catgrab-88x31.png" width="88" height="31" alt="CatGrab for macOS"&gt;&lt;/a&gt;</textarea>
+        <p class="small muted" style="margin-top:6px">Save <a href="catgrab-88x31.png" download>catgrab-88x31.png</a> next to your page.</p>
+      </div>
+    </section>
+
+    <section class="win" id="guestbook" aria-labelledby="guestbook-t">
+      <div class="tb"><span class="box" aria-hidden="true"></span><h2 id="guestbook-t"><span>Guestbook</span></h2><span class="box zoom" aria-hidden="true"></span></div>
+      <div class="wc">
+        <p class="small">Neocities has no guestbook built in, so this one lives on GitHub. A bug, an idea, a menu you are proud of, or just hello:</p>
+        <p class="small"><a href="https://github.com/berbekk/CatGrab/issues/new/choose">Sign the guestbook &rarr;</a></p>
+        <p class="small muted">Or write to me on <a href="https://t.me/berbekk">Telegram</a>.</p>
+      </div>
+    </section>
+
+    <section class="win" id="links" aria-labelledby="links-t">
+      <div class="tb"><span class="box" aria-hidden="true"></span><h2 id="links-t"><span>Links</span></h2><span class="box zoom" aria-hidden="true"></span></div>
+      <div class="wc">
+        <ul class="links">
+          <li><a href="https://github.com/berbekk/CatGrab">github.com/berbekk/CatGrab</a><small>the source, the issues, the whole thing</small></li>
+          <li><a href="https://github.com/berbekk/CatGrab/releases">All releases</a><small>every DMG, with notes</small></li>
+          <li><a href="https://github.com/berbekk/CatGrab/blob/main/CHANGELOG.md">Changelog</a><small>what changed and when</small></li>
+          <li><a href="https://berbekk.github.io/CatGrab/">The other website</a><small>the fancy one, on GitHub Pages</small></li>
+          <li><a href="https://github.com/berbekk/CatGrab/blob/main/README.ru.md">README по-русски</a><small>the same, in Russian</small></li>
+          <li><a href="https://t.me/berbekk">@berbekk on Telegram</a><small>the human behind the cat</small></li>
+          <li><a href="https://neocities.org/">Neocities</a><small>where this page lives</small></li>
+        </ul>
+      </div>
+    </section>
+
+  </aside>
+  </div>
+
+  <footer>
+    <p>Last updated 2026-09-22 &middot; one HTML file, written by hand, no framework<br>
+    Made by <a href="https://github.com/berbekk">Kudriash Vasiliy</a> &middot; <a href="https://github.com/berbekk/CatGrab/blob/main/LICENSE">MIT</a> &middot; hosted on <a href="https://neocities.org/">Neocities</a><br>
+    Best viewed on a Mac, at any size, in any browser &middot; <a href="#top">&uarr; top</a></p>
+  </footer>
+
+</main>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ——— Menu bar clock ——— */
+  var clock = document.getElementById("mb-clock"), date = document.getElementById("mb-date");
+  function tick() {
+    var d = new Date();
+    if (clock) clock.textContent = d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    if (date) date.textContent = d.toLocaleDateString([], { weekday: "short", day: "numeric", month: "short" });
+  }
+  tick(); setInterval(tick, 15000);
+
+  /* ——— Visit counter (this browser only) ——— */
+  (function () {
+    var n = 1;
+    try {
+      var key = "catgrab-visits";
+      n = (parseInt(localStorage.getItem(key), 10) || 0) + 1;
+      localStorage.setItem(key, String(n));
+    } catch (e) { n = 1; }
+    var el = document.getElementById("counter");
+    if (!el) return;
+    var s = String(Math.min(n, 999999)).padStart(6, "0");
+    el.innerHTML = "";
+    for (var i = 0; i < s.length; i++) { var sp = document.createElement("span"); sp.textContent = s[i]; el.appendChild(sp); }
+  })();
+
+  /* ——— The ring ——— */
+  var items = [
+    { name: "Safari", kind: "APP", detail: "Launch Safari", icon: "🧭" },
+    { name: "github.com", kind: "LINK", detail: "Open https://github.com in the browser", icon: "🔗" },
+    { name: "⌘⇧4", kind: "KEYS", detail: "Send ⌘⇧4 to the app in front (screenshot of a region)", icon: "⌨️" },
+    { name: "Lock screen", kind: "MACOS", detail: "Lock the screen", icon: "🔒" },
+    { name: "Thanks note", kind: "SNIPPET", detail: "Put “Thanks for writing! I’ll get back to you tomorrow.” on the clipboard, ready for ⌘V", icon: "📋" },
+    { name: "Left half", kind: "APP COMMAND", detail: "Move the front window to the left half of the screen", icon: "🖥" }
+  ];
+  var verbs = ["Launched Safari.", "Opened github.com.", "Sent ⌘⇧4 to the app in front.", "Locked the screen (not really).", "Copied the note to the clipboard.", "Moved the window to the left half."];
+
+  var svg = document.getElementById("ring"), stage = document.getElementById("stage");
+  var lName = document.getElementById("rl-name"), lKind = document.getElementById("rl-kind"), lDetail = document.getElementById("rl-detail");
+  if (!svg || !stage) return;
+
+  var NS = "http://www.w3.org/2000/svg", C = 160, R = 148, r = 62, N = items.length, STEP = 360 / N, GAP = 2.2;
+  function pt(a, rad) { var t = (a - 90) * Math.PI / 180; return [C + rad * Math.cos(t), C + rad * Math.sin(t)]; }
+  function el(tag, attrs, parent) {
+    var e = document.createElementNS(NS, tag);
+    for (var k in attrs) e.setAttribute(k, attrs[k]);
+    (parent || svg).appendChild(e);
+    return e;
+  }
+  function sectorPath(i) {
+    var a0 = i * STEP - STEP / 2 + GAP, a1 = i * STEP + STEP / 2 - GAP;
+    var p0 = pt(a0, R), p1 = pt(a1, R), p2 = pt(a1, r), p3 = pt(a0, r);
+    return "M" + p0[0].toFixed(1) + " " + p0[1].toFixed(1) +
+      " A" + R + " " + R + " 0 0 1 " + p1[0].toFixed(1) + " " + p1[1].toFixed(1) +
+      " L" + p2[0].toFixed(1) + " " + p2[1].toFixed(1) +
+      " A" + r + " " + r + " 0 0 0 " + p3[0].toFixed(1) + " " + p3[1].toFixed(1) + " Z";
+  }
+
+  var groups = [];
+  items.forEach(function (it, i) {
+    var g = el("g", { "class": "sec" });
+    el("path", { d: sectorPath(i) }, g);
+    var m = pt(i * STEP, (R + r) / 2 + 2);
+    var t = el("text", { "class": "ic", x: m[0].toFixed(1), y: m[1].toFixed(1) }, g);
+    t.textContent = it.icon;
+    var d = pt(i * STEP + STEP / 2 - 9, R - 13);
+    var dg = el("text", { "class": "dg", x: d[0].toFixed(1), y: d[1].toFixed(1) }, g);
+    dg.textContent = String(i + 1);
+    groups.push(g);
+  });
+  el("circle", { "class": "hub", cx: C, cy: C, r: r - 6 });
+
+  /* the cat in the hub, pupils separate so they can look around */
+  var cat = el("svg", { x: C - 30, y: C - 28, width: 60, height: 56, viewBox: "0 0 99 93" });
+  el("path", { d: "M62.9 17.8C71.4 4.7 82.5-2.6 90.4.8c7.2 3.1 6.8 21.1 3.8 38.6 2.5 4.6 3.8 9.6 3.8 14.8 0 21-21.9 38-49 38S0 75.3 0 54.3c0-4.7 1.1-9.1 3-13.3C-.2 23-.9 4.1 6.5.9c8-3.4 19.1 3.9 27.6 17.1 4.7-1.2 9.7-1.8 14.9-1.8 4.8 0 9.5.5 13.9 1.6z", fill: "#000" }, cat);
+  el("circle", { cx: 72.5, cy: 46, r: 13.5, fill: "#F6F2F2" }, cat);
+  el("circle", { cx: 29.5, cy: 46, r: 13.5, fill: "#F6F2F2" }, cat);
+  var pupils = [el("circle", { cx: 74, cy: 44.5, r: 7, fill: "#000" }, cat), el("circle", { cx: 31, cy: 44.5, r: 7, fill: "#000" }, cat)];
+  el("path", { d: "M51.05 63.12c.55 0 1 .44 1 1 0 2.11.5 4.02 1.42 5.37.9 1.31 2.23 2.13 4.08 2.13.55 0 1 .45 1 1s-.45 1-1 1c-2.55 0-4.47-1.18-5.72-3-.33-.48-.62-1-.85-1.57-.28.58-.6 1.12-.98 1.61-1.37 1.79-3.41 2.95-5.95 2.95-.55 0-1-.44-1-1s.45-1 1-1c1.86 0 3.33-.83 4.36-2.17 1.04-1.36 1.64-3.26 1.64-5.33 0-.55.45-1 1-1z", fill: "#fff" }, cat);
+
+  var current = 0, fireTimer = null;
+  function select(i, quiet) {
+    i = ((i % N) + N) % N;
+    if (i === current && !quiet) return;
+    groups[current].classList.remove("on");
+    current = i;
+    groups[current].classList.add("on");
+    lName.textContent = items[i].name;
+    lKind.textContent = items[i].kind;
+    lDetail.textContent = items[i].detail;
+  }
+  function fire() {
+    var g = groups[current];
+    g.classList.add("fired");
+    clearTimeout(fireTimer);
+    fireTimer = setTimeout(function () { g.classList.remove("fired"); }, 220);
+    lDetail.textContent = "✓ " + verbs[current] + " In pretend mode, at least.";
+  }
+  select(0, true);
+
+  function eyes(dx, dy) {
+    var len = Math.hypot(dx, dy) || 1, m = Math.min(1, len / 120);
+    var tx = (dx / len * 4.5 * m).toFixed(2), ty = (dy / len * 4.5 * m).toFixed(2);
+    pupils.forEach(function (p) { p.setAttribute("transform", "translate(" + tx + " " + ty + ")"); });
+  }
+  function center() { var b = svg.getBoundingClientRect(); return [b.left + b.width / 2, b.top + b.height / 2, b.width]; }
+
+  document.addEventListener("pointermove", function (e) {
+    var c = center(); eyes(e.clientX - c[0], e.clientY - c[1]);
+  }, { passive: true });
+
+  stage.addEventListener("pointermove", function (e) {
+    var c = center(), dx = e.clientX - c[0], dy = e.clientY - c[1];
+    if (Math.hypot(dx, dy) < c[2] * 0.1) return;
+    var ang = Math.atan2(dy, dx) * 180 / Math.PI + 90;
+    ang = ((ang % 360) + 360) % 360;
+    select(Math.round(ang / STEP) % N);
+  });
+  stage.addEventListener("pointerdown", function (e) { stage.setPointerCapture && stage.setPointerCapture(e.pointerId); });
+  stage.addEventListener("click", function () { fire(); });
+  stage.addEventListener("keydown", function (e) {
+    var k = e.key;
+    if (k === "ArrowRight" || k === "ArrowDown") { select(current + 1); e.preventDefault(); }
+    else if (k === "ArrowLeft" || k === "ArrowUp") { select(current - 1); e.preventDefault(); }
+    else if (k >= "1" && k <= String(N)) { select(parseInt(k, 10) - 1); e.preventDefault(); }
+    else if (k === "Enter" || k === " ") { fire(); e.preventDefault(); }
+  });
+})();
+</script>
+</body>
+</html>
