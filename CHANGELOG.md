@@ -9,7 +9,9 @@ All notable changes to CatGrab are documented here. The format follows
 ### Added
 
 - Welcome tour: a page where the cat is pressed and the ring makes room for a new sector, showing
-  how sectors are added.
+  how sectors are added. Every page now explains itself with a looping animation — the highlight
+  walking the ring, the ring opening and closing as on a hotkey, the paw moving a sector, the ring
+  turning — and the preview no longer takes the mouse.
 
 ### Changed
 

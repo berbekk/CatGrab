@@ -1,31 +1,31 @@
 import SwiftUI
 
 /// Настоящее кольцо в окне знакомства — тот же `PieMenuView`, что открывается по хоткею: стекло,
-/// кот, лапка, подписи. По нему можно водить и кликать, ничего не выполняя: так первая встреча
-/// с меню происходит до того, как человек его вызвал сам.
+/// кот, лапка, подписи. Мышь оно не принимает: выделение и появление ведёт сам тур, зацикленно,
+/// а кот смотрит на выделенный сектор.
 struct OnboardingRingDemo: View {
     let menu: PieMenu
     let language: AppLanguage
-    var onPick: ((PieMenuItem) -> Void)?
-
-    @StateObject private var highlightState = PieMenuHighlightState()
-    @StateObject private var presentation = PieMenuPresentation.settled(pointer: .zero)
+    @ObservedObject var highlightState: PieMenuHighlightState
+    @ObservedObject var presentation: PieMenuPresentation
 
     var body: some View {
         GeometryReader { geo in
             let center = CGPoint(x: geo.size.width / 2, y: geo.size.height / 2)
-            // Тот же масштаб, что у превью редактора (`MenuPreviewView`): на странице расстановки
+            // Тот же масштаб, что у превью редактора (`MenuPreviewView`): на страницах расстановки
             // кольцо рисует оно, и размер не должен прыгать между страницами.
             let scale = MenuPreviewView.fittingScale(for: menu, in: geo.size)
             let items = menu.themed(menu.items.sorted { $0.sectorIndex < $1.sectorIndex })
+            let radius = menu.effectiveMenuRadius * scale
+            let rotation = menu.effectiveRotationDegrees(sectorCount: items.count)
 
             PieMenuView(
                 items: items,
-                radius: menu.effectiveMenuRadius * scale,
+                radius: radius,
                 innerRadius: menu.effectiveInnerRadius * scale,
                 iconDistance: menu.iconDistance,
                 iconSize: menu.fittedIconSize(sectorCount: items.count) * scale,
-                rotationDegrees: menu.effectiveRotationDegrees(sectorCount: items.count),
+                rotationDegrees: rotation,
                 liquidGlass: menu.liquidGlass,
                 menuCenter: center,
                 pawDecorationEnabled: menu.pawDecorationEnabled,
@@ -40,13 +40,24 @@ struct OnboardingRingDemo: View {
                 shortcutDigitColorHex: menu.shortcutDigitColorHex,
                 catColorHex: menu.catColorHex,
                 pawColorHex: menu.pawColorHex,
-                hoverLabels: menu.showsHoverLabel ? items.map { $0.hoverLabel(language: language) } : nil,
+                // Подписи снаружи кольца в узкую панель не помещаются — тур показывает их под кольцом.
+                hoverLabels: nil,
                 highlightState: highlightState,
                 presentation: presentation,
-                hapticFeedbackEnabled: false,
-                onItemSelected: onPick
+                hapticFeedbackEnabled: false
             )
             .onAppear { presentation.pointer = center }
+            .onChange(of: highlightState.highlightedIndex) { index in
+                // Кот провожает взглядом выделенный сектор, как провожал бы курсор.
+                guard let index, !items.isEmpty else {
+                    presentation.pointer = center
+                    return
+                }
+                let step = 2 * Double.pi / Double(items.count)
+                let mid = step * (Double(index) + 0.5) - .pi / 2 + rotation * .pi / 180
+                let reach = radius * 0.75
+                presentation.pointer = CGPoint(x: center.x + cos(mid) * reach, y: center.y + sin(mid) * reach)
+            }
         }
         .environment(\.colorScheme, .dark)
     }

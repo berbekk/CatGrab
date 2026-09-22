@@ -48,7 +48,10 @@ enum ScreenshotMode {
     }
 
     /// Сколько ждать до снимка: иконки, стекло и превью должны успеть нарисоваться.
-    static let settleDelay: TimeInterval = 2.5
+    /// `CATGRAB_SCREENSHOT_DELAY` — своё время в секундах, чтобы поймать нужный момент анимации.
+    static var settleDelay: TimeInterval {
+        environment["CATGRAB_SCREENSHOT_DELAY"].flatMap(Double.init) ?? 2.5
+    }
 
     /// Снимок окна в его нативном разрешении (на Retina — 2×), без тени.
     @MainActor

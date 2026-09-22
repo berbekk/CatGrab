@@ -84,14 +84,16 @@ struct OnboardingView: View {
     @ObservedObject private var permissions = PermissionsMonitor.shared
     @EnvironmentObject private var localizer: LocalizationStore
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var pickedTitle: String?
-    @State private var pickedResetTask: Task<Void, Never>?
     /// Выбранный сектор в превью на страницах расстановки — только подсветка, инспектора здесь нет.
     @State private var arrangeSelection: UUID?
     /// Показательное движение: сдвиг сектора (радианы), поворот кольца (градусы) или рост нового сектора (0…1).
     @StateObject private var demo = DemoAnimator()
     /// Нажатие на кота перед ростом сектора.
     @StateObject private var demoPress = DemoAnimator()
+    /// Выделение и появление демо-кольца — ведёт тур, не мышь.
+    @StateObject private var ringHighlight = PieMenuHighlightState()
+    @StateObject private var ringPresentation = PieMenuPresentation.settled(pointer: .zero)
+    @State private var ringLoop: Task<Void, Never>?
 
     static let windowSize = NSSize(width: 780, height: 500)
     private static let heroWidth: CGFloat = 340
@@ -118,6 +120,8 @@ struct OnboardingView: View {
         }
         .frame(width: Self.windowSize.width, height: Self.windowSize.height)
         .background(DS.Colors.canvasTop)
+        .onAppear { playDemo(for: model.page) }
+        .onDisappear { stopDemos() }
         .onChange(of: model.page) { page in
             playDemo(for: page)
             // Системный диалог — когда человек дошёл до страницы прав, а не в первую секунду.
@@ -138,15 +142,57 @@ struct OnboardingView: View {
         model.page == .reorder || model.page == .rotate || model.page == .add
     }
 
-    /// Показать движение, о котором страница: сектор проезжает на соседнее место и возвращается,
-    /// кольцо поворачивается на шаг и обратно. Только на экране, конфиг не меняется. С «Уменьшить
-    /// движение» не проигрывается — жест описан текстом.
-    private func playDemo(for page: OnboardingPage) {
+    private func stopDemos() {
         demo.cancel()
         demoPress.cancel()
+        ringLoop?.cancel()
+        ringLoop = nil
+        withoutAnimation {
+            ringHighlight.reset()
+            ringPresentation.appeared = true
+        }
+    }
+
+    /// Показать движение, о котором страница, по кругу: подсветка обходит секторы, кольцо появляется
+    /// и исчезает как по хоткею, сектор проезжает на соседнее место, кольцо поворачивается, вырастает
+    /// новый сектор. Только на экране, конфиг не меняется. С «Уменьшить движение» кольцо стоит.
+    private func playDemo(for page: OnboardingPage) {
+        stopDemos()
         guard !reduceMotion else { return }
         let sectorCount = max(1, model.mainMenu?.items.count ?? 1)
         switch page {
+        case .welcome:
+            // Подсветка обходит секторы: у каждого — подпись и лапа, кот провожает взглядом.
+            ringLoop = Task { @MainActor in
+                try? await Task.sleep(nanoseconds: 700_000_000)
+                var index = 0
+                while !Task.isCancelled {
+                    withAnimation(DS.Motion.sectorHighlight) { ringHighlight.select(index, hapticFeedbackEnabled: false) }
+                    try? await Task.sleep(nanoseconds: 900_000_000)
+                    index = (index + 1) % sectorCount
+                }
+            }
+        case .open:
+            // Как по хоткею: кольцо появляется, выбор уходит к сектору, кольцо исчезает — и снова,
+            // каждый раз с другим сектором.
+            ringLoop = Task { @MainActor in
+                withoutAnimation { ringPresentation.appeared = false }
+                var index = 0
+                while !Task.isCancelled {
+                    try? await Task.sleep(nanoseconds: 700_000_000)
+                    guard !Task.isCancelled else { return }
+                    withAnimation(DS.Motion.pieEntrance) { ringPresentation.appeared = true }
+                    try? await Task.sleep(nanoseconds: 550_000_000)
+                    guard !Task.isCancelled else { return }
+                    withAnimation(DS.Motion.sectorHighlight) { ringHighlight.select(index, hapticFeedbackEnabled: false) }
+                    try? await Task.sleep(nanoseconds: 900_000_000)
+                    guard !Task.isCancelled else { return }
+                    withAnimation(.easeIn(duration: 0.12)) { ringPresentation.appeared = false }
+                    try? await Task.sleep(nanoseconds: 200_000_000)
+                    withoutAnimation { ringHighlight.reset() }
+                    index = (index + 2) % sectorCount
+                }
+            }
         case .reorder:
             // Лапа хватает верхний сектор, переносит на соседнее место, чуть перелетает, отпускает
             // и через паузу возвращает обратно.
@@ -155,7 +201,7 @@ struct OnboardingView: View {
                 .init(value: step, duration: 1.0, response: 0.55, damping: 0.58),
                 .hold(step, 0.5),
                 .init(value: 0, duration: 1.0, response: 0.55, damping: 0.58)
-            ])
+            ], loop: true, loopGap: 1.1)
         case .rotate:
             // Кольцо крутится на шаг в одну сторону, на два — в другую, и возвращается: видно и ход,
             // и привязку к «красивым» положениям.
@@ -166,20 +212,22 @@ struct OnboardingView: View {
                 .init(value: -step, duration: 1.2, response: 0.7, damping: 0.62),
                 .hold(-step, 0.35),
                 .init(value: 0, duration: 0.9, response: 0.6, damping: 0.62)
-            ])
+            ], loop: true, loopGap: 1.1)
         case .add:
             // Кот «нажимается», кольцо раздвигается, и в нём вырастает новый сектор; постояв,
-            // он снова закрывается — это только показ, сектор в меню не добавляется.
+            // он снова закрывается. Обе дорожки одной длины и с одной паузой — не расходятся.
             demoPress.play(after: 0.7, keyframes: [
                 .init(value: 1, duration: 0.14, response: 0.14, damping: 1),
                 .hold(1, 0.06),
-                .init(value: 0, duration: 0.35, response: 0.3, damping: 0.6)
-            ])
-            demo.play(after: 0.95, keyframes: [
+                .init(value: 0, duration: 0.35, response: 0.3, damping: 0.6),
+                .hold(0, 3.05)
+            ], loop: true, loopGap: 1.0)
+            demo.play(after: 0.7, keyframes: [
+                .hold(0, 0.25),
                 .init(value: 1, duration: 1.1, response: 0.65, damping: 0.62),
                 .hold(1, 1.4),
-                .init(value: 0, duration: 0.8, response: 0.5, damping: 0.9)
-            ])
+                .init(value: 0, duration: 0.85, response: 0.5, damping: 0.9)
+            ], loop: true, loopGap: 1.0)
         default:
             break
         }
@@ -189,6 +237,7 @@ struct OnboardingView: View {
         VStack(spacing: DS.Spacing.s) {
             // Обе версии кольца — в одной и той же рамке с одними отступами и одной формулой
             // масштаба, иначе кольцо меняло размер при переходе на страницы расстановки.
+            // Мышь сюда не проходит: всё, что на страницах, показывают зацикленные анимации.
             Group {
                 if isArrangePage {
                     // Настоящее превью из редактора: перетаскивание секторов и ⌥-поворот — те же жесты,
@@ -205,38 +254,55 @@ struct OnboardingView: View {
                             ? .init(growth: demo.value, press: demoPress.value)
                             : nil
                     )
-                    .onAppear { playDemo(for: model.page) }
                 } else if let menu = model.mainMenu {
-                    OnboardingRingDemo(menu: menu, language: localizer.language) { item in
-                        pickedTitle = item.title
-                        pickedResetTask?.cancel()
-                        pickedResetTask = Task { @MainActor in
-                            try? await Task.sleep(nanoseconds: 1_800_000_000)
-                            guard !Task.isCancelled else { return }
-                            pickedTitle = nil
-                        }
-                    }
+                    OnboardingRingDemo(
+                        menu: menu,
+                        language: localizer.language,
+                        highlightState: ringHighlight,
+                        presentation: ringPresentation
+                    )
                 }
             }
+            .allowsHitTesting(false)
             .padding(DS.Spacing.m)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(PreviewBackdrop.darkFill)
             .clipShape(RoundedRectangle(cornerRadius: DS.Radius.xl, style: .continuous))
-            Text(heroCaption)
-                .font(DS.Typography.label)
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
-                .animation(DS.Motion.respectReducing(.easeInOut(duration: 0.15), reduce: reduceMotion), value: pickedTitle)
+            // Слот под подпись всегда одной высоты, иначе панель с кольцом росла бы, когда подписи нет.
+            ZStack {
+                Color.clear
+                heroCaption
+            }
+            .frame(height: 32)
         }
     }
 
-    private var heroCaption: String {
+    /// Под кольцом: подпись выделенного сектора — такая же капсула, как в самом меню, — или жест
+    /// страницы. Высота одна, чтобы кольцо не прыгало между страницами.
+    @ViewBuilder
+    private var heroCaption: some View {
         switch model.page {
-        case .reorder: return localizer.text(.dragToReorder)
-        case .rotate: return localizer.text(.optionDragToRotate)
-        case .add: return localizer.text(.tapCatToAddHint)
-        default: return pickedTitle.map { String(format: localizer.text(.onboardingPickedFormat), $0) } ?? " "
+        case .welcome, .open:
+            if ringPresentation.appeared,
+               let index = ringHighlight.highlightedIndex,
+               let item = model.mainMenu?.items.sorted(by: { $0.sectorIndex < $1.sectorIndex })[safe: index],
+               let text = item.hoverLabel(language: localizer.language) {
+                PieHoverLabel(text: text)
+                    .id(index)
+                    .transition(.opacity)
+            }
+        case .reorder: captionText(localizer.text(.dragToReorder))
+        case .rotate: captionText(localizer.text(.optionDragToRotate))
+        case .add: captionText(localizer.text(.tapCatToAddHint))
+        default: EmptyView()
         }
+    }
+
+    private func captionText(_ text: String) -> some View {
+        Text(text)
+            .font(DS.Typography.label)
+            .foregroundStyle(.secondary)
+            .lineLimit(1)
     }
 
     // MARK: - Страницы
@@ -500,5 +566,11 @@ private struct StarterPaletteCard: View {
         .animation(.easeInOut(duration: 0.12), value: isHovered)
         .accessibilityLabel(Text(preset.title(localizer)))
         .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
+    }
+}
+
+private extension Array {
+    subscript(safe index: Int) -> Element? {
+        indices.contains(index) ? self[index] : nil
     }
 }

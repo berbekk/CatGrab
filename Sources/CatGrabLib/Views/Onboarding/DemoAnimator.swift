@@ -27,27 +27,33 @@ final class DemoAnimator: ObservableObject {
         }
     }
 
-    /// Ведёт `value` по ключевым точкам от 0 и обратно.
-    func play(after delay: TimeInterval, keyframes: [Keyframe]) {
+    /// Ведёт `value` по ключевым точкам от 0 и обратно. С `loop` — по кругу: после последней точки
+    /// пауза `loopGap`, и всё сначала. Точки должны заканчиваться нулём, тогда шва нет.
+    func play(after delay: TimeInterval, keyframes: [Keyframe], loop: Bool = false, loopGap: TimeInterval = 0.9) {
         cancel()
         task = Task { @MainActor [weak self] in
             try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
             guard let self, !Task.isCancelled else { return }
             self.isActive = true
-            var current = 0.0
-            for keyframe in keyframes {
-                let steps = max(1, Int(keyframe.duration / Self.frame))
-                let start = current
-                for step in 1...steps {
-                    guard !Task.isCancelled else { return }
-                    let t = Double(step) * Self.frame
-                    self.value = Self.spring(from: start, to: keyframe.value, at: t, response: keyframe.response, damping: keyframe.damping)
-                    try? await Task.sleep(nanoseconds: UInt64(Self.frame * 1_000_000_000))
+            repeat {
+                var current = 0.0
+                for keyframe in keyframes {
+                    let steps = max(1, Int(keyframe.duration / Self.frame))
+                    let start = current
+                    for step in 1...steps {
+                        guard !Task.isCancelled else { return }
+                        let t = Double(step) * Self.frame
+                        self.value = Self.spring(from: start, to: keyframe.value, at: t, response: keyframe.response, damping: keyframe.damping)
+                        try? await Task.sleep(nanoseconds: UInt64(Self.frame * 1_000_000_000))
+                    }
+                    current = keyframe.value
+                    self.value = current
                 }
-                current = keyframe.value
-                self.value = current
-            }
-            self.value = 0
+                self.value = 0
+                if loop {
+                    try? await Task.sleep(nanoseconds: UInt64(loopGap * 1_000_000_000))
+                }
+            } while loop && !Task.isCancelled
             self.isActive = false
         }
     }
