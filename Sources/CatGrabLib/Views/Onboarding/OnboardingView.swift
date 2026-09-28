@@ -291,18 +291,9 @@ struct OnboardingView: View {
                     .id(index)
                     .transition(.opacity)
             }
-        case .reorder: captionText(localizer.text(.dragToReorder))
-        case .rotate: captionText(localizer.text(.optionDragToRotate))
-        case .add: captionText(localizer.text(.tapCatToAddHint))
+        // На страницах расстановки жест уже назван справа, одной фразой — повторять его не нужно.
         default: EmptyView()
         }
-    }
-
-    private func captionText(_ text: String) -> some View {
-        Text(text)
-            .font(DS.Typography.label)
-            .foregroundStyle(.secondary)
-            .lineLimit(1)
     }
 
     // MARK: - Страницы
@@ -345,39 +336,23 @@ struct OnboardingView: View {
         }
     }
 
+    // Страницы расстановки — заголовок и одна фраза: сам жест показывает анимация, а подпись
+    // под кольцом называет его.
     private var reorderPage: some View {
         page(title: localizer.text(.onboardingReorderTitle), body: localizer.text(.onboardingReorderBody)) {
-            Label(localizer.text(.dragToReorder), systemImage: "arrow.left.arrow.right")
-                .font(DS.Typography.body)
-                .foregroundStyle(.secondary)
-            Text(localizer.text(.onboardingArrangeNote))
-                .font(DS.Typography.label)
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
+            EmptyView()
         }
     }
 
     private var rotatePage: some View {
         page(title: localizer.text(.onboardingRotateTitle), body: localizer.text(.onboardingRotateBody)) {
-            Label(localizer.text(.optionDragToRotate), systemImage: "option")
-                .font(DS.Typography.body)
-                .foregroundStyle(.secondary)
-            Text(localizer.text(.onboardingArrangeNote))
-                .font(DS.Typography.label)
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
+            EmptyView()
         }
     }
 
     private var addPage: some View {
         page(title: localizer.text(.onboardingAddTitle), body: localizer.text(.onboardingAddBody)) {
-            Label(localizer.text(.tapCatToAddHint), systemImage: "pawprint")
-                .font(DS.Typography.body)
-                .foregroundStyle(.secondary)
-            Text(localizer.text(.onboardingArrangeNote))
-                .font(DS.Typography.label)
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
+            EmptyView()
         }
     }
 
