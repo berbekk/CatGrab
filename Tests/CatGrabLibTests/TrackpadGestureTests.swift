@@ -31,8 +31,49 @@ final class TrackpadGestureTests: XCTestCase {
     func test_moreFingersThanConfigured_notRecognized() {
         var r = TrackpadTapRecognizer(fingerCount: 4)
         _ = r.process(touches: fingers(4), timestamp: 0)
-        _ = r.process(touches: fingers(5), timestamp: 0.05)
-        XCTAssertFalse(r.process(touches: [], timestamp: 0.1))
+        _ = r.process(touches: fingers(5), timestamp: 0.02)
+        _ = r.process(touches: fingers(5), timestamp: 0.08)
+        _ = r.process(touches: fingers(5), timestamp: 0.12)
+        XCTAssertFalse(r.process(touches: [], timestamp: 0.14))
+    }
+
+    /// Frames every 10 ms: three fingers down for 120 ms, a fourth brushes the pad for `graze` seconds.
+    private func threeFingerTapWithGraze(_ graze: Double, recognizer: inout TrackpadTapRecognizer) -> Bool {
+        var t = 0.0
+        while t <= 0.12 + 1e-9 {
+            let grazing = t >= 0.04 && t < 0.04 + graze
+            _ = recognizer.process(touches: fingers(grazing ? 4 : 3), timestamp: t)
+            t += 0.01
+        }
+        return recognizer.process(touches: [], timestamp: 0.13)
+    }
+
+    func test_briefFourthContactDuringAThreeFingerTapIsIgnored() {
+        var three = TrackpadTapRecognizer(fingerCount: 3)
+        var four = TrackpadTapRecognizer(fingerCount: 4)
+        XCTAssertTrue(threeFingerTapWithGraze(0.03, recognizer: &three))
+        XCTAssertFalse(threeFingerTapWithGraze(0.03, recognizer: &four))
+    }
+
+    func test_fourthFingerHeldForMostOfTheTapCountsAsFour() {
+        var three = TrackpadTapRecognizer(fingerCount: 3)
+        var four = TrackpadTapRecognizer(fingerCount: 4)
+        XCTAssertFalse(threeFingerTapWithGraze(0.07, recognizer: &three))
+        XCTAssertTrue(threeFingerTapWithGraze(0.07, recognizer: &four))
+    }
+
+    func test_grazingContactThatSlidesDoesNotCancelTheTap() {
+        var r = TrackpadTapRecognizer(fingerCount: 3)
+        var t = 0.0
+        while t <= 0.12 + 1e-9 {
+            var touches = fingers(3)
+            if t >= 0.05 && t < 0.07 {
+                touches.append(.init(id: 9, x: 0.9 - Float(t), y: 0.1 + Float(t) * 3))
+            }
+            _ = r.process(touches: touches, timestamp: t)
+            t += 0.01
+        }
+        XCTAssertTrue(r.process(touches: [], timestamp: 0.13))
     }
 
     func test_recognizerResetsBetweenTouches() {

@@ -13,8 +13,12 @@ enum TrackpadGesture {
 }
 
 /// Распознаёт «касание N пальцами»: все пальцы опустились и поднялись быстро, почти не сдвинувшись,
-/// и за всё касание их ни разу не было больше N. Смахивания и щипки (Mission Control, Launchpad)
-/// двигают пальцы, поэтому как касание не засчитываются и системе не мешают.
+/// и пальцев в касании было ровно N. Смахивания и щипки (Mission Control, Launchpad) двигают пальцы,
+/// поэтому как касание не засчитываются и системе не мешают.
+///
+/// Пальцем считается только контакт, который пролежал заметную часть касания. При касании тремя
+/// пальцами трекпада часто на миг задевает четвёртый (безымянный, большой): если считать его,
+/// касание тремя открывало бы меню касания четырьмя.
 struct TrackpadTapRecognizer {
     struct Touch {
         let id: Int32
@@ -28,11 +32,24 @@ struct TrackpadTapRecognizer {
     var maxDuration: Double = 0.35
     /// Максимальный сдвиг любого пальца, в долях размера трекпада.
     var maxMovement: Float = 0.04
+    /// Какую долю самого долгого контакта должен пролежать контакт, чтобы считаться пальцем.
+    /// Задевший трекпад палец лежит обычно не больше трети касания, настоящие — больше половины.
+    var minContactShare: Double = 0.4
+
+    private struct Contact {
+        let firstSeen: Double
+        var lastSeen: Double
+        let startX: Float
+        let startY: Float
+        var maxShift: Float = 0
+    }
 
     private var startTimestamp: Double?
-    private var maxTouches = 0
-    private var startPositions: [Int32: (Float, Float)] = [:]
-    private var moved = false
+    private var contacts: [Int32: Contact] = [:]
+    /// Какие контакты лежали в каждом кадре — чтобы найти, сколько настоящих пальцев было одновременно.
+    private var frames: [[Int32]] = []
+    /// Касание уже длиннее допустимого: кадры больше не копим, результат известен.
+    private var tooLong = false
 
     init(fingerCount: Int) {
         self.fingerCount = fingerCount
@@ -42,28 +59,49 @@ struct TrackpadTapRecognizer {
     mutating func process(touches: [Touch], timestamp: Double) -> Bool {
         if touches.isEmpty {
             defer { reset() }
-            guard let start = startTimestamp else { return false }
-            return maxTouches == fingerCount && !moved && timestamp - start <= maxDuration
+            guard let start = startTimestamp, !tooLong, timestamp - start <= maxDuration else { return false }
+            return recognizedFingerCount() == fingerCount
         }
 
         if startTimestamp == nil {
             startTimestamp = timestamp
         }
-        maxTouches = max(maxTouches, touches.count)
+        guard !tooLong else { return false }
+        if let start = startTimestamp, timestamp - start > maxDuration {
+            tooLong = true
+            frames = []
+            return false
+        }
         for touch in touches {
-            if let (sx, sy) = startPositions[touch.id] {
-                if hypot(touch.x - sx, touch.y - sy) > maxMovement { moved = true }
+            if var contact = contacts[touch.id] {
+                contact.lastSeen = timestamp
+                contact.maxShift = max(contact.maxShift, hypot(touch.x - contact.startX, touch.y - contact.startY))
+                contacts[touch.id] = contact
             } else {
-                startPositions[touch.id] = (touch.x, touch.y)
+                contacts[touch.id] = Contact(firstSeen: timestamp, lastSeen: timestamp, startX: touch.x, startY: touch.y)
             }
         }
+        frames.append(touches.map(\.id))
         return false
+    }
+
+    /// Сколько пальцев было в касании: наибольшее число настоящих контактов, лежавших одновременно;
+    /// `nil` — какой-то настоящий палец сдвинулся (это жест, а не касание).
+    private func recognizedFingerCount() -> Int? {
+        let longest = contacts.values.map { $0.lastSeen - $0.firstSeen }.max() ?? 0
+        let threshold = longest * minContactShare
+        let fingers = Set(contacts.filter { $0.value.lastSeen - $0.value.firstSeen >= threshold }.keys)
+        guard !fingers.isEmpty else { return nil }
+        if contacts.contains(where: { fingers.contains($0.key) && $0.value.maxShift > maxMovement }) {
+            return nil
+        }
+        return frames.map { $0.filter(fingers.contains).count }.max()
     }
 
     mutating func reset() {
         startTimestamp = nil
-        maxTouches = 0
-        startPositions = [:]
-        moved = false
+        contacts = [:]
+        frames = []
+        tooLong = false
     }
 }
