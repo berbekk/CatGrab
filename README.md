@@ -25,7 +25,8 @@ your app, shortcut, window command or snippet fires. No trip to the Dock, no dig
 - **Radial menus on a hotkey or a trackpad tap.** Every menu gets its own key combination — including
   a bare <kbd>Fn</kbd>/<kbd>🌐</kbd> press — and can also open with a light tap of three, four or
   five fingers.
-- **Six kinds of action per sector:** launch an app, open a link, send a keystroke to the app in
+- **Six kinds of action per sector:** launch an app (already in front? you get its next window, like
+  <kbd>⌘</kbd><kbd>`</kbd>), open a link, send a keystroke to the app in
   front, run a macOS action (Mission Control, App Exposé, Quick Note, Screen Saver, Display Sleep,
   Lock Screen), or put a text snippet on the clipboard ready for <kbd>⌘</kbd><kbd>V</kbd>.
 - **Active apps.** A built-in ring of the apps you used last — a radial <kbd>⌘</kbd><kbd>Tab</kbd>

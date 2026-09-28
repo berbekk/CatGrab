@@ -6,6 +6,11 @@ All notable changes to CatGrab are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- Choosing an app that is already in front brings up its next window, like ⌘`. Repeated calls go
+  through all its windows on the current desktop.
+
 ## [1.3.0] - 2026-09-28
 
 ### Added
