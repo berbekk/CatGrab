@@ -6,10 +6,17 @@ All notable changes to CatGrab are documented here. The format follows
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-09-28
+
 ### Added
 
 - Choosing an app that is already in front brings up its next window, like ⌘`. Repeated calls go
   through all its windows on the current desktop.
+
+### Changed
+
+- The welcome tour speaks plainly: each page is a title and one short sentence, with no repeated
+  gesture captions. In Russian a dash no longer starts a new line.
 
 ## [1.3.0] - 2026-09-28
 
@@ -161,7 +168,8 @@ First public release.
 - Backup and restore of the whole configuration as JSON, with migration of older files.
 - Universal build for Apple silicon and Intel, distributed as a DMG.
 
-[Unreleased]: https://github.com/berbekk/CatGrab/compare/v1.3.0...HEAD
+[Unreleased]: https://github.com/berbekk/CatGrab/compare/v1.4.0...HEAD
+[1.4.0]: https://github.com/berbekk/CatGrab/compare/v1.3.0...v1.4.0
 [1.3.0]: https://github.com/berbekk/CatGrab/compare/v1.2.1...v1.3.0
 [1.2.1]: https://github.com/berbekk/CatGrab/compare/v1.2.0...v1.2.1
 [1.2.0]: https://github.com/berbekk/CatGrab/compare/v1.1.0...v1.2.0
