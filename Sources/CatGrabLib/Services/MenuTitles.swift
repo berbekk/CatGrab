@@ -276,7 +276,7 @@ enum MenuTitles {
 
     static func minimize(language: AppLanguage) -> String {
         switch language {
-        case .russian:      return "Убрать в Dock"
+        case .russian:      return "Свернуть"
         case .chinese:      return "最小化"
         case .japanese:     return "しまう"
         case .german:       return "Im Dock ablegen"
@@ -312,7 +312,7 @@ enum MenuTitles {
 
     static func bringAllToFront(language: AppLanguage) -> String {
         switch language {
-        case .russian:      return "Переместить все на передний план"
+        case .russian:      return "Все окна — на передний план"
         case .chinese:      return "全部前置"
         case .japanese:     return "すべてを手前に移動"
         case .german:       return "Alle nach vorne"
@@ -366,7 +366,7 @@ enum MenuTitles {
 
     static func tileLeft(language: AppLanguage) -> String {
         switch language {
-        case .russian:      return "Окно слева"
+        case .russian:      return "Левая половина"
         case .chinese:      return "移到左侧"
         case .japanese:     return "左に配置"
         case .german:       return "Links anordnen"
@@ -384,7 +384,7 @@ enum MenuTitles {
 
     static func tileRight(language: AppLanguage) -> String {
         switch language {
-        case .russian:      return "Окно справа"
+        case .russian:      return "Правая половина"
         case .chinese:      return "移到右侧"
         case .japanese:     return "右に配置"
         case .german:       return "Rechts anordnen"
@@ -402,7 +402,7 @@ enum MenuTitles {
 
     static func tileTop(language: AppLanguage) -> String {
         switch language {
-        case .russian:     return "Окно сверху"
+        case .russian:     return "Верхняя половина"
         case .chinese:     return "移到上方"
         case .japanese:    return "上に配置"
         case .german:      return "Oben anordnen"
@@ -420,7 +420,7 @@ enum MenuTitles {
 
     static func tileBottom(language: AppLanguage) -> String {
         switch language {
-        case .russian:     return "Окно снизу"
+        case .russian:     return "Нижняя половина"
         case .chinese:     return "移到下方"
         case .japanese:    return "下に配置"
         case .german:      return "Unten anordnen"
@@ -438,7 +438,7 @@ enum MenuTitles {
 
     static func centerWindow(language: AppLanguage) -> String {
         switch language {
-        case .russian:     return "Окно по центру"
+        case .russian:     return "По центру"
         case .chinese:     return "居中"
         case .japanese:    return "中央に配置"
         case .german:      return "Zentrieren"
@@ -456,7 +456,7 @@ enum MenuTitles {
 
     static func fillScreen(language: AppLanguage) -> String {
         switch language {
-        case .russian:      return "Развернуть окно"
+        case .russian:      return "Заполнить экран"
         case .chinese:      return "填充屏幕"
         case .japanese:     return "画面いっぱいに"
         case .german:       return "Bildschirm füllen"

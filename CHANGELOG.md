@@ -15,6 +15,10 @@ All notable changes to CatGrab are documented here. The format follows
 
 ### Changed
 
+- Russian texts rewritten from scratch in plain, natural Russian and in macOS terms: “значок”
+  instead of “иконка”, “Тактильный отклик”, “Свернуть”, window halves named as in macOS, action
+  types as verbs (“Открыть ссылку”, “Нажать клавиши”, “Скопировать текст”), and hints that explain
+  rather than label — for example why a palette does not recolour sectors with their own colour.
 - New menus start with a visibly tinted ring (intensity 30%, as in the Classic palette) instead of
   an almost grey one.
 - The “N sectors have their own colours” notice with its Reset button now sits at the top of the
@@ -22,6 +26,9 @@ All notable changes to CatGrab are documented here. The format follows
 
 ### Fixed
 
+- A three-finger tap could open the menu set for four fingers when a fourth finger (or the thumb)
+  brushed the trackpad for a moment. A contact now counts as a finger only if it stayed down for a
+  good part of the tap.
 - Sectors coloured by CatGrab 1.0 and then reordered kept their palette colour at the “wrong” place
   and were treated as custom, so palettes and themes seemed not to apply to them. Any colour from
   the original palette now follows the theme.

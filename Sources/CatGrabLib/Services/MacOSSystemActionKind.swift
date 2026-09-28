@@ -85,10 +85,10 @@ enum MacOSSystemActionKind: String, Codable, CaseIterable, Identifiable {
         case .russian:
             switch self {
             case .missionControl: return "Mission Control"
-            case .applicationWindows: return "Окна программы"
+            case .applicationWindows: return "Окна приложения"
             case .quickNote: return "Быстрая заметка"
             case .startScreenSaver: return "Включить заставку"
-            case .displaySleep: return "Перевести дисплей в сон"
+            case .displaySleep: return "Выключить дисплей"
             case .lockScreen: return "Заблокировать экран"
             }
         default:
