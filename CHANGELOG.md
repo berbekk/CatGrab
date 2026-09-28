@@ -6,6 +6,8 @@ All notable changes to CatGrab are documented here. The format follows
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-09-28
+
 ### Added
 
 - Welcome tour: a page where the cat is pressed and the ring makes room for a new sector, showing
@@ -32,7 +34,6 @@ All notable changes to CatGrab are documented here. The format follows
 - Sectors coloured by CatGrab 1.0 and then reordered kept their palette colour at the “wrong” place
   and were treated as custom, so palettes and themes seemed not to apply to them. Any colour from
   the original palette now follows the theme.
-
 - A menu saved by an old version without an icon distance placed its icons inside the hub, on top
   of the cat; such menus now get the default distance.
 
@@ -155,7 +156,8 @@ First public release.
 - Backup and restore of the whole configuration as JSON, with migration of older files.
 - Universal build for Apple silicon and Intel, distributed as a DMG.
 
-[Unreleased]: https://github.com/berbekk/CatGrab/compare/v1.2.1...HEAD
+[Unreleased]: https://github.com/berbekk/CatGrab/compare/v1.3.0...HEAD
+[1.3.0]: https://github.com/berbekk/CatGrab/compare/v1.2.1...v1.3.0
 [1.2.1]: https://github.com/berbekk/CatGrab/compare/v1.2.0...v1.2.1
 [1.2.0]: https://github.com/berbekk/CatGrab/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/berbekk/CatGrab/compare/v1.0.0...v1.1.0
