@@ -20,6 +20,8 @@ struct MenuEditorView: View {
     @EnvironmentObject private var localizer: LocalizationStore
 
     @State private var selectedItemId: UUID?
+    /// В macOS касание тремя пальцами открывает словарь: он всплывёт вместе с меню.
+    @State private var systemLookUpTapEnabled = SystemLookUpGesture.isThreeFingerTapEnabled
 
     var body: some View {
         VStack(spacing: 0) {
@@ -37,6 +39,10 @@ struct MenuEditorView: View {
         }
         .onChange(of: showAppearancePanel) { visible in
             if visible { selectedItemId = nil }
+        }
+        // Жест выключают в Системных настройках — по возвращении предупреждение должно исчезнуть.
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+            systemLookUpTapEnabled = SystemLookUpGesture.isThreeFingerTapEnabled
         }
     }
 
@@ -82,6 +88,9 @@ struct MenuEditorView: View {
                 if menu.isAppCommandsMenu {
                     appCommandsFootnote
                 }
+                if trackpadFingerCount != 0, systemLookUpTapEnabled {
+                    lookUpConflictFootnote
+                }
                 if let hotkeyConflictMenuName {
                     hotkeyConflictFootnote(otherMenuName: hotkeyConflictMenuName)
                 } else if !menu.isDynamicMenu {
@@ -102,6 +111,27 @@ struct MenuEditorView: View {
             .foregroundStyle(.secondary)
             .fixedSize(horizontal: false, vertical: true)
             .padding(.horizontal, DS.Spacing.m)
+    }
+
+    /// Касание трекпада у меню включено, а в macOS касание тремя пальцами открывает словарь:
+    /// он всплывает вместе с меню (при касании четырьмя — когда система успевает увидеть три).
+    private var lookUpConflictFootnote: some View {
+        HStack(alignment: .center, spacing: DS.Spacing.m) {
+            Label {
+                Text(localizer.text(.lookUpConflictBody))
+            } icon: {
+                Image(systemName: "exclamationmark.triangle")
+            }
+            .font(DS.Typography.label)
+            .foregroundStyle(Color.orange)
+            .fixedSize(horizontal: false, vertical: true)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            Button(localizer.text(.lookUpConflictOpenSettings)) {
+                SystemLookUpGesture.openTrackpadSettings()
+            }
+            .buttonStyle(DSFieldButtonStyle())
+        }
+        .padding(.horizontal, DS.Spacing.m)
     }
 
     /// Одно сочетание у двух меню: второе молча не откроется — лучше сказать об этом здесь.

@@ -359,6 +359,8 @@ enum L10nKey {
     case onboardingRotateBody
     case onboardingAddTitle
     case onboardingAddBody
+    case lookUpConflictBody
+    case lookUpConflictOpenSettings
 }
 
 /// Хранилище локализации уровня приложения. Один экземпляр на процесс (`.shared`),
@@ -711,6 +713,8 @@ final class LocalizationStore: ObservableObject {
         case .onboardingRotateBody: return "Зажмите ⌥ и потяните по кругу — меню повернётся."
         case .onboardingAddTitle: return "Новые пункты"
         case .onboardingAddBody: return "Нажмите на кота в центре, чтобы добавить пункт: приложение, ссылку, сочетание клавиш или текст."
+        case .lookUpConflictBody: return "Касание тремя пальцами в macOS открывает словарь, и он всплывает вместе с меню. Выключите «Поиск и детекторы данных» в настройках трекпада."
+        case .lookUpConflictOpenSettings: return "Открыть настройки трекпада"
         }
     }
 
@@ -1015,6 +1019,8 @@ final class LocalizationStore: ObservableObject {
         case .onboardingRotateBody: return "Hold ⌥ and drag along the ring in the preview: it rotates and snaps so that sectors, or the gaps between them, sit exactly up, down, left and right."
         case .onboardingAddTitle: return "Add a sector"
         case .onboardingAddBody: return "Click the cat in the center: the ring makes room for a new sector. Then choose what it does — an app, a link, a key combination, a macOS action or a snippet — and any icon. Every sector opens its own inspector in Settings."
+        case .lookUpConflictBody: return "In macOS a three-finger tap looks up the word under the pointer, so the dictionary pops up together with the menu. Turn off “Look up & data detectors” in Trackpad settings."
+        case .lookUpConflictOpenSettings: return "Open Trackpad Settings"
         }
     }
 
@@ -1319,6 +1325,8 @@ final class LocalizationStore: ObservableObject {
         case .onboardingRotateBody: return "在预览中按住 ⌥ 沿圆环拖动：它会旋转并吸附，让扇区或扇区之间的间隙正好朝上、下、左、右。"
         case .onboardingAddTitle: return "添加扇区"
         case .onboardingAddBody: return "点击中心的猫：圆环会为新扇区腾出位置。然后选择它的作用 —— 应用、链接、快捷键、macOS 操作或文本片段 —— 以及任意图标。在设置里每个扇区都有自己的检查器。"
+        case .lookUpConflictBody: return "在 macOS 中，三指轻点会查询指针下的词语，词典会和菜单一起弹出。请在触控板设置中关闭“查询与数据检测器”。"
+        case .lookUpConflictOpenSettings: return "打开触控板设置"
         }
     }
 
@@ -1623,6 +1631,8 @@ final class LocalizationStore: ObservableObject {
         case .onboardingRotateBody: return "प्रीव्यू में ⌥ दबाकर रिंग पर खींचें: यह घूमकर ऐसे चिपकती है कि सेक्टर या उनके बीच की जगह ठीक ऊपर, नीचे, बाएँ और दाएँ आए।"
         case .onboardingAddTitle: return "सेक्टर जोड़ें"
         case .onboardingAddBody: return "बीच में बिल्ली पर क्लिक करें: रिंग नए सेक्टर के लिए जगह बना देती है। फिर चुनें कि वह क्या करे — ऐप, लिंक, की-संयोजन, macOS क्रिया या स्निपेट — और कोई भी आइकन। सेटिंग्स में हर सेक्टर का अपना इंस्पेक्टर है।"
+        case .lookUpConflictBody: return "macOS में तीन उँगलियों का टैप पॉइंटर के नीचे का शब्द खोजता है, इसलिए शब्दकोश मेनू के साथ खुल जाता है। ट्रैकपैड सेटिंग्स में ‘“तलाशें” और डेटा डिटेक्टर’ बंद करें।"
+        case .lookUpConflictOpenSettings: return "ट्रैकपैड सेटिंग्स खोलें"
         }
     }
 
@@ -1927,6 +1937,8 @@ final class LocalizationStore: ObservableObject {
         case .onboardingRotateBody: return "En la vista previa, mantén ⌥ y arrastra por el anillo: gira y se ajusta para que los sectores, o los huecos entre ellos, queden justo arriba, abajo, izquierda y derecha."
         case .onboardingAddTitle: return "Añade un sector"
         case .onboardingAddBody: return "Haz clic en el gato del centro: el anillo hace sitio a un sector nuevo. Luego elige qué hace — una app, un enlace, una combinación de teclas, una acción de macOS o un fragmento — y cualquier icono. En Ajustes cada sector tiene su propio inspector."
+        case .lookUpConflictBody: return "En macOS, el toque con tres dedos busca la palabra bajo el puntero, y el diccionario aparece junto con el menú. Desactiva «Detectores de datos y Consultar» en los ajustes del trackpad."
+        case .lookUpConflictOpenSettings: return "Abrir ajustes del trackpad"
         }
     }
 
@@ -2231,6 +2243,8 @@ final class LocalizationStore: ObservableObject {
         case .onboardingRotateBody: return "في المعاينة اضغط ⌥ مع الاستمرار واسحب على طول الحلقة: تدور وتلتصق بحيث تقع القطاعات، أو الفجوات بينها، تمامًا أعلى وأسفل ويسارًا ويمينًا."
         case .onboardingAddTitle: return "أضف قطاعًا"
         case .onboardingAddBody: return "انقر على القطة في المنتصف: تفسح الحلقة مكانًا لقطاع جديد. ثم اختر ما يفعله — تطبيق أو رابط أو اختصار لوحة مفاتيح أو إجراء macOS أو مقتطف نصي — وأي أيقونة. في الإعدادات لكل قطاع مفتّشه الخاص."
+        case .lookUpConflictBody: return "في macOS، النقر بثلاثة أصابع يبحث عن الكلمة تحت المؤشر، فيظهر القاموس مع القائمة. أوقف «البحث العام وعناصر كشف البيانات» في إعدادات لوحة التعقب."
+        case .lookUpConflictOpenSettings: return "فتح إعدادات لوحة التعقب"
         }
     }
 
@@ -2535,6 +2549,8 @@ final class LocalizationStore: ObservableObject {
         case .onboardingRotateBody: return "Dans l'aperçu, maintenez ⌥ et glissez le long de l'anneau : il tourne et s'aligne pour que les secteurs, ou les espaces entre eux, soient exactement en haut, en bas, à gauche et à droite."
         case .onboardingAddTitle: return "Ajouter un secteur"
         case .onboardingAddBody: return "Cliquez sur le chat au centre : l'anneau fait de la place à un nouveau secteur. Choisissez ensuite ce qu'il fait — une app, un lien, un raccourci clavier, une action macOS ou un extrait — et n'importe quelle icône. Dans les Réglages, chaque secteur a son propre inspecteur."
+        case .lookUpConflictBody: return "Dans macOS, toucher avec trois doigts recherche le mot sous le pointeur, et le dictionnaire s'affiche avec le menu. Désactivez « Recherche et détection de données » dans les réglages du trackpad."
+        case .lookUpConflictOpenSettings: return "Ouvrir les réglages du trackpad"
         }
     }
 
@@ -2839,6 +2855,8 @@ final class LocalizationStore: ObservableObject {
         case .onboardingRotateBody: return "প্রিভিউতে ⌥ চেপে রিং বরাবর টানুন: এটি ঘুরে এমনভাবে আটকে যায় যাতে সেক্টর বা তাদের মাঝের ফাঁক ঠিক উপরে, নিচে, বাঁয়ে ও ডানে বসে।"
         case .onboardingAddTitle: return "সেক্টর যোগ করুন"
         case .onboardingAddBody: return "মাঝের বিড়ালে ক্লিক করুন: রিং নতুন সেক্টরের জন্য জায়গা করে দেয়। তারপর বেছে নিন এটি কী করবে — অ্যাপ, লিংক, কী-সমন্বয়, macOS অ্যাকশন বা স্নিপেট — এবং যেকোনো আইকন। সেটিংসে প্রতিটি সেক্টরের নিজস্ব ইন্সপেক্টর আছে।"
+        case .lookUpConflictBody: return "macOS-এ তিন আঙুলের ট্যাপ পয়েন্টারের নিচের শব্দ খোঁজে, তাই অভিধান মেনুর সাথে খুলে যায়। ট্র্যাকপ্যাড সেটিংসে “Look up & data detectors” বন্ধ করুন।"
+        case .lookUpConflictOpenSettings: return "ট্র্যাকপ্যাড সেটিংস খুলুন"
         }
     }
 
@@ -3143,6 +3161,8 @@ final class LocalizationStore: ObservableObject {
         case .onboardingRotateBody: return "Na pré-visualização, segure ⌥ e arraste ao longo do anel: ele gira e encaixa para que os setores, ou os espaços entre eles, fiquem exatamente em cima, embaixo, à esquerda e à direita."
         case .onboardingAddTitle: return "Adicione um setor"
         case .onboardingAddBody: return "Clique no gato no centro: o anel abre espaço para um setor novo. Depois escolha o que ele faz — um app, um link, uma combinação de teclas, uma ação do macOS ou um trecho de texto — e qualquer ícone. Nos Ajustes, cada setor tem o seu próprio inspetor."
+        case .lookUpConflictBody: return "No macOS, o toque com três dedos pesquisa a palavra sob o cursor, e o dicionário aparece junto com o menu. Desative “Pesquisa e detectores de dados” nos ajustes do trackpad."
+        case .lookUpConflictOpenSettings: return "Abrir ajustes do trackpad"
         }
     }
 
@@ -3447,6 +3467,8 @@ final class LocalizationStore: ObservableObject {
         case .onboardingRotateBody: return "پیش منظر میں ⌥ دبا کر رِنگ کے ساتھ گھسیٹیں: یہ گھوم کر ایسے جمتا ہے کہ سیکٹر یا ان کے درمیان کی جگہ بالکل اوپر، نیچے، بائیں اور دائیں آئے۔"
         case .onboardingAddTitle: return "سیکٹر شامل کریں"
         case .onboardingAddBody: return "درمیان میں بلی پر کلک کریں: رِنگ نئے سیکٹر کے لیے جگہ بنا دیتا ہے۔ پھر چنیں کہ وہ کیا کرے — ایپ، لنک، کلیدی امتزاج، macOS ایکشن یا اسنیپٹ — اور کوئی بھی آئیکن۔ سیٹنگز میں ہر سیکٹر کا اپنا انسپکٹر ہے۔"
+        case .lookUpConflictBody: return "macOS میں تین انگلیوں کا ٹیپ پوائنٹر کے نیچے کا لفظ تلاش کرتا ہے، اس لیے لغت مینو کے ساتھ کھل جاتی ہے۔ ٹریک پیڈ کی سیٹنگز میں “Look up & data detectors” بند کریں۔"
+        case .lookUpConflictOpenSettings: return "ٹریک پیڈ کی سیٹنگز کھولیں"
         }
     }
 
@@ -3751,6 +3773,8 @@ final class LocalizationStore: ObservableObject {
         case .onboardingRotateBody: return "Di pratinjau, tahan ⌥ dan seret di sepanjang cincin: ia berputar dan mengunci agar sektor, atau celah di antaranya, tepat di atas, bawah, kiri, dan kanan."
         case .onboardingAddTitle: return "Tambah sektor"
         case .onboardingAddBody: return "Klik kucing di tengah: cincin membuka ruang untuk sektor baru. Lalu pilih fungsinya — aplikasi, tautan, kombinasi tombol, aksi macOS, atau cuplikan teks — dan ikon apa pun. Di Pengaturan, setiap sektor punya inspektur sendiri."
+        case .lookUpConflictBody: return "Di macOS, ketukan tiga jari mencari kata di bawah penunjuk, sehingga kamus muncul bersama menu. Matikan “Cari tahu & pendeteksi data” di pengaturan trackpad."
+        case .lookUpConflictOpenSettings: return "Buka pengaturan trackpad"
         }
     }
 
@@ -4055,6 +4079,8 @@ final class LocalizationStore: ObservableObject {
         case .onboardingRotateBody: return "Halte in der Vorschau ⌥ und ziehe am Ring entlang: er dreht sich und rastet so ein, dass Sektoren oder die Lücken dazwischen genau oben, unten, links und rechts sitzen."
         case .onboardingAddTitle: return "Sektor hinzufügen"
         case .onboardingAddBody: return "Klicke auf die Katze in der Mitte: der Ring macht Platz für einen neuen Sektor. Dann wähle, was er tut – eine App, ein Link, ein Tastenkürzel, eine macOS-Aktion oder ein Textbaustein – und ein beliebiges Symbol. In den Einstellungen hat jeder Sektor seinen eigenen Inspektor."
+        case .lookUpConflictBody: return "In macOS schlägt Tippen mit drei Fingern das Wort unter dem Zeiger nach, und das Lexikon erscheint zusammen mit dem Menü. Schalte „Nachschlagen & Datenerkennung“ in den Trackpad-Einstellungen aus."
+        case .lookUpConflictOpenSettings: return "Trackpad-Einstellungen öffnen"
         }
     }
 
@@ -4359,6 +4385,8 @@ final class LocalizationStore: ObservableObject {
         case .onboardingRotateBody: return "プレビューで ⌥ を押しながらリングに沿ってドラッグ：回転して、セクタかその間の隙間がちょうど上下左右に来るように吸着します。"
         case .onboardingAddTitle: return "セクタを追加"
         case .onboardingAddBody: return "中央の猫をクリック：リングが新しいセクタの場所を空けます。次に何をするか（アプリ、リンク、キーの組み合わせ、macOS の操作、テキスト片）と好きなアイコンを選びます。設定では各セクタに専用のインスペクタがあります。"
+        case .lookUpConflictBody: return "macOS では3本指のタップでポインタの下の単語が調べられ、メニューと一緒に辞書が表示されます。トラックパッド設定で「調べる＆データ検出」をオフにしてください。"
+        case .lookUpConflictOpenSettings: return "トラックパッド設定を開く"
         }
     }
 }

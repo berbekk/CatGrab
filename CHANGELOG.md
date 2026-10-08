@@ -6,6 +6,12 @@ All notable changes to CatGrab are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- When a menu opens with a trackpad tap and macOS still has its own three-finger tap for Look Up,
+  the menu's settings warn that the dictionary will pop up together with the menu and offer a
+  button that opens Trackpad settings.
+
 ## [1.4.0] - 2026-09-28
 
 ### Added
