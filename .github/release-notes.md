@@ -1,3 +1,5 @@
+What's new: [CHANGELOG](https://github.com/berbekk/CatGrab/blob/main/CHANGELOG.md) · Что нового: [история изменений](https://github.com/berbekk/CatGrab/blob/main/CHANGELOG.md)
+
 ## Install
 
 1. Download **CatGrab.dmg** below, open it and drag **CatGrab** into **Applications**.

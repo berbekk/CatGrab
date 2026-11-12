@@ -6,6 +6,8 @@ All notable changes to CatGrab are documented here. The format follows
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-11-12
+
 ### Added
 
 - Update check. Settings → General → About shows **Check for Updates**; when a newer release exists,
@@ -222,7 +224,8 @@ First public release.
 - Backup and restore of the whole configuration as JSON, with migration of older files.
 - Universal build for Apple silicon and Intel, distributed as a DMG.
 
-[Unreleased]: https://github.com/berbekk/CatGrab/compare/v1.4.0...HEAD
+[Unreleased]: https://github.com/berbekk/CatGrab/compare/v1.5.0...HEAD
+[1.5.0]: https://github.com/berbekk/CatGrab/compare/v1.4.0...v1.5.0
 [1.4.0]: https://github.com/berbekk/CatGrab/compare/v1.3.0...v1.4.0
 [1.3.0]: https://github.com/berbekk/CatGrab/compare/v1.2.1...v1.3.0
 [1.2.1]: https://github.com/berbekk/CatGrab/compare/v1.2.0...v1.2.1
