@@ -110,17 +110,29 @@ final class HotkeyCaptureEngine: ObservableObject {
     @Published private(set) var isRecording = false
 
     private var recorder: HotkeyRecordingEventTap?
+    private var captureToken: UUID?
+    private var stopObservers: [NSObjectProtocol] = []
 
     var onCaptured: ((_ keyCode: Int, _ carbonModifiers: Int, _ fnGlobeHeld: Bool) -> Void)?
     var onEscape: (() -> Void)?
 
     deinit {
         recorder?.stop()
+        for observer in stopObservers { NotificationCenter.default.removeObserver(observer) }
+        if let token = captureToken {
+            Task { @MainActor in HotkeyCaptureSession.shared.end(token) }
+        }
     }
 
     func start() {
         guard !isRecording else { return }
         isRecording = true
+        captureToken = HotkeyCaptureSession.shared.begin()
+        stopObservers = [NSApplication.didResignActiveNotification, .settingsWillHide].map { name in
+            NotificationCenter.default.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
+                Task { @MainActor [weak self] in self?.stop() }
+            }
+        }
 
         let tap = HotkeyRecordingEventTap()
         tap.onEscape = { [weak self] in self?.handleEscape() }
@@ -130,7 +142,7 @@ final class HotkeyCaptureEngine: ObservableObject {
         if tap.start() {
             recorder = tap
         } else {
-            isRecording = false
+            stop()
         }
     }
 
@@ -139,14 +151,20 @@ final class HotkeyCaptureEngine: ObservableObject {
         isRecording = false
         recorder?.stop()
         recorder = nil
+        for observer in stopObservers { NotificationCenter.default.removeObserver(observer) }
+        stopObservers = []
+        if let captureToken { HotkeyCaptureSession.shared.end(captureToken) }
+        captureToken = nil
     }
 
     private func handleCapture(keyCode: Int, carbon: Int, fnHeld: Bool) {
+        guard isRecording else { return }
         onCaptured?(keyCode, carbon, fnHeld)
         stop()
     }
 
     private func handleEscape() {
+        guard isRecording else { return }
         onEscape?()
         stop()
     }
@@ -161,18 +179,26 @@ struct HotkeyRecorderView: View {
     var body: some View {
         RecorderFieldChrome(isRecording: engine.isRecording, isHovered: $isHovered, onTap: toggle) {
             HStack(spacing: DS.Spacing.s) {
-                Image(systemName: engine.isRecording ? "record.circle.fill" : "keyboard")
-                    .font(DS.Typography.label)
-                    .foregroundStyle(engine.isRecording ? DS.Colors.blueAccent : Color.secondary)
-                    .accessibilityHidden(true)
+                if engine.isRecording || hotkey.isEmpty {
+                    Image(systemName: engine.isRecording ? "record.circle.fill" : "keyboard")
+                        .font(DS.Typography.label)
+                        .foregroundStyle(engine.isRecording ? DS.Colors.blueAccent : Color.secondary)
+                        .accessibilityHidden(true)
 
-                Text(engine.isRecording
-                    ? localizer.text(.pressCombination)
-                    : hotkey.displayString(language: localizer.language))
-                    .font(DS.Typography.hotkeyDisplay())
-                    .foregroundStyle(engine.isRecording ? DS.Colors.blueAccent : hotkey.isEmpty ? Color.secondary : Color.primary)
-                    .lineLimit(1)
-                    .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
+                    Text(engine.isRecording
+                        ? localizer.text(.pressCombination)
+                        : hotkey.displayString(language: localizer.language))
+                        .font(DS.Typography.hotkeyDisplay())
+                        .foregroundStyle(engine.isRecording ? DS.Colors.blueAccent : Color.secondary)
+                        .lineLimit(1)
+                        .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
+                } else {
+                    HotkeyKeycapsLabel(
+                        parts: hotkey.keycapParts,
+                        fallback: hotkey.glyphString,
+                        accessibilityText: hotkey.displayString(language: localizer.language)
+                    )
+                }
 
                 if !engine.isRecording {
                     Spacer(minLength: 0)
@@ -217,7 +243,7 @@ struct HotkeyRecorderView: View {
             }
             hotkey = newConfig
         }
-        engine.onEscape = { hotkey = .empty }
+        engine.onEscape = {}
     }
 
     private func toggle() {
@@ -259,21 +285,29 @@ struct KeystrokeRecorderView: View {
     var body: some View {
         RecorderFieldChrome(isRecording: engine.isRecording, isHovered: $isHovered, onTap: toggle) {
             HStack(spacing: DS.Spacing.s) {
-                Image(systemName: engine.isRecording ? "record.circle.fill" : "command")
-                    .font(DS.Typography.label)
-                    .foregroundStyle(engine.isRecording ? DS.Colors.blueAccent : Color.secondary)
+                let display = HotkeyConfig.keystrokeDisplayString(
+                    keyCode: keyCode,
+                    modifiers: modifiers,
+                    language: localizer.language
+                )
+                if engine.isRecording || isEmpty {
+                    Image(systemName: engine.isRecording ? "record.circle.fill" : "command")
+                        .font(DS.Typography.label)
+                        .foregroundStyle(engine.isRecording ? DS.Colors.blueAccent : Color.secondary)
+                        .accessibilityHidden(true)
 
-                Text(engine.isRecording
-                    ? localizer.text(.pressCombination)
-                    : HotkeyConfig.keystrokeDisplayString(
-                        keyCode: keyCode,
-                        modifiers: modifiers,
-                        language: localizer.language
-                    ))
-                    .font(DS.Typography.hotkeyDisplay())
-                    .foregroundStyle(engine.isRecording ? DS.Colors.blueAccent : isEmpty ? Color.secondary : Color.primary)
-                    .lineLimit(1)
-                    .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
+                    Text(engine.isRecording ? localizer.text(.pressCombination) : display)
+                        .font(DS.Typography.hotkeyDisplay())
+                        .foregroundStyle(engine.isRecording ? DS.Colors.blueAccent : Color.secondary)
+                        .lineLimit(1)
+                        .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
+                } else {
+                    HotkeyKeycapsLabel(
+                        parts: HotkeyConfig.keystrokeKeycapParts(keyCode: keyCode, modifiers: modifiers),
+                        fallback: HotkeyConfig.keystrokeGlyphString(keyCode: keyCode, modifiers: modifiers),
+                        accessibilityText: display
+                    )
+                }
             }
         }
         .onAppear(perform: configureEngine)

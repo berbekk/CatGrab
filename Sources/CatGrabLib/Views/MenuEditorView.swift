@@ -22,27 +22,43 @@ struct MenuEditorView: View {
     @State private var selectedItemId: UUID?
     /// В macOS касание тремя пальцами открывает словарь: он всплывёт вместе с меню.
     @State private var systemLookUpTapEnabled = SystemLookUpGesture.isThreeFingerTapEnabled
+    @ObservedObject private var hotkeyAvailability = HotkeyAvailability.shared
+    @State private var settingsHeight: CGFloat = 260
 
     var body: some View {
-        VStack(spacing: 0) {
-            menuSettingsSection
-            previewSection
-                .frame(minHeight: 0)
-                .layoutPriority(1)
-        }
-        .padding(.top, DS.Spacing.s)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(DS.Colors.canvasTop)
-        // Инспектор и «Параметры» выезжают в одно место — открытие одного закрывает другое.
-        .onChange(of: selectedItemId) { id in
-            if id != nil { showAppearancePanel = false }
-        }
-        .onChange(of: showAppearancePanel) { visible in
-            if visible { selectedItemId = nil }
-        }
-        // Жест выключают в Системных настройках — по возвращении предупреждение должно исчезнуть.
-        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
-            systemLookUpTapEnabled = SystemLookUpGesture.isThreeFingerTapEnabled
+        GeometryReader { geometry in
+            VStack(spacing: 0) {
+                ScrollView {
+                    menuSettingsSection
+                        .fixedSize(horizontal: false, vertical: true)
+                        .background(GeometryReader { content in
+                            Color.clear.preference(key: MenuSettingsHeightKey.self, value: content.size.height)
+                        })
+                }
+                .frame(height: min(settingsHeight, max(210, geometry.size.height * 0.48)))
+                .onPreferenceChange(MenuSettingsHeightKey.self) { settingsHeight = $0 }
+                previewSection
+                    .frame(minHeight: 0)
+                    .layoutPriority(1)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(DS.Colors.canvasTop)
+            // Инспектор и «Параметры» выезжают в одно место — открытие одного закрывает другое.
+            .onChange(of: selectedItemId) { id in
+                if id != nil { showAppearancePanel = false }
+            }
+            .onChange(of: showAppearancePanel) { visible in
+                if visible { selectedItemId = nil }
+            }
+            // Жест выключают в Системных настройках — по возвращении предупреждение должно исчезнуть.
+            .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+                systemLookUpTapEnabled = SystemLookUpGesture.isThreeFingerTapEnabled
+            }
+            .onAppear {
+                if ScreenshotMode.panel == .item {
+                    selectedItemId = menu.items.min { $0.sectorIndex < $1.sectorIndex }?.id
+                }
+            }
         }
     }
 
@@ -96,11 +112,17 @@ struct MenuEditorView: View {
                 } else if !menu.isDynamicMenu {
                     howToOpenFootnote
                 }
+                if !menu.hotkey.isEmpty, hotkeyAvailability.unavailableMenuIDs.contains(menu.id) {
+                    Label(localizer.text(.hotkeyUnavailable), systemImage: "exclamationmark.triangle")
+                        .font(DS.Typography.label)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .padding(.horizontal, DS.Spacing.m)
+                }
             }
         }
         .padding(.horizontal, DS.Spacing.l)
-        .padding(.top, DS.Spacing.m)
-        .padding(.bottom, DS.Spacing.m)
+        .padding(.top, DS.Spacing.xs)
+        .padding(.bottom, DS.Spacing.s)
     }
 
     /// Само взаимодействие — зажать, повести, отпустить — нигде в приложении не показано;
@@ -342,7 +364,7 @@ struct MenuEditorView: View {
         @ViewBuilder content: () -> Content
     ) -> some View {
         VStack(spacing: DS.Spacing.s) {
-            DSSectionHeader(title: title)
+            DSSectionHeader(title: title, topInset: DS.Spacing.xs)
             SettingsCard(fillBackground: fillBackground) {
                 content()
             }
@@ -395,6 +417,11 @@ struct MenuEditorView: View {
         selectedItemId = nil
     }
 
+}
+
+private struct MenuSettingsHeightKey: PreferenceKey {
+    static let defaultValue: CGFloat = 260
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = nextValue() }
 }
 
 private struct MenuEditorPreview: View {

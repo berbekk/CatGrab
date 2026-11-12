@@ -16,7 +16,7 @@ your app, shortcut, window command or snippet fires. No trip to the Dock, no dig
 
 <br>
 
-<img src="docs/screenshots/settings.png" width="820" alt="CatGrab settings: the menu list, the hotkey and trackpad gesture, and a live preview of the ring">
+<img src="docs/screenshots/ring.png" width="820" alt="The CatGrab ring on the desktop: six glass sectors with app icons around a black cat, Terminal highlighted">
 
 </div>
 
@@ -45,7 +45,14 @@ your app, shortcut, window command or snippet fires. No trip to the Dock, no dig
   sector sits where your hand expects. 24 colour themes to start from — palettes, gradients, single
   colours — then fine-tune the colours, intensity, glass and icons, or give any sector its own colour.
   A cat in the middle whose eyes follow the pointer. Settings come in light or dark.
-- **13 languages**, and backup/restore of your whole setup as one JSON file.
+- **13 languages** — CatGrab starts in your Mac's language — and backup/restore of your whole setup
+  as one JSON file.
+- **Update check.** Settings → General tells you when a new version is out and opens its download
+  page. Checking by itself is off until you turn it on.
+
+<p align="center">
+  <img src="docs/screenshots/settings.png" width="820" alt="CatGrab settings: the menu list, the hotkey and trackpad gesture, and a live preview of the ring">
+</p>
 
 <p align="center">
   <img src="docs/screenshots/app-commands.png" width="820" alt="The App commands menu: window commands around the app's icon">
@@ -81,6 +88,9 @@ any other app.
 
 ### Permissions
 
+On a new installation, Main opens with **⌃⌥⌘Space** (Control + Option + Command + Space).
+Change it in the welcome tour or the menu's settings. Updates preserve your existing shortcuts.
+
 CatGrab then opens a short tour: try the ring, pick a hotkey, watch the cat rearrange and rotate
 the ring, and on the last pages grant two permissions. Click **Allow** and turn **CatGrab** on in each:
 
@@ -100,6 +110,9 @@ Settings open from the cat in the menu bar, or by opening CatGrab from Applicati
 macOS 13 Ventura or newer, on Apple silicon or Intel.
 
 ## Updating
+
+**Settings → General → Check for Updates** tells you whether a newer version exists and opens its
+download page; turn on **Check for updates automatically** to be told once a day.
 
 Download the new DMG, quit CatGrab (menu bar icon → Quit) and drag the new app over the old one.
 Your menus and settings stay where they are.
@@ -155,9 +168,15 @@ Everything stays on your Mac, in `~/Library/Application Support/CatGrab/config.j
 telemetry, no analytics — the app ships a [privacy manifest](Sources/CatGrab/PrivacyInfo.xcprivacy)
 saying so.
 
-The only network request: when you choose a **website favicon** as an icon, CatGrab fetches it from
-Google's and DuckDuckGo's favicon services or from the site itself, and caches it. That request
-contains the domain you typed. Nothing else leaves your machine.
+CatGrab goes online in two cases, both started by you:
+
+- When you choose a **website favicon** as an icon, CatGrab fetches it from Google's and DuckDuckGo's
+  favicon services or from the site itself, and caches it. That request contains the domain you typed.
+- When you click **Check for Updates** — or once a day if you turn on automatic checks, which are off
+  by default — CatGrab asks GitHub for the number of the latest release. The request carries nothing
+  about you or your Mac.
+
+Nothing else leaves your machine.
 
 ## Build from source
 

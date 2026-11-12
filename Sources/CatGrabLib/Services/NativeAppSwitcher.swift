@@ -10,17 +10,19 @@ enum NativeAppSwitcher {
     }
 
     private typealias SetEnabledFn = @convention(c) (Int32, Bool) -> Int32
+    private typealias IsEnabledFn = @convention(c) (Int32) -> Bool
 
-    private static let setEnabled: SetEnabledFn? = {
+    private static let api: (set: SetEnabledFn, get: IsEnabledFn)? = {
         let path = "/System/Library/PrivateFrameworks/SkyLight.framework/SkyLight"
         guard let handle = dlopen(path, RTLD_LAZY),
-              let symbol = dlsym(handle, "CGSSetSymbolicHotKeyEnabled") else {
+              let setter = dlsym(handle, "CGSSetSymbolicHotKeyEnabled"),
+              let getter = dlsym(handle, "CGSIsSymbolicHotKeyEnabled") else {
             return nil
         }
-        return unsafeBitCast(symbol, to: SetEnabledFn.self)
+        return (unsafeBitCast(setter, to: SetEnabledFn.self), unsafeBitCast(getter, to: IsEnabledFn.self))
     }()
 
-    private static var disabledKeys: Set<Int32> = []
+    private static var ownership = SymbolicHotkeyOwnership()
 
     /// Отключает системные ⌘Tab / ⌘⇧Tab ровно для тех сочетаний, которые перехватывает CatGrab.
     static func suspend(commandTab: Bool, commandShiftTab: Bool) {
@@ -28,17 +30,30 @@ enum NativeAppSwitcher {
         if commandTab { wanted.insert(SymbolicHotKey.commandTab.rawValue) }
         if commandShiftTab { wanted.insert(SymbolicHotKey.commandShiftTab.rawValue) }
 
-        for key in disabledKeys.subtracting(wanted) { apply(key, enabled: true) }
-        for key in wanted.subtracting(disabledKeys) { apply(key, enabled: false) }
-        disabledKeys = wanted
+        update(wanted)
     }
 
     static func restore() {
-        for key in disabledKeys { apply(key, enabled: true) }
-        disabledKeys = []
+        update([])
     }
 
-    private static func apply(_ key: Int32, enabled: Bool) {
-        _ = setEnabled?(key, enabled)
+    private static func update(_ wanted: Set<Int32>) {
+        guard let api else { return }
+        ownership.update(wanted: wanted, isEnabled: { api.get($0) }, setEnabled: { api.set($0, $1) == 0 })
+    }
+}
+
+/// Возвращаем только то, что сами успешно отключили. Состояние другого переключателя
+/// (например, AltTab) до запуска CatGrab не должно меняться при нашем выходе.
+struct SymbolicHotkeyOwnership {
+    private(set) var disabledKeys: Set<Int32> = []
+
+    mutating func update(wanted: Set<Int32>, isEnabled: (Int32) -> Bool, setEnabled: (Int32, Bool) -> Bool) {
+        for key in disabledKeys.subtracting(wanted) where setEnabled(key, true) {
+            disabledKeys.remove(key)
+        }
+        for key in wanted.subtracting(disabledKeys) where isEnabled(key) && setEnabled(key, false) {
+            disabledKeys.insert(key)
+        }
     }
 }

@@ -10,6 +10,7 @@ enum KeystrokeSender {
 
     /// `modifiers` хранятся в конфиге как маска `CGEventFlags`.
     static func perform(keyCode: Int, modifiers: Int, targetPID: pid_t?) {
+        guard (0...127).contains(keyCode), modifiers >= 0 else { return }
         guard keyCode != 0 || modifiers != 0 else { return }
         guard AXIsProcessTrusted() else {
             PieLog.launcher.error("keystroke skipped: Accessibility permission not granted")

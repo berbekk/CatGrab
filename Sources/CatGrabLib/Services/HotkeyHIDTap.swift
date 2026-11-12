@@ -5,7 +5,7 @@ import os.log
 
 /// Глобальный HID-перехват для хоткеев, которые Carbon не видит: ⌘Tab, Fn/Globe.
 final class HotkeyHIDTap {
-    static var shared: HotkeyHIDTap?
+    static weak var shared: HotkeyHIDTap?
 
     var onPressed: (([UInt32]) -> Void)?
     var onReleased: (([UInt32]) -> Void)?
@@ -20,7 +20,9 @@ final class HotkeyHIDTap {
     private var bindings: [Binding] = []
     private var port: CFMachPort?
     private var runLoopSource: CFRunLoopSource?
-    private var standaloneFnDown = false
+    private var inputState = HotkeyInputState()
+    private var generation = UUID()
+    private var receivesKeyEvents = false
 
     /// Есть ли активные хоткеи, которые без «Универсального доступа» работать не будут.
     static func requiresAccessibility(menus: [PieMenu]) -> Bool {
@@ -86,6 +88,7 @@ final class HotkeyHIDTap {
         runLoopSource = source
         CFRunLoopAddSource(CFRunLoopGetMain(), source, .commonModes)
         CGEvent.tapEnable(tap: tap, enable: true)
+        receivesKeyEvents = deliversKeyEvents
 
         claimsCommandTab = hasBinding(keyCode: KeyCodes.tab, carbonModifiers: CarbonModifiers.command)
         claimsCommandShiftTab = hasBinding(
@@ -106,10 +109,13 @@ final class HotkeyHIDTap {
     /// ⌘Tab до CatGrab не доходит, а системный переключатель мы сами выключили, и ⌘Tab пропадает целиком.
     /// Поэтому на это время возвращаем системный ⌘Tab и забираем его обратно, когда режим выключится.
     /// ⌘Tab дополнительно зарегистрирован через Carbon, а Carbon-хоткеи работают и при «безопасном вводе».
-    /// Тогда системный переключатель возвращать не нужно — меню CatGrab продолжит открываться.
+    /// Учитываем подстраховку отдельно для ⌘Tab и ⌘⇧Tab: регистрация одного не гарантирует второе.
     /// Ставится `HotkeyManager` после `start`, поэтому состояние переприменяем сразу.
-    var carbonBacksUpCommandTab = false {
-        didSet { applyNativeSwitcherState() }
+    private var carbonBackups: Set<Int> = []
+
+    func addCarbonBackup(_ hotkey: HotkeyConfig) {
+        carbonBackups.insert(hotkey.carbonModifiers)
+        applyNativeSwitcherState()
     }
     private var claimsCommandTab = false
     private var claimsCommandShiftTab = false
@@ -119,11 +125,15 @@ final class HotkeyHIDTap {
 
     private func applyNativeSwitcherState() {
         guard port != nil else { return }
-        if secureInputActive && !carbonBacksUpCommandTab {
+        guard isRunning, receivesKeyEvents else {
             NativeAppSwitcher.restore()
-        } else {
-            NativeAppSwitcher.suspend(commandTab: claimsCommandTab, commandShiftTab: claimsCommandShiftTab)
+            return
         }
+        NativeAppSwitcher.suspend(
+            commandTab: claimsCommandTab && (!secureInputActive || carbonBackups.contains(CarbonModifiers.command)),
+            commandShiftTab: claimsCommandShiftTab
+                && (!secureInputActive || carbonBackups.contains(CarbonModifiers.command | CarbonModifiers.shift))
+        )
     }
 
     private func startSecureInputWatch() {
@@ -133,11 +143,11 @@ final class HotkeyHIDTap {
         let timer = Timer(timeInterval: Self.secureInputPollInterval, repeats: true) { [weak self] _ in
             guard let self else { return }
             let active = IsSecureEventInputEnabled()
-            guard active != self.secureInputActive else { return }
+            guard active != self.secureInputActive || !self.isRunning else { return }
             self.secureInputActive = active
-            PieLog.hotkey.notice("secure event input \(active ? "on" : "off", privacy: .public), carbon backup=\(self.carbonBacksUpCommandTab)")
             self.applyNativeSwitcherState()
         }
+        timer.tolerance = Self.secureInputPollInterval * 0.2
         RunLoop.main.add(timer, forMode: .common)
         secureInputTimer = timer
     }
@@ -147,7 +157,7 @@ final class HotkeyHIDTap {
     }
 
     /// Tap создан и активен.
-    var isRunning: Bool { port != nil }
+    var isRunning: Bool { port.map { CFMachPortIsValid($0) && CGEvent.tapIsEnabled(tap: $0) } ?? false }
 
     /// WindowServer молча вырезает keyDown/keyUp из маски tap'а, если процессу не выдан
     /// «Мониторинг ввода». Проверяем фактическую маску через `CGGetEventTapList`.
@@ -168,7 +178,8 @@ final class HotkeyHIDTap {
     func stop() {
         secureInputTimer?.invalidate()
         secureInputTimer = nil
-        carbonBacksUpCommandTab = false
+        generation = UUID()
+        carbonBackups = []
         claimsCommandTab = false
         claimsCommandShiftTab = false
         NativeAppSwitcher.restore()
@@ -182,7 +193,8 @@ final class HotkeyHIDTap {
         runLoopSource = nil
         self.port = nil
         bindings = []
-        standaloneFnDown = false
+        inputState = HotkeyInputState()
+        receivesKeyEvents = false
         if HotkeyHIDTap.shared === self {
             HotkeyHIDTap.shared = nil
         }
@@ -195,12 +207,23 @@ final class HotkeyHIDTap {
     private func handle(type: CGEventType, event: CGEvent) -> Unmanaged<CGEvent>? {
         if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
             PieLog.hotkey.error("event tap disabled by system (\(type.rawValue)), re-enabling")
+            inputState = HotkeyInputState()
+            generation = UUID()
+            NativeAppSwitcher.restore()
             if let port { CGEvent.tapEnable(tap: port, enable: true) }
+            applyNativeSwitcherState()
             return Unmanaged.passUnretained(event)
         }
 
-        if type == .flagsChanged, handleStandaloneFn(type: type, event: event) {
-            return nil
+        if type == .flagsChanged {
+            let flags = event.flags
+            let action = inputState.fn(
+                keyCode: Int(event.getIntegerValueField(.keyboardEventKeycode)),
+                isDown: flags.contains(.maskSecondaryFn),
+                hasOtherModifiers: !flags.isDisjoint(with: [.maskCommand, .maskShift, .maskAlternate, .maskControl]),
+                indices: bindings.filter(\.isStandaloneFn).flatMap(\.indices)
+            )
+            return dispatch(action, event: event)
         }
 
         guard type == .keyDown || type == .keyUp else {
@@ -209,18 +232,28 @@ final class HotkeyHIDTap {
 
         let keyCode = Int(event.getIntegerValueField(.keyboardEventKeycode))
         let carbon = CarbonModifiers.carbon(from: event.flags) & relevantModifierMask
-        guard let binding = bindings.first(where: {
+        let binding = bindings.first {
             !$0.isStandaloneFn && $0.keyCode == keyCode && $0.carbonModifiers == carbon
-        }) else {
-            return Unmanaged.passUnretained(event)
         }
+        let action = inputState.key(
+            keyCode: keyCode,
+            isDown: type == .keyDown,
+            isRepeat: event.getIntegerValueField(.keyboardEventAutorepeat) != 0,
+            matching: binding?.indices
+        )
+        return dispatch(action, event: event)
+    }
 
-        let indices = binding.indices
+    private func dispatch(_ action: HotkeyInputState.Action, event: CGEvent) -> Unmanaged<CGEvent>? {
+        guard action != .passThrough else { return Unmanaged.passUnretained(event) }
+        guard action != .consume else { return nil }
+        let token = generation
         DispatchQueue.main.async { [weak self] in
-            if type == .keyDown {
-                self?.onPressed?(indices)
-            } else {
-                self?.onReleased?(indices)
+            guard let self, self.generation == token else { return }
+            switch action {
+            case .pressed(let indices): self.onPressed?(indices)
+            case .released(let indices): self.onReleased?(indices)
+            case .passThrough, .consume: break
             }
         }
         return nil
@@ -231,34 +264,4 @@ final class HotkeyHIDTap {
             | CarbonModifiers.control | CarbonModifiers.fn
     }
 
-    /// Fn/Globe почти всегда приходит как `flagsChanged`, а не как keyDown.
-    private func handleStandaloneFn(type: CGEventType, event: CGEvent) -> Bool {
-        let fnBindings = bindings.filter(\.isStandaloneFn)
-        guard !fnBindings.isEmpty else { return false }
-
-        let keyCode = Int(event.getIntegerValueField(.keyboardEventKeycode))
-        let flags = event.flags
-        let fnHeld = flags.contains(.maskSecondaryFn)
-        let extras =
-            flags.contains(.maskCommand)
-            || flags.contains(.maskShift)
-            || flags.contains(.maskAlternate)
-            || flags.contains(.maskControl)
-        let looksLikeFnKey = keyCode == HotkeyConfig.fnKeyVirtualCode || (fnHeld && !extras)
-
-        guard looksLikeFnKey else { return false }
-
-        let indices = fnBindings.flatMap(\.indices)
-        if fnHeld && !standaloneFnDown {
-            standaloneFnDown = true
-            DispatchQueue.main.async { [weak self] in self?.onPressed?(indices) }
-            return true
-        }
-        if !fnHeld && standaloneFnDown {
-            standaloneFnDown = false
-            DispatchQueue.main.async { [weak self] in self?.onReleased?(indices) }
-            return true
-        }
-        return fnHeld
-    }
 }

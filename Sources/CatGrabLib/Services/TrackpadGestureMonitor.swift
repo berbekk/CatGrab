@@ -10,7 +10,20 @@ import os.log
 /// Прав «Универсальный доступ» / «Мониторинг ввода» не требует.
 final class TrackpadGestureMonitor {
     /// C-колбэк без контекста — обращается к активному монитору через это поле.
-    fileprivate static var active: TrackpadGestureMonitor?
+    private static let activeLock = NSLock()
+    private static weak var activeMonitor: TrackpadGestureMonitor?
+    fileprivate static var active: TrackpadGestureMonitor? {
+        get {
+            activeLock.lock()
+            defer { activeLock.unlock() }
+            return activeMonitor
+        }
+        set {
+            activeLock.lock()
+            defer { activeLock.unlock() }
+            activeMonitor = newValue
+        }
+    }
 
     /// Сколько пальцев было в распознанном касании.
     var onTap: ((Int) -> Void)?
@@ -18,15 +31,15 @@ final class TrackpadGestureMonitor {
     /// Какие касания распознавать: у каждого меню может быть своё число пальцев.
     private var fingerCounts: [Int] = []
     private var devices: CFArray?
-    /// По распознавателю на устройство и на число пальцев.
-    private var recognizers: [UInt: [Int: TrackpadTapRecognizer]] = [:]
-    private let lock = NSLock()
+    private let frameProcessor = TrackpadFrameProcessor()
     private var wakeObserver: NSObjectProtocol?
+    private var sleepObserver: NSObjectProtocol?
     private var notifyPort: IONotificationPortRef?
     private var deviceAddedIterator: io_iterator_t = 0
+    private var deviceRemovedIterator: io_iterator_t = 0
     private var restartWorkItem: DispatchWorkItem?
 
-    var isRunning: Bool { devices != nil }
+    var isRunning: Bool { devices.map { CFArrayGetCount($0) > 0 } ?? false }
 
     func start(fingerCounts: Set<Int>) {
         stop()
@@ -50,9 +63,17 @@ final class TrackpadGestureMonitor {
             NSWorkspace.shared.notificationCenter.removeObserver(wakeObserver)
             self.wakeObserver = nil
         }
+        if let sleepObserver {
+            NSWorkspace.shared.notificationCenter.removeObserver(sleepObserver)
+            self.sleepObserver = nil
+        }
         if deviceAddedIterator != 0 {
             IOObjectRelease(deviceAddedIterator)
             deviceAddedIterator = 0
+        }
+        if deviceRemovedIterator != 0 {
+            IOObjectRelease(deviceRemovedIterator)
+            deviceRemovedIterator = 0
         }
         if let notifyPort {
             IONotificationPortDestroy(notifyPort)
@@ -73,6 +94,7 @@ final class TrackpadGestureMonitor {
     private func startDevices(api: MultitouchAPI) {
         guard let list = api.createList()?.takeRetainedValue() else { return }
         let count = CFArrayGetCount(list)
+        frameProcessor.start(fingerCounts: Set(fingerCounts))
         for i in 0..<count {
             guard let device = CFArrayGetValueAtIndex(list, i) else { continue }
             let ref = UnsafeMutableRawPointer(mutating: device)
@@ -85,6 +107,8 @@ final class TrackpadGestureMonitor {
     }
 
     private func stopDevices() {
+        // Сначала закрываем приём кадров; unregister может дождаться текущего callback.
+        frameProcessor.stop()
         guard let list = devices, let api = MultitouchAPI.shared else {
             devices = nil
             return
@@ -96,14 +120,18 @@ final class TrackpadGestureMonitor {
             api.stop(ref)
         }
         devices = nil
-        lock.lock()
-        recognizers = [:]
-        lock.unlock()
     }
 
     /// После сна устройства перестают присылать кадры, а подключённый позже Magic Trackpad
     /// не попадает в уже полученный список — в обоих случаях собираем список заново.
     private func observeDeviceChanges() {
+        sleepObserver = NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.willSleepNotification, object: nil, queue: .main
+        ) { [weak self] _ in
+            self?.restartWorkItem?.cancel()
+            self?.restartWorkItem = nil
+            self?.stopDevices()
+        }
         wakeObserver = NSWorkspace.shared.notificationCenter.addObserver(
             forName: NSWorkspace.didWakeNotification,
             object: nil,
@@ -134,6 +162,14 @@ final class TrackpadGestureMonitor {
         if status == KERN_SUCCESS {
             Self.drain(deviceAddedIterator)
         }
+        let removalStatus = IOServiceAddMatchingNotification(
+            port, kIOTerminatedNotification, IOServiceMatching("AppleMultitouchDevice"),
+            { _, iterator in
+                TrackpadGestureMonitor.drain(iterator)
+                DispatchQueue.main.async { TrackpadGestureMonitor.active?.scheduleRestart() }
+            }, nil, &deviceRemovedIterator
+        )
+        if removalStatus == KERN_SUCCESS { Self.drain(deviceRemovedIterator) }
     }
 
     private static func drain(_ iterator: io_iterator_t) {
@@ -158,23 +194,10 @@ final class TrackpadGestureMonitor {
 
     /// Вызывается на внутреннем потоке MultitouchSupport, по кадру на каждое устройство.
     fileprivate func handleFrame(device: UnsafeMutableRawPointer?, touches: [TrackpadTapRecognizer.Touch], timestamp: Double) {
-        let key = UInt(bitPattern: device)
-        lock.lock()
-        var deviceRecognizers = recognizers[key] ?? [:]
-        var tapped: [Int] = []
-        for count in fingerCounts {
-            var recognizer = deviceRecognizers[count] ?? TrackpadTapRecognizer(fingerCount: count)
-            if recognizer.process(touches: touches, timestamp: timestamp) {
-                tapped.append(count)
-            }
-            deviceRecognizers[count] = recognizer
-        }
-        recognizers[key] = deviceRecognizers
-        lock.unlock()
-        // Распознаватель срабатывает, только если пальцев было ровно столько, — больше одного числа за раз не бывает.
-        guard let count = tapped.first else { return }
+        guard let tap = frameProcessor.process(deviceID: UInt(bitPattern: device), touches: touches, timestamp: timestamp) else { return }
         DispatchQueue.main.async { [weak self] in
-            self?.onTap?(count)
+            guard let self, self.frameProcessor.isCurrent(tap) else { return }
+            self.onTap?(tap.fingerCount)
         }
     }
 }
@@ -186,7 +209,8 @@ private typealias MTContactFrameCallback = @convention(c) (
 ) -> Int32
 
 private let trackpadContactFrameCallback: MTContactFrameCallback = { device, data, count, timestamp, _ in
-    guard let monitor = TrackpadGestureMonitor.active else { return 0 }
+    guard let monitor = TrackpadGestureMonitor.active,
+          (0...16).contains(count), count == 0 || data != nil else { return 0 }
     var touches: [TrackpadTapRecognizer.Touch] = []
     if let data, count > 0 {
         touches.reserveCapacity(Int(count))

@@ -120,6 +120,7 @@ struct OnboardingView: View {
         }
         .frame(width: Self.windowSize.width, height: Self.windowSize.height)
         .background(DS.Colors.canvasTop)
+        .environment(\.pieKeepsTintWhenInactive, true)
         .onAppear { playDemo(for: model.page) }
         .onDisappear { stopDemos() }
         .onChange(of: model.page) { page in
@@ -414,9 +415,17 @@ struct OnboardingView: View {
     }
 
     private var permissionsPage: some View {
-        page(title: localizer.text(.onboardingPermissionsTitle), body: localizer.text(.onboardingPermissionsBody)) {
+        page(title: localizer.text(.onboardingPermissionsTitle), body: permissionsBody) {
             PermissionAccessCard()
         }
+    }
+
+    /// Зачем права — и что главное меню уже открывается без них, если его сочетание не из тех,
+    /// что macOS отдаёт только с правами (⌘Tab, Fn).
+    private var permissionsBody: String {
+        let body = localizer.text(.onboardingPermissionsBody)
+        guard let hotkey = model.mainMenu?.hotkey, !hotkey.isEmpty, !hotkey.prefersHIDEventTap else { return body }
+        return body + " " + String(format: localizer.text(.onboardingPermissionsHotkeyNoteFormat), hotkey.glyphString)
     }
 
     private var donePage: some View {

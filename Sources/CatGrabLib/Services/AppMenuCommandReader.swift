@@ -75,15 +75,16 @@ enum AppMenuCommandReader {
     /// Все пункты меню приложения — для выбора в редакторе.
     static func allItems(pid: pid_t) -> [AppMenuItemInfo] {
         guard AXIsProcessTrusted() else { return [] }
-        return readItems(pid: pid, budget: fullScanBudget, maxDepth: 3)
+        return readItems(pid: pid, budget: AXReadBudget(duration: fullScanBudget), maxDepth: 3)
     }
 
     /// Пункт по сохранённому пути, а если название поменялось — по сочетанию клавиш.
     static func item(pid: pid_t, path: [String], shortcut: MenuShortcut?) -> AppMenuItemInfo? {
         guard AXIsProcessTrusted() else { return nil }
-        if let found = walk(pid: pid, path: path) { return found }
+        let budget = AXReadBudget(duration: quickScanBudget)
+        if let found = walk(pid: pid, path: path, budget: budget) { return found }
         guard let shortcut else { return nil }
-        return readItems(pid: pid, budget: quickScanBudget, maxDepth: 3).first { $0.shortcut == shortcut }
+        return readItems(pid: pid, budget: budget, maxDepth: 3).first { $0.shortcut == shortcut }
     }
 
     // MARK: - Обход
@@ -104,36 +105,32 @@ enum AppMenuCommandReader {
     }
 
     /// Меню в строке меню с их названиями. Меню Apple пропускаем — в нём нет команд приложения.
-    private static func topMenus(pid: pid_t) -> [(title: String, menus: [AXUIElement])] {
+    private static func topMenus(pid: pid_t, budget: AXReadBudget) -> [(title: String, menus: [AXUIElement])] {
         let app = AXUIElementCreateApplication(pid)
-        AXUIElementSetMessagingTimeout(app, messagingTimeout)
-        guard let menuBar: AXUIElement = copyAttribute(app, kAXMenuBarAttribute),
-              let barItems: [AXUIElement] = copyAttribute(menuBar, kAXChildrenAttribute) else { return [] }
+        guard let menuBar: AXUIElement = readAttribute(app, kAXMenuBarAttribute, budget: budget),
+              let barItems: [AXUIElement] = readAttribute(menuBar, kAXChildrenAttribute, budget: budget) else { return [] }
         return barItems.dropFirst().compactMap { barItem in
-            AXUIElementSetMessagingTimeout(barItem, messagingTimeout)
-            guard let title: String = copyAttribute(barItem, kAXTitleAttribute), !title.isEmpty else { return nil }
-            return (title, copyAttribute(barItem, kAXChildrenAttribute) ?? [])
+            guard let title: String = readAttribute(barItem, kAXTitleAttribute, budget: budget), !title.isEmpty else { return nil }
+            return (title, readAttribute(barItem, kAXChildrenAttribute, budget: budget) ?? [])
         }
     }
 
     /// Обход в ширину: сначала пункты всех меню верхнего уровня, потом их подменю (там, например,
     /// «Новое окно с профилем» у Терминала), — чтобы при нехватке времени потерять самое глубокое.
-    private static func readItems(pid: pid_t, budget: TimeInterval, maxDepth: Int) -> [AppMenuItemInfo] {
-        let deadline = Date().addingTimeInterval(budget)
-        var pending: [(menu: AXUIElement, path: [String])] = topMenus(pid: pid).flatMap { top in
+    private static func readItems(pid: pid_t, budget: AXReadBudget, maxDepth: Int) -> [AppMenuItemInfo] {
+        var pending: [(menu: AXUIElement, path: [String])] = topMenus(pid: pid, budget: budget).flatMap { top in
             top.menus.map { ($0, [top.title]) }
         }
         var result: [AppMenuItemInfo] = []
         var depth = 0
-        while !pending.isEmpty, depth < maxDepth, Date() < deadline {
+        while !pending.isEmpty, depth < maxDepth, !budget.isExpired {
             var nextLevel: [(menu: AXUIElement, path: [String])] = []
             for (menu, path) in pending {
-                guard Date() < deadline else { break }
-                AXUIElementSetMessagingTimeout(menu, messagingTimeout)
-                let items: [AXUIElement] = copyAttribute(menu, kAXChildrenAttribute) ?? []
+                guard !budget.isExpired else { break }
+                let items: [AXUIElement] = readAttribute(menu, kAXChildrenAttribute, budget: budget) ?? []
                 for item in items {
-                    guard Date() < deadline else { break }
-                    guard let values = values(of: item), let title = values.title, !title.isEmpty else { continue }
+                    guard !budget.isExpired else { break }
+                    guard let values = values(of: item, budget: budget), let title = values.title, !title.isEmpty else { continue }
                     if !values.submenus.isEmpty {
                         nextLevel.append(contentsOf: values.submenus.map { ($0, path + [title]) })
                         continue
@@ -153,12 +150,12 @@ enum AppMenuCommandReader {
     }
 
     /// Прямой спуск по названиям — намного дешевле полного обхода.
-    private static func walk(pid: pid_t, path: [String]) -> AppMenuItemInfo? {
+    private static func walk(pid: pid_t, path: [String], budget: AXReadBudget) -> AppMenuItemInfo? {
         guard path.count >= 2,
-              let top = topMenus(pid: pid).first(where: { $0.title == path[0] }) else { return nil }
+              let top = topMenus(pid: pid, budget: budget).first(where: { $0.title == path[0] }) else { return nil }
         var menus = top.menus
         for (offset, component) in path.dropFirst().enumerated() {
-            guard let match = firstItem(titled: component, in: menus) else { return nil }
+            guard let match = firstItem(titled: component, in: menus, budget: budget) else { return nil }
             let isLast = offset == path.count - 2
             if isLast {
                 guard match.values.submenus.isEmpty else { return nil }
@@ -174,12 +171,13 @@ enum AppMenuCommandReader {
         return nil
     }
 
-    private static func firstItem(titled title: String, in menus: [AXUIElement]) -> (element: AXUIElement, values: ItemValues)? {
+    private static func firstItem(titled title: String, in menus: [AXUIElement], budget: AXReadBudget) -> (element: AXUIElement, values: ItemValues)? {
         for menu in menus {
-            AXUIElementSetMessagingTimeout(menu, messagingTimeout)
-            let items: [AXUIElement] = copyAttribute(menu, kAXChildrenAttribute) ?? []
+            guard !budget.isExpired else { return nil }
+            let items: [AXUIElement] = readAttribute(menu, kAXChildrenAttribute, budget: budget) ?? []
             for item in items {
-                if let values = values(of: item), values.title == title {
+                guard !budget.isExpired else { return nil }
+                if let values = values(of: item, budget: budget), values.title == title {
                     return (item, values)
                 }
             }
@@ -189,8 +187,8 @@ enum AppMenuCommandReader {
 
     /// Все атрибуты пункта одним IPC-запросом. Отсутствующий атрибут приходит как AXValue с ошибкой
     /// и просто не проходит приведение типа.
-    private static func values(of element: AXUIElement) -> ItemValues? {
-        AXUIElementSetMessagingTimeout(element, messagingTimeout)
+    private static func values(of element: AXUIElement, budget: AXReadBudget) -> ItemValues? {
+        guard configureTimeout(element, budget: budget) else { return nil }
         var raw: CFArray?
         guard AXUIElementCopyMultipleAttributeValues(element, itemAttributes, [], &raw) == .success,
               let array = raw as? [Any], array.count == 5 else { return nil }
@@ -210,6 +208,16 @@ enum AppMenuCommandReader {
               !(0xE000...0xF8FF).contains(scalar.value) else { return nil }
         let raw = (modifiers as? Int) ?? 0
         return MenuShortcut(character, MenuShortcut.Modifiers(rawValue: raw))
+    }
+
+    private static func configureTimeout(_ element: AXUIElement, budget: AXReadBudget) -> Bool {
+        guard let timeout = budget.timeout() else { return false }
+        return AXUIElementSetMessagingTimeout(element, timeout) == .success
+    }
+
+    private static func readAttribute<T>(_ element: AXUIElement, _ attribute: String, budget: AXReadBudget) -> T? {
+        guard configureTimeout(element, budget: budget) else { return nil }
+        return copyAttribute(element, attribute)
     }
 
     static func copyAttribute<T>(_ element: AXUIElement, _ attribute: String) -> T? {

@@ -24,6 +24,7 @@ enum PieSubActionResolver {
         let path: [String]
     }
     private static var itemCache: [ItemKey: (date: Date, info: AppMenuItemInfo)] = [:]
+    @MainActor private static var prefetchTicket: Ticket?
 
     /// Все AX-запросы к чужим приложениям идут последовательно здесь: и сборка, и выполнение.
     static let queue = DispatchQueue(label: "CatGrab.SubActions.ax", qos: .userInteractive)
@@ -83,8 +84,11 @@ enum PieSubActionResolver {
         let entries = configuration.appSubMenu(for: bundleId)?.entries ?? configuration.defaultAppCommands
         queue.async {
             guard !ticket.isCancelled else { return }
-            let actions = actions(for: entries, context: context)
-            DispatchQueue.main.async { completion(actions) }
+            let actions = actions(for: entries, context: context, ticket: ticket)
+            DispatchQueue.main.async {
+                guard !ticket.isCancelled else { return }
+                completion(actions)
+            }
         }
         return ticket
     }
@@ -93,13 +97,17 @@ enum PieSubActionResolver {
     /// меню команд откроется по хоткею без задержки на поиск по строке меню.
     @MainActor
     static func prefetch(app: NSRunningApplication) {
+        prefetchTicket?.cancel()
+        let ticket = Ticket()
+        prefetchTicket = ticket
         guard let bundleId = app.bundleIdentifier,
               let entries = ConfigManager.shared.configuration.appSubMenu(for: bundleId)?.entries,
               entries.contains(where: { $0.kind == .menuItem }) else { return }
         let pid = app.processIdentifier
         queue.async {
-            guard AXIsProcessTrusted() else { return }
+            guard !ticket.isCancelled, AXIsProcessTrusted() else { return }
             for entry in entries where entry.kind == .menuItem {
+                guard !ticket.isCancelled else { return }
                 _ = cachedItem(pid: pid, path: entry.menuPath, shortcut: entry.shortcut)
             }
         }
@@ -110,11 +118,12 @@ enum PieSubActionResolver {
     /// Недоступные сейчас пункты (выключены, у приложения нет окна, меню поменялось) остаются на своём
     /// месте приглушёнными: пользователь запоминает, где что лежит, и кольцо не должно перестраиваться
     /// от состояния приложения.
-    private static func actions(for entries: [AppSubMenuEntry], context: AppContext) -> [PieSubAction] {
+    private static func actions(for entries: [AppSubMenuEntry], context: AppContext, ticket: Ticket) -> [PieSubAction] {
         let trusted = AXIsProcessTrusted()
         let needsWindow = entries.contains { $0.kind.needsWindow }
         let window = trusted && needsWindow ? WindowAX.targetWindow(pid: context.pid) : nil
-        return entries.enumerated().map { index, entry in
+        return entries.enumerated().compactMap { index, entry in
+            guard !ticket.isCancelled else { return nil }
             let available: PieSubAction?
             switch entry.kind {
             case .menuItem:

@@ -50,6 +50,7 @@ struct TrackpadTapRecognizer {
     private var frames: [[Int32]] = []
     /// Касание уже длиннее допустимого: кадры больше не копим, результат известен.
     private var tooLong = false
+    private var lastTimestamp: Double?
 
     init(fingerCount: Int) {
         self.fingerCount = fingerCount
@@ -57,6 +58,13 @@ struct TrackpadTapRecognizer {
 
     /// Возвращает `true` на кадре, в котором завершилось подходящее касание.
     mutating func process(touches: [Touch], timestamp: Double) -> Bool {
+        guard timestamp.isFinite,
+              lastTimestamp.map({ timestamp >= $0 }) ?? true,
+              touches.allSatisfy({ $0.x.isFinite && $0.y.isFinite }) else {
+            reset()
+            return false
+        }
+        lastTimestamp = timestamp
         if touches.isEmpty {
             defer { reset() }
             guard let start = startTimestamp, !tooLong, timestamp - start <= maxDuration else { return false }
@@ -103,5 +111,6 @@ struct TrackpadTapRecognizer {
         contacts = [:]
         frames = []
         tooLong = false
+        lastTimestamp = nil
     }
 }

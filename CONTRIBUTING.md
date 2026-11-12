@@ -75,6 +75,10 @@ site/                   The website (one self-contained index.html), deployed to
 - Comments explain *why*, not *what*, and sit above non-obvious geometry and platform workarounds.
 - Add a line under `Unreleased` in [CHANGELOG.md](CHANGELOG.md) for anything a user would notice.
 
+Compatibility checks and the remaining device checks are recorded in
+[docs/COMPATIBILITY.md](docs/COMPATIBILITY.md). A universal build confirms both architectures compile;
+it does not replace running the app on an Intel Mac or older macOS versions.
+
 ## Reporting a bug
 
 Open an issue with your macOS version, your Mac's chip, the CatGrab version, and what you expected

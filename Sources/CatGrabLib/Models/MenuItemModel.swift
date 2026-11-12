@@ -281,17 +281,18 @@ struct HotkeyConfig: Codable, Equatable {
         ("F7", 98), ("F8", 100), ("F9", 101), ("F10", 109), ("F11", 103), ("F12", 111)
     ]
 
-    /// ⇧1 для нового меню «Main». Сочетание перехватывается целиком, поэтому «!» в этой раскладке
-    /// печататься не будет, пока сочетание не сменят: в туре поле хоткея — на второй странице.
+    /// Для новой установки: не забирает печатный символ или стандартный вызов Spotlight/смены языка.
+    /// Уже сохранённые сочетания остаются прежними.
     static var defaultHotkey: HotkeyConfig {
-        HotkeyConfig(keyCode: 18, carbonModifiers: CarbonModifiers.shift)
+        HotkeyConfig(keyCode: 49, carbonModifiers: CarbonModifiers.control | CarbonModifiers.option | CarbonModifiers.command)
     }
 
     static var empty: HotkeyConfig {
         HotkeyConfig(keyCode: -1, carbonModifiers: 0)
     }
 
-    var isEmpty: Bool { keyCode < 0 }
+    /// Повреждённый импорт не должен приводить к trap при преобразовании в UInt16/UInt32.
+    var isEmpty: Bool { !(0...127).contains(keyCode) || carbonModifiers < 0 || carbonModifiers > Int(UInt32.max) }
 
     /// Повторное нажатие клавиши хоткея переключает сектор (только не для одиночной Fn).
     var supportsRunningAppsRepeatKeyCycle: Bool {
@@ -371,6 +372,38 @@ struct HotkeyConfig: Codable, Equatable {
         return result + (glyphs[keyCode] ?? Self.keyCodeToString(keyCode))
     }
 
+    /// Сочетание по клавишам, как на колпачках клавиатуры: `["⌃", "⌥", "⌘", "Space"]`.
+    /// Пусто, если хоткей не назначен.
+    var keycapParts: [String] {
+        guard !isEmpty else { return [] }
+        var parts: [String] = []
+        if carbonModifiers & Self.carbonFnModifierMask != 0 { parts.append("fn") }
+        if carbonModifiers & 4096 != 0 { parts.append("⌃") }
+        if carbonModifiers & 2048 != 0 { parts.append("⌥") }
+        if carbonModifiers & 512 != 0 { parts.append("⇧") }
+        if carbonModifiers & 256 != 0 { parts.append("⌘") }
+        // Одиночная Fn уже названа клавишей — второй раз модификатором её не пишем.
+        let key = Self.keycapKeyNames[keyCode] ?? Self.keyCodeToString(keyCode)
+        if !(key == "Fn" && parts.contains("fn")) { parts.append(key) }
+        return parts
+    }
+
+    static let keycapKeyNames: [Int: String] = [36: "↩", 48: "⇥", 51: "⌫", 53: "⎋", 117: "⌦"]
+
+    /// То же для действия «Нажать клавиши»: модификаторы там хранятся флагами `CGEventFlags`.
+    static func keystrokeKeycapParts(keyCode: Int, modifiers: Int) -> [String] {
+        guard keyCode != 0 || modifiers != 0, (0...127).contains(keyCode), modifiers >= 0 else { return [] }
+        let flags = UInt64(modifiers)
+        var parts: [String] = []
+        if flags & CGEventFlags.maskSecondaryFn.rawValue != 0 { parts.append("fn") }
+        if flags & CGEventFlags.maskControl.rawValue != 0 { parts.append("⌃") }
+        if flags & CGEventFlags.maskAlternate.rawValue != 0 { parts.append("⌥") }
+        if flags & CGEventFlags.maskShift.rawValue != 0 { parts.append("⇧") }
+        if flags & CGEventFlags.maskCommand.rawValue != 0 { parts.append("⌘") }
+        parts.append(keycapKeyNames[keyCode] ?? keyCodeToString(keyCode))
+        return parts
+    }
+
     static func keyCodeToString(_ keyCode: Int) -> String {
         let keyNames: [Int: String] = [
             0: "A", 1: "S", 2: "D", 3: "F", 4: "H", 5: "G", 6: "Z", 7: "X",
@@ -397,7 +430,7 @@ struct HotkeyConfig: Codable, Equatable {
     }
 
     static func keystrokeDisplayString(keyCode: Int, modifiers: Int, language: AppLanguage) -> String {
-        if keyCode == 0 && modifiers == 0 {
+        if (keyCode == 0 && modifiers == 0) || !(0...127).contains(keyCode) || modifiers < 0 {
             return language.usesRussianCopy ? "Не назначено" : "Unassigned"
         }
         let flags = UInt64(modifiers)

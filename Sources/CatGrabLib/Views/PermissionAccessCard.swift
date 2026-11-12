@@ -13,6 +13,7 @@ struct PermissionAccessCard: View {
                 PermissionRow(
                     granted: monitor.snapshot.accessibilityTrusted,
                     title: localizer.text(.permissionAccessibilityRow),
+                    purpose: localizer.text(.permissionAccessibilityPurpose),
                     hint: localizer.text(.permissionAccessibilityHint),
                     statusText: statusText(granted: monitor.snapshot.accessibilityTrusted),
                     buttonTitle: localizer.text(.permissionOpenSettings),
@@ -22,6 +23,7 @@ struct PermissionAccessCard: View {
                 PermissionRow(
                     granted: monitor.snapshot.inputMonitoringGranted,
                     title: localizer.text(.permissionInputMonitoringRow),
+                    purpose: localizer.text(.permissionInputMonitoringPurpose),
                     hint: localizer.text(.permissionInputMonitoringHint),
                     statusText: statusText(granted: monitor.snapshot.inputMonitoringGranted),
                     buttonTitle: localizer.text(.permissionOpenSettings),
@@ -37,9 +39,12 @@ struct PermissionAccessCard: View {
     }
 }
 
+/// Доступ выдан — строка короткая: зачем он и зелёная отметка. Не выдан — к этому добавляются
+/// шаги, как его включить, и кнопка: инструкция нужна только тому, кому ещё есть что делать.
 private struct PermissionRow: View {
     let granted: Bool
     let title: String
+    let purpose: String
     let hint: String
     let statusText: String
     let buttonTitle: String
@@ -56,17 +61,25 @@ private struct PermissionRow: View {
                 Text(title)
                     .font(DS.Typography.body)
                     .foregroundStyle(.primary)
-                Text(hint)
+                Text(purpose)
                     .font(DS.Typography.label)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
-                Text(statusText)
-                    .font(DS.Typography.label)
-                    .foregroundStyle(granted ? Color.green : Color.orange)
-                    .padding(.top, 2)
+                if !granted {
+                    Text(hint)
+                        .font(DS.Typography.label)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .padding(.top, 2)
+                }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            if !granted {
+            if granted {
+                Text(statusText)
+                    .font(DS.Typography.label)
+                    .foregroundStyle(Color.green)
+                    .frame(height: 17)
+            } else {
                 Button(buttonTitle, action: action)
                     .buttonStyle(DSFieldButtonStyle(isProminent: true))
             }

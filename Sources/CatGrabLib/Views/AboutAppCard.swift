@@ -24,8 +24,11 @@ struct AboutAppCard: View {
                         Text("\(localizer.text(.developerLabel)): \(AppInfo.developerName(localizer.language))")
                             .font(DS.Typography.label)
                             .foregroundStyle(.secondary)
+                        UpdateStatusLabel()
+                            .padding(.top, 2)
                     }
-                    Spacer(minLength: 0)
+                    Spacer(minLength: DS.Spacing.m)
+                    UpdateActionButton()
                 }
 
                 SettingsRowDivider()

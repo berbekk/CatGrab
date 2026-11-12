@@ -22,6 +22,8 @@ struct PieSectorFillView: View {
     var interactiveGlass: Bool = true
 
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.controlActiveState) private var controlActiveState
+    @Environment(\.pieKeepsTintWhenInactive) private var keepsTintWhenInactive
 
     private var shape: PieSectorShape {
         PieSectorShape(
@@ -55,7 +57,7 @@ struct PieSectorFillView: View {
                     shape.fill(DS.Colors.field)
                     shape.fill(tintColor.opacity(min(1, DS.Pie.reduceTransparencyTintAlpha * clampedFactor)))
                 }
-            } else if #available(macOS 26.0, *) {
+            } else if #available(macOS 26.0, *), !(keepsTintWhenInactive && controlActiveState == .inactive) {
                 // «Прозрачное» — `Glass.clear`: рабочий стол под кольцом читается сильнее.
                 let base: Glass = glassSettings.variant == .clear ? .clear : .regular
                 let glass = base.tint(tintColor.opacity(tintAlpha))
@@ -66,6 +68,9 @@ struct PieSectorFillView: View {
                         in: shape
                     )
             } else {
+                // Сюда же попадает кольцо в окне настроек и знакомства, когда окно не активно
+                // (`pieKeepsTintWhenInactive`): система гасит тинт стекла в неактивном окне, и превью
+                // становилось серым. Материал цвет сохраняет. Само меню стекло не теряет никогда.
                 ZStack {
                     shape.fill(.ultraThinMaterial)
                         .opacity(glassSettings.variant == .clear ? 0.55 : 1)
@@ -73,5 +78,18 @@ struct PieSectorFillView: View {
                 }
             }
         }
+    }
+}
+
+private struct PieKeepsTintWhenInactiveKey: EnvironmentKey {
+    static let defaultValue = false
+}
+
+extension EnvironmentValues {
+    /// Превью кольца в обычном окне (настройки, знакомство): в неактивном окне рисовать секторы
+    /// материалом с цветом, а не стеклом, которое система в таком окне обесцвечивает.
+    var pieKeepsTintWhenInactive: Bool {
+        get { self[PieKeepsTintWhenInactiveKey.self] }
+        set { self[PieKeepsTintWhenInactiveKey.self] = newValue }
     }
 }

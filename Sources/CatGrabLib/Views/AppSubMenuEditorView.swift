@@ -40,10 +40,10 @@ struct AppSubMenuEditorView: View {
                 }
             }
             .padding(.horizontal, DS.Spacing.l)
-            .padding(.bottom, DS.Spacing.m)
+            .padding(.bottom, DS.Spacing.s)
 
             VStack(spacing: DS.Spacing.s) {
-                DSSectionHeader(title: localizer.text(.previewAndFineTuning))
+                DSSectionHeader(title: localizer.text(.previewAndFineTuning), topInset: DS.Spacing.xs)
                 SettingsCard {
                     CommandSetEditorPane(
                         menu: $menu,
@@ -58,7 +58,7 @@ struct AppSubMenuEditorView: View {
             .padding(.top, DS.Spacing.xs)
             .padding(.bottom, DS.Spacing.l)
         }
-        .padding(.top, DS.Spacing.s + DS.Spacing.m)
+        .padding(.top, DS.Spacing.xs)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(DS.Colors.canvasTop)
     }

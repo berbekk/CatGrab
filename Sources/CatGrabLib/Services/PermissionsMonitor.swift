@@ -29,11 +29,9 @@ final class PermissionsMonitor: ObservableObject {
 
     func refresh() {
         let fresh = PermissionsSnapshot.current()
-        let changed = fresh != snapshot
+        guard fresh != snapshot else { return }
         snapshot = fresh
-        if changed {
-            scheduleTimer()
-        }
+        scheduleTimer()
     }
 
     private func scheduleTimer() {

@@ -323,6 +323,9 @@ enum L10nKey {
     case duplicateItem
     case copySuffixFormat
     case hotkeyConflictFormat
+    case hotkeyUnavailable
+    case settingsSaveFailed
+    case retrySave
     case howToOpenHint
     case appearanceSectionPointer
     case showHoverLabelTitle
@@ -361,6 +364,21 @@ enum L10nKey {
     case onboardingAddBody
     case lookUpConflictBody
     case lookUpConflictOpenSettings
+    case defaultMainMenuName
+    case onboardingPermissionsHotkeyNoteFormat
+    case permissionAccessibilityPurpose
+    case permissionInputMonitoringPurpose
+    case updatesAutoCheckTitle
+    case updatesAutoCheckSubtitle
+    case updatesCheckNow
+    case updatesChecking
+    case updatesUpToDate
+    case updatesAvailableFormat
+    case updatesDownload
+    case updatesCheckFailed
+    case updatesBannerBody
+    case updatesSkip
+    case updatesMenuItemFormat
 }
 
 /// Хранилище локализации уровня приложения. Один экземпляр на процесс (`.shared`),
@@ -414,6 +432,24 @@ final class LocalizationStore: ObservableObject {
 
     private static func ru(_ key: L10nKey) -> String {
         switch key {
+        case .updatesMenuItemFormat: return "Доступно обновление %@…"
+        case .updatesSkip: return "Пропустить эту версию"
+        case .updatesBannerBody: return "Откроется страница загрузки на GitHub. Ваши меню и настройки сохранятся."
+        case .updatesCheckFailed: return "Не удалось проверить. Попробуйте позже."
+        case .updatesDownload: return "Скачать"
+        case .updatesAvailableFormat: return "Доступна версия %@"
+        case .updatesUpToDate: return "У вас последняя версия"
+        case .updatesChecking: return "Проверяю…"
+        case .updatesCheckNow: return "Проверить обновления"
+        case .updatesAutoCheckSubtitle: return "Раз в день CatGrab узнаёт у GitHub номер последней версии. О вас ничего не отправляется."
+        case .updatesAutoCheckTitle: return "Проверять обновления"
+        case .permissionInputMonitoringPurpose: return "Ловить ⌘Tab и одиночное нажатие Fn."
+        case .permissionAccessibilityPurpose: return "Нажимать клавиши за вас, двигать окна и читать меню приложений."
+        case .onboardingPermissionsHotkeyNoteFormat: return "Сочетание %@ работает и без них."
+        case .defaultMainMenuName: return "Главное меню"
+        case .hotkeyUnavailable: return "Это сочетание недоступно. Выберите другое или проверьте разрешения CatGrab."
+        case .settingsSaveFailed: return "Не удалось прочитать или сохранить файл настроек. Перед выходом экспортируйте настройки."
+        case .retrySave: return "Повторить сохранение"
         case .language: return "Язык"
         case .delete: return "Удалить"
         case .add: return "Добавить"
@@ -693,7 +729,7 @@ final class LocalizationStore: ObservableObject {
         case .onboardingStyleBody: return "Ещё больше палитр и настроек — в разделе «Тема»."
         case .onboardingIconsNote: return "Значок для пункта можно выбрать любой: символ, эмодзи, картинку или текст."
         case .onboardingPermissionsTitle: return "Два разрешения"
-        case .onboardingPermissionsBody: return "Нужны, чтобы CatGrab мог нажимать клавиши за вас, двигать окна и ловить ⌘Tab. Сочетание ⇧1 работает и без них."
+        case .onboardingPermissionsBody: return "Нужны, чтобы CatGrab мог нажимать клавиши за вас, двигать окна и ловить ⌘Tab."
         case .onboardingDoneTitle: return "Готово"
         case .onboardingDoneBodyFormat: return "Нажмите %@ в любом приложении. Настройки — под котом в строке меню."
         case .onboardingRelaunchNote: return "CatGrab перезапустится один раз, чтобы разрешения заработали."
@@ -720,6 +756,24 @@ final class LocalizationStore: ObservableObject {
 
     private static func en(_ key: L10nKey) -> String {
         switch key {
+        case .updatesMenuItemFormat: return "Update %@ Available…"
+        case .updatesSkip: return "Skip this version"
+        case .updatesBannerBody: return "Opens the download page on GitHub. Your menus and settings stay."
+        case .updatesCheckFailed: return "Couldn't check. Try again later."
+        case .updatesDownload: return "Download"
+        case .updatesAvailableFormat: return "Version %@ is available"
+        case .updatesUpToDate: return "You're up to date"
+        case .updatesChecking: return "Checking…"
+        case .updatesCheckNow: return "Check for Updates"
+        case .updatesAutoCheckSubtitle: return "Once a day CatGrab asks GitHub for the latest version number. Nothing about you is sent."
+        case .updatesAutoCheckTitle: return "Check for updates automatically"
+        case .permissionInputMonitoringPurpose: return "Catch ⌘Tab and a bare Fn press."
+        case .permissionAccessibilityPurpose: return "Send keystrokes for you, move windows and read app menus."
+        case .onboardingPermissionsHotkeyNoteFormat: return "Your %@ hotkey works without either."
+        case .defaultMainMenuName: return "Main"
+        case .hotkeyUnavailable: return "This shortcut is unavailable. Choose another or check CatGrab’s permissions."
+        case .settingsSaveFailed: return "The settings file could not be read or saved. Export your settings before quitting."
+        case .retrySave: return "Retry saving"
         case .language: return "Language"
         case .delete: return "Delete"
         case .add: return "Add"
@@ -999,7 +1053,7 @@ final class LocalizationStore: ObservableObject {
         case .onboardingStyleBody: return "Pick a starting look now; 24 palettes, gradients, glass and per-sector colours wait in Settings."
         case .onboardingIconsNote: return "Every sector takes any icon: SF Symbols, emoji, a site's favicon, your own image or text."
         case .onboardingPermissionsTitle: return "Two permissions"
-        case .onboardingPermissionsBody: return "Accessibility lets CatGrab send keystrokes, move windows and read app menus. Input Monitoring lets it catch ⌘Tab and a bare Fn. The default ⇧1 works without either."
+        case .onboardingPermissionsBody: return "Accessibility lets CatGrab send keystrokes, move windows and read app menus. Input Monitoring lets it catch ⌘Tab and a bare Fn."
         case .onboardingDoneTitle: return "You're set"
         case .onboardingDoneBodyFormat: return "Press %@ anywhere to open the Main menu. Everything else lives in Settings, behind the cat in the menu bar."
         case .onboardingRelaunchNote: return "CatGrab restarts once so macOS applies Input Monitoring; Settings open again right after."
@@ -1026,6 +1080,24 @@ final class LocalizationStore: ObservableObject {
 
     private static func zh(_ key: L10nKey) -> String {
         switch key {
+        case .updatesMenuItemFormat: return "有可用更新 %@…"
+        case .updatesSkip: return "跳过此版本"
+        case .updatesBannerBody: return "将打开 GitHub 上的下载页面。您的菜单和设置会保留。"
+        case .updatesCheckFailed: return "无法检查，请稍后再试。"
+        case .updatesDownload: return "下载"
+        case .updatesAvailableFormat: return "有新版本 %@"
+        case .updatesUpToDate: return "已是最新版本"
+        case .updatesChecking: return "正在检查…"
+        case .updatesCheckNow: return "检查更新"
+        case .updatesAutoCheckSubtitle: return "CatGrab 每天向 GitHub 查询一次最新版本号，不会发送任何关于您的信息。"
+        case .updatesAutoCheckTitle: return "自动检查更新"
+        case .permissionInputMonitoringPurpose: return "捕获 ⌘Tab 和单独按下的 Fn。"
+        case .permissionAccessibilityPurpose: return "代您发送按键、移动窗口并读取应用菜单。"
+        case .onboardingPermissionsHotkeyNoteFormat: return "快捷键 %@ 无需这两者即可使用。"
+        case .defaultMainMenuName: return "主菜单"
+        case .hotkeyUnavailable: return "此快捷键不可用。请选择其他快捷键或检查 CatGrab 的权限。"
+        case .settingsSaveFailed: return "无法读取或保存设置文件。退出前请导出设置。"
+        case .retrySave: return "重试保存"
         case .language: return "语言"
         case .delete: return "删除"
         case .add: return "添加"
@@ -1305,7 +1377,7 @@ final class LocalizationStore: ObservableObject {
         case .onboardingStyleBody: return "现在选一个起始外观；24 种调色板、渐变、玻璃和逐扇区颜色都在设置里等你。"
         case .onboardingIconsNote: return "每个扇区可以用任何图标：SF Symbols、表情、网站图标、你自己的图片或文字。"
         case .onboardingPermissionsTitle: return "两个权限"
-        case .onboardingPermissionsBody: return "辅助功能让 CatGrab 发送按键、移动窗口和读取应用菜单。输入监控让它捕获 ⌘Tab 和单独的 Fn。默认的 ⇧1 无需这两者即可使用。"
+        case .onboardingPermissionsBody: return "辅助功能让 CatGrab 发送按键、移动窗口和读取应用菜单。输入监控让它捕获 ⌘Tab 和单独的 Fn。"
         case .onboardingDoneTitle: return "一切就绪"
         case .onboardingDoneBodyFormat: return "在任意位置按 %@ 打开 Main 菜单。其余设置都在菜单栏的猫图标后面。"
         case .onboardingRelaunchNote: return "CatGrab 会重启一次以让 macOS 应用输入监控权限；之后设置会重新打开。"
@@ -1332,6 +1404,24 @@ final class LocalizationStore: ObservableObject {
 
     private static func hi(_ key: L10nKey) -> String {
         switch key {
+        case .updatesMenuItemFormat: return "अपडेट %@ उपलब्ध…"
+        case .updatesSkip: return "यह संस्करण छोड़ें"
+        case .updatesBannerBody: return "GitHub का डाउनलोड पेज खुलेगा। आपके मेनू और सेटिंग्स बने रहेंगे।"
+        case .updatesCheckFailed: return "जाँच नहीं हो सकी। बाद में फिर कोशिश करें।"
+        case .updatesDownload: return "डाउनलोड करें"
+        case .updatesAvailableFormat: return "संस्करण %@ उपलब्ध है"
+        case .updatesUpToDate: return "आपके पास नवीनतम संस्करण है"
+        case .updatesChecking: return "जाँच रहा है…"
+        case .updatesCheckNow: return "अपडेट जाँचें"
+        case .updatesAutoCheckSubtitle: return "दिन में एक बार CatGrab GitHub से नवीनतम संस्करण संख्या पूछता है। आपके बारे में कुछ नहीं भेजा जाता।"
+        case .updatesAutoCheckTitle: return "अपडेट अपने-आप जाँचें"
+        case .permissionInputMonitoringPurpose: return "⌘Tab और अकेला Fn पकड़ना।"
+        case .permissionAccessibilityPurpose: return "आपके लिए कीस्ट्रोक भेजना, विंडो हिलाना और ऐप मेनू पढ़ना।"
+        case .onboardingPermissionsHotkeyNoteFormat: return "शॉर्टकट %@ इनके बिना भी चलता है।"
+        case .defaultMainMenuName: return "मुख्य मेनू"
+        case .hotkeyUnavailable: return "यह शॉर्टकट उपलब्ध नहीं है। दूसरा चुनें या CatGrab की अनुमतियाँ जाँचें।"
+        case .settingsSaveFailed: return "सेटिंग्स फ़ाइल पढ़ी या सहेजी नहीं जा सकी। बंद करने से पहले सेटिंग्स निर्यात करें।"
+        case .retrySave: return "फिर से सहेजें"
         case .language: return "भाषा"
         case .delete: return "हटाएं"
         case .add: return "जोड़ें"
@@ -1611,7 +1701,7 @@ final class LocalizationStore: ObservableObject {
         case .onboardingStyleBody: return "अभी एक शुरुआती रूप चुनें; 24 पैलेट, ग्रेडिएंट, ग्लास और सेक्टर के रंग सेटिंग्स में मिलेंगे।"
         case .onboardingIconsNote: return "हर सेक्टर के लिए कोई भी आइकन: SF Symbols, इमोजी, साइट का फ़ेविकॉन, अपनी तस्वीर या टेक्स्ट।"
         case .onboardingPermissionsTitle: return "दो अनुमतियाँ"
-        case .onboardingPermissionsBody: return "एक्सेसिबिलिटी से CatGrab कीस्ट्रोक भेजता, विंडो हिलाता और ऐप मेनू पढ़ता है। इनपुट मॉनिटरिंग से यह ⌘Tab और अकेला Fn पकड़ता है। डिफ़ॉल्ट ⇧1 इनके बिना भी चलता है।"
+        case .onboardingPermissionsBody: return "एक्सेसिबिलिटी से CatGrab कीस्ट्रोक भेजता, विंडो हिलाता और ऐप मेनू पढ़ता है। इनपुट मॉनिटरिंग से यह ⌘Tab और अकेला Fn पकड़ता है।"
         case .onboardingDoneTitle: return "सब तैयार है"
         case .onboardingDoneBodyFormat: return "Main मेनू खोलने के लिए कहीं भी %@ दबाएँ। बाकी सब मेनू बार की बिल्ली के पीछे, सेटिंग्स में है।"
         case .onboardingRelaunchNote: return "इनपुट मॉनिटरिंग लागू करने के लिए CatGrab एक बार रीस्टार्ट होगा; उसके बाद सेटिंग्स फिर खुलेंगी।"
@@ -1638,6 +1728,24 @@ final class LocalizationStore: ObservableObject {
 
     private static func es(_ key: L10nKey) -> String {
         switch key {
+        case .updatesMenuItemFormat: return "Actualización %@ disponible…"
+        case .updatesSkip: return "Omitir esta versión"
+        case .updatesBannerBody: return "Se abrirá la página de descarga en GitHub. Tus menús y ajustes se conservan."
+        case .updatesCheckFailed: return "No se pudo comprobar. Inténtalo más tarde."
+        case .updatesDownload: return "Descargar"
+        case .updatesAvailableFormat: return "La versión %@ está disponible"
+        case .updatesUpToDate: return "Tienes la última versión"
+        case .updatesChecking: return "Buscando…"
+        case .updatesCheckNow: return "Buscar actualizaciones"
+        case .updatesAutoCheckSubtitle: return "Una vez al día CatGrab pregunta a GitHub el número de la última versión. No se envía nada sobre ti."
+        case .updatesAutoCheckTitle: return "Buscar actualizaciones automáticamente"
+        case .permissionInputMonitoringPurpose: return "Capturar ⌘Tab y la tecla Fn sola."
+        case .permissionAccessibilityPurpose: return "Enviar teclas por ti, mover ventanas y leer los menús de las apps."
+        case .onboardingPermissionsHotkeyNoteFormat: return "El atajo %@ funciona sin ninguno."
+        case .defaultMainMenuName: return "Principal"
+        case .hotkeyUnavailable: return "Este atajo no está disponible. Elige otro o revisa los permisos de CatGrab."
+        case .settingsSaveFailed: return "No se pudo leer o guardar el archivo de ajustes. Exporta los ajustes antes de salir."
+        case .retrySave: return "Reintentar guardar"
         case .language: return "Idioma"
         case .delete: return "Eliminar"
         case .add: return "Agregar"
@@ -1917,7 +2025,7 @@ final class LocalizationStore: ObservableObject {
         case .onboardingStyleBody: return "Elige un aspecto inicial ahora; 24 paletas, degradados, cristal y colores por sector te esperan en Ajustes."
         case .onboardingIconsNote: return "Cada sector admite cualquier icono: SF Symbols, emoji, el favicon de un sitio, tu propia imagen o texto."
         case .onboardingPermissionsTitle: return "Dos permisos"
-        case .onboardingPermissionsBody: return "Accesibilidad permite a CatGrab enviar teclas, mover ventanas y leer menús de apps. Monitoreo de entrada le permite capturar ⌘Tab y Fn solo. El ⇧1 predeterminado funciona sin ninguno."
+        case .onboardingPermissionsBody: return "Accesibilidad permite a CatGrab enviar teclas, mover ventanas y leer menús de apps. Monitoreo de entrada le permite capturar ⌘Tab y Fn solo."
         case .onboardingDoneTitle: return "Todo listo"
         case .onboardingDoneBodyFormat: return "Pulsa %@ en cualquier lugar para abrir el menú Main. Lo demás está en Ajustes, detrás del gato de la barra de menús."
         case .onboardingRelaunchNote: return "CatGrab se reinicia una vez para que macOS aplique el Monitoreo de entrada; Ajustes se abre de nuevo justo después."
@@ -1944,6 +2052,24 @@ final class LocalizationStore: ObservableObject {
 
     private static func ar(_ key: L10nKey) -> String {
         switch key {
+        case .updatesMenuItemFormat: return "التحديث %@ متوفر…"
+        case .updatesSkip: return "تخطي هذا الإصدار"
+        case .updatesBannerBody: return "ستُفتح صفحة التنزيل على GitHub. تبقى قوائمك وإعداداتك كما هي."
+        case .updatesCheckFailed: return "تعذّر التحقق. حاول لاحقًا."
+        case .updatesDownload: return "تنزيل"
+        case .updatesAvailableFormat: return "الإصدار %@ متوفر"
+        case .updatesUpToDate: return "لديك أحدث إصدار"
+        case .updatesChecking: return "جارٍ التحقق…"
+        case .updatesCheckNow: return "التحقق من التحديثات"
+        case .updatesAutoCheckSubtitle: return "مرة يوميًا يسأل CatGrab GitHub عن رقم أحدث إصدار. لا يُرسل أي شيء عنك."
+        case .updatesAutoCheckTitle: return "التحقق من التحديثات تلقائيًا"
+        case .permissionInputMonitoringPurpose: return "التقاط ⌘Tab وضغطة Fn المنفردة."
+        case .permissionAccessibilityPurpose: return "إرسال ضغطات المفاتيح عنك وتحريك النوافذ وقراءة قوائم التطبيقات."
+        case .onboardingPermissionsHotkeyNoteFormat: return "الاختصار %@ يعمل بدونهما."
+        case .defaultMainMenuName: return "الرئيسية"
+        case .hotkeyUnavailable: return "هذا الاختصار غير متاح. اختر غيره أو تحقق من أذونات CatGrab."
+        case .settingsSaveFailed: return "تعذرت قراءة ملف الإعدادات أو حفظه. صدّر إعداداتك قبل الخروج."
+        case .retrySave: return "إعادة محاولة الحفظ"
         case .language: return "اللغة"
         case .delete: return "حذف"
         case .add: return "اضافة"
@@ -2223,7 +2349,7 @@ final class LocalizationStore: ObservableObject {
         case .onboardingStyleBody: return "اختر مظهرًا للبداية الآن؛ 24 لوحة ألوان وتدرجات وزجاج وألوان لكل قطاع بانتظارك في الإعدادات."
         case .onboardingIconsNote: return "كل قطاع يقبل أي أيقونة: SF Symbols، الرموز التعبيرية، أيقونة موقع، صورتك أو نصّك."
         case .onboardingPermissionsTitle: return "إذنان"
-        case .onboardingPermissionsBody: return "إمكانية الوصول تتيح لـ CatGrab إرسال ضغطات المفاتيح وتحريك النوافذ وقراءة قوائم التطبيقات. مراقبة الإدخال تتيح له التقاط ⌘Tab وFn المنفرد. الاختصار الافتراضي ⇧1 يعمل بدونهما."
+        case .onboardingPermissionsBody: return "إمكانية الوصول تتيح لـ CatGrab إرسال ضغطات المفاتيح وتحريك النوافذ وقراءة قوائم التطبيقات. مراقبة الإدخال تتيح له التقاط ⌘Tab وFn المنفرد."
         case .onboardingDoneTitle: return "كل شيء جاهز"
         case .onboardingDoneBodyFormat: return "اضغط %@ في أي مكان لفتح قائمة Main. كل ما عدا ذلك في الإعدادات، خلف القطة في شريط القوائم."
         case .onboardingRelaunchNote: return "سيُعاد تشغيل CatGrab مرة واحدة ليطبّق macOS مراقبة الإدخال؛ وتُفتح الإعدادات بعدها مباشرة."
@@ -2250,6 +2376,24 @@ final class LocalizationStore: ObservableObject {
 
     private static func fr(_ key: L10nKey) -> String {
         switch key {
+        case .updatesMenuItemFormat: return "Mise à jour %@ disponible…"
+        case .updatesSkip: return "Ignorer cette version"
+        case .updatesBannerBody: return "Ouvre la page de téléchargement sur GitHub. Vos menus et réglages sont conservés."
+        case .updatesCheckFailed: return "Vérification impossible. Réessayez plus tard."
+        case .updatesDownload: return "Télécharger"
+        case .updatesAvailableFormat: return "La version %@ est disponible"
+        case .updatesUpToDate: return "Vous avez la dernière version"
+        case .updatesChecking: return "Recherche…"
+        case .updatesCheckNow: return "Rechercher les mises à jour"
+        case .updatesAutoCheckSubtitle: return "Une fois par jour, CatGrab demande à GitHub le numéro de la dernière version. Rien vous concernant n'est envoyé."
+        case .updatesAutoCheckTitle: return "Rechercher les mises à jour automatiquement"
+        case .permissionInputMonitoringPurpose: return "Capter ⌘Tab et la touche Fn seule."
+        case .permissionAccessibilityPurpose: return "Envoyer des touches pour vous, déplacer des fenêtres et lire les menus des apps."
+        case .onboardingPermissionsHotkeyNoteFormat: return "Le raccourci %@ fonctionne sans."
+        case .defaultMainMenuName: return "Principal"
+        case .hotkeyUnavailable: return "Ce raccourci est indisponible. Choisissez-en un autre ou vérifiez les autorisations de CatGrab."
+        case .settingsSaveFailed: return "Impossible de lire ou d’enregistrer le fichier des réglages. Exportez vos réglages avant de quitter."
+        case .retrySave: return "Réessayer"
         case .language: return "Langue"
         case .delete: return "Supprimer"
         case .add: return "Ajouter"
@@ -2529,7 +2673,7 @@ final class LocalizationStore: ObservableObject {
         case .onboardingStyleBody: return "Choisissez un style de départ ; 24 palettes, dégradés, verre et couleurs par secteur vous attendent dans les Réglages."
         case .onboardingIconsNote: return "Chaque secteur accepte n'importe quelle icône : SF Symbols, emoji, favicon d'un site, votre image ou un texte."
         case .onboardingPermissionsTitle: return "Deux autorisations"
-        case .onboardingPermissionsBody: return "Accessibilité permet à CatGrab d'envoyer des touches, déplacer des fenêtres et lire les menus des apps. Surveillance de l'entrée lui permet de capter ⌘Tab et Fn seul. Le ⇧1 par défaut fonctionne sans."
+        case .onboardingPermissionsBody: return "Accessibilité permet à CatGrab d'envoyer des touches, déplacer des fenêtres et lire les menus des apps. Surveillance de l'entrée lui permet de capter ⌘Tab et Fn seul."
         case .onboardingDoneTitle: return "Tout est prêt"
         case .onboardingDoneBodyFormat: return "Appuyez sur %@ n'importe où pour ouvrir le menu Main. Le reste est dans les Réglages, derrière le chat de la barre des menus."
         case .onboardingRelaunchNote: return "CatGrab redémarre une fois pour que macOS applique la Surveillance de l'entrée ; les Réglages se rouvrent juste après."
@@ -2556,6 +2700,24 @@ final class LocalizationStore: ObservableObject {
 
     private static func bn(_ key: L10nKey) -> String {
         switch key {
+        case .updatesMenuItemFormat: return "আপডেট %@ পাওয়া যাচ্ছে…"
+        case .updatesSkip: return "এই সংস্করণ বাদ দিন"
+        case .updatesBannerBody: return "GitHub-এর ডাউনলোড পাতা খুলবে। আপনার মেনু ও সেটিংস থেকে যাবে।"
+        case .updatesCheckFailed: return "খোঁজা যায়নি। পরে আবার চেষ্টা করুন।"
+        case .updatesDownload: return "ডাউনলোড"
+        case .updatesAvailableFormat: return "সংস্করণ %@ পাওয়া যাচ্ছে"
+        case .updatesUpToDate: return "আপনার কাছে সর্বশেষ সংস্করণ আছে"
+        case .updatesChecking: return "খোঁজা হচ্ছে…"
+        case .updatesCheckNow: return "আপডেট খুঁজুন"
+        case .updatesAutoCheckSubtitle: return "দিনে একবার CatGrab GitHub থেকে সর্বশেষ সংস্করণের নম্বর জেনে নেয়। আপনার সম্পর্কে কিছুই পাঠানো হয় না।"
+        case .updatesAutoCheckTitle: return "স্বয়ংক্রিয়ভাবে আপডেট খুঁজুন"
+        case .permissionInputMonitoringPurpose: return "⌘Tab ও একা Fn ধরা।"
+        case .permissionAccessibilityPurpose: return "আপনার হয়ে কী-স্ট্রোক পাঠানো, উইন্ডো সরানো ও অ্যাপ মেনু পড়া।"
+        case .onboardingPermissionsHotkeyNoteFormat: return "শর্টকাট %@ এগুলো ছাড়াই কাজ করে।"
+        case .defaultMainMenuName: return "প্রধান মেনু"
+        case .hotkeyUnavailable: return "এই শর্টকাটটি উপলব্ধ নয়। অন্যটি বেছে নিন বা CatGrab-এর অনুমতিগুলি দেখুন।"
+        case .settingsSaveFailed: return "সেটিংস ফাইল পড়া বা সংরক্ষণ করা যায়নি। বন্ধ করার আগে সেটিংস রপ্তানি করুন।"
+        case .retrySave: return "আবার সংরক্ষণ করুন"
         case .language: return "ভাষা"
         case .delete: return "মুছুন"
         case .add: return "যোগ করুন"
@@ -2835,7 +2997,7 @@ final class LocalizationStore: ObservableObject {
         case .onboardingStyleBody: return "এখনই একটি শুরুর রূপ বেছে নিন; ২৪টি প্যালেট, গ্রেডিয়েন্ট, গ্লাস আর সেক্টরের রং সেটিংসে অপেক্ষা করছে।"
         case .onboardingIconsNote: return "প্রতিটি সেক্টরে যেকোনো আইকন: SF Symbols, ইমোজি, সাইটের ফ্যাভিকন, নিজের ছবি বা টেক্সট।"
         case .onboardingPermissionsTitle: return "দুটি অনুমতি"
-        case .onboardingPermissionsBody: return "অ্যাক্সেসিবিলিটি দিয়ে CatGrab কী-স্ট্রোক পাঠায়, উইন্ডো সরায় ও অ্যাপ মেনু পড়ে। ইনপুট মনিটরিং দিয়ে ⌘Tab ও একা Fn ধরে। ডিফল্ট ⇧1 এগুলো ছাড়াই কাজ করে।"
+        case .onboardingPermissionsBody: return "অ্যাক্সেসিবিলিটি দিয়ে CatGrab কী-স্ট্রোক পাঠায়, উইন্ডো সরায় ও অ্যাপ মেনু পড়ে। ইনপুট মনিটরিং দিয়ে ⌘Tab ও একা Fn ধরে।"
         case .onboardingDoneTitle: return "সব প্রস্তুত"
         case .onboardingDoneBodyFormat: return "Main মেনু খুলতে যেকোনো জায়গায় %@ চাপুন। বাকি সব সেটিংসে, মেনু বারের বিড়ালের পেছনে।"
         case .onboardingRelaunchNote: return "ইনপুট মনিটরিং কার্যকর করতে CatGrab একবার রিস্টার্ট হবে; তারপরই সেটিংস আবার খুলবে।"
@@ -2862,6 +3024,24 @@ final class LocalizationStore: ObservableObject {
 
     private static func pt(_ key: L10nKey) -> String {
         switch key {
+        case .updatesMenuItemFormat: return "Atualização %@ disponível…"
+        case .updatesSkip: return "Pular esta versão"
+        case .updatesBannerBody: return "Abre a página de download no GitHub. Seus menus e ajustes são mantidos."
+        case .updatesCheckFailed: return "Não foi possível verificar. Tente mais tarde."
+        case .updatesDownload: return "Baixar"
+        case .updatesAvailableFormat: return "A versão %@ está disponível"
+        case .updatesUpToDate: return "Você tem a versão mais recente"
+        case .updatesChecking: return "Buscando…"
+        case .updatesCheckNow: return "Buscar atualizações"
+        case .updatesAutoCheckSubtitle: return "Uma vez por dia o CatGrab pergunta ao GitHub o número da versão mais recente. Nada sobre você é enviado."
+        case .updatesAutoCheckTitle: return "Buscar atualizações automaticamente"
+        case .permissionInputMonitoringPurpose: return "Captar ⌘Tab e a tecla Fn sozinha."
+        case .permissionAccessibilityPurpose: return "Enviar teclas por você, mover janelas e ler os menus dos apps."
+        case .onboardingPermissionsHotkeyNoteFormat: return "O atalho %@ funciona sem nenhuma."
+        case .defaultMainMenuName: return "Principal"
+        case .hotkeyUnavailable: return "Este atalho não está disponível. Escolha outro ou confira as permissões do CatGrab."
+        case .settingsSaveFailed: return "Não foi possível ler ou salvar o arquivo de ajustes. Exporte os ajustes antes de sair."
+        case .retrySave: return "Tentar salvar novamente"
         case .language: return "Idioma"
         case .delete: return "Excluir"
         case .add: return "Adicionar"
@@ -3141,7 +3321,7 @@ final class LocalizationStore: ObservableObject {
         case .onboardingStyleBody: return "Escolha um visual inicial agora; 24 paletas, gradientes, vidro e cores por setor esperam nos Ajustes."
         case .onboardingIconsNote: return "Cada setor aceita qualquer ícone: SF Symbols, emoji, o favicon de um site, a sua imagem ou texto."
         case .onboardingPermissionsTitle: return "Duas permissões"
-        case .onboardingPermissionsBody: return "Acessibilidade deixa o CatGrab enviar teclas, mover janelas e ler menus dos apps. Monitoramento de entrada deixa captar ⌘Tab e Fn sozinho. O ⇧1 padrão funciona sem nenhuma."
+        case .onboardingPermissionsBody: return "Acessibilidade deixa o CatGrab enviar teclas, mover janelas e ler menus dos apps. Monitoramento de entrada deixa captar ⌘Tab e Fn sozinho."
         case .onboardingDoneTitle: return "Tudo pronto"
         case .onboardingDoneBodyFormat: return "Pressione %@ em qualquer lugar para abrir o menu Main. O resto está nos Ajustes, atrás do gato na barra de menus."
         case .onboardingRelaunchNote: return "O CatGrab reinicia uma vez para o macOS aplicar o Monitoramento de entrada; os Ajustes abrem de novo logo depois."
@@ -3168,6 +3348,24 @@ final class LocalizationStore: ObservableObject {
 
     private static func ur(_ key: L10nKey) -> String {
         switch key {
+        case .updatesMenuItemFormat: return "اپ ڈیٹ %@ دستیاب…"
+        case .updatesSkip: return "یہ ورژن چھوڑیں"
+        case .updatesBannerBody: return "GitHub کا ڈاؤن لوڈ صفحہ کھلے گا۔ آپ کے مینو اور ترتیبات برقرار رہیں گی۔"
+        case .updatesCheckFailed: return "چیک نہیں ہو سکا۔ بعد میں دوبارہ کوشش کریں۔"
+        case .updatesDownload: return "ڈاؤن لوڈ"
+        case .updatesAvailableFormat: return "ورژن %@ دستیاب ہے"
+        case .updatesUpToDate: return "آپ کے پاس تازہ ترین ورژن ہے"
+        case .updatesChecking: return "چیک ہو رہا ہے…"
+        case .updatesCheckNow: return "اپ ڈیٹس چیک کریں"
+        case .updatesAutoCheckSubtitle: return "دن میں ایک بار CatGrab GitHub سے تازہ ترین ورژن نمبر پوچھتا ہے۔ آپ کے بارے میں کچھ نہیں بھیجا جاتا۔"
+        case .updatesAutoCheckTitle: return "اپ ڈیٹس خودکار طور پر چیک کریں"
+        case .permissionInputMonitoringPurpose: return "⌘Tab اور اکیلا Fn پکڑنا۔"
+        case .permissionAccessibilityPurpose: return "آپ کی جگہ کی اسٹروکس بھیجنا، ونڈوز ہلانا اور ایپ مینو پڑھنا۔"
+        case .onboardingPermissionsHotkeyNoteFormat: return "شارٹ کٹ %@ ان کے بغیر بھی چلتا ہے۔"
+        case .defaultMainMenuName: return "مرکزی مینو"
+        case .hotkeyUnavailable: return "یہ شارٹ کٹ دستیاب نہیں ہے۔ دوسرا منتخب کریں یا CatGrab کی اجازتیں چیک کریں۔"
+        case .settingsSaveFailed: return "ترتیبات کی فائل پڑھی یا محفوظ نہیں کی جا سکی۔ بند کرنے سے پہلے ترتیبات برآمد کریں۔"
+        case .retrySave: return "دوبارہ محفوظ کریں"
         case .language: return "زبان"
         case .delete: return "حذف کریں"
         case .add: return "شامل کریں"
@@ -3447,7 +3645,7 @@ final class LocalizationStore: ObservableObject {
         case .onboardingStyleBody: return "ابھی ایک ابتدائی انداز چنیں؛ 24 پیلٹس، گریڈیئنٹس، گلاس اور سیکٹر کے رنگ سیٹنگز میں منتظر ہیں۔"
         case .onboardingIconsNote: return "ہر سیکٹر کے لیے کوئی بھی آئیکن: SF Symbols، ایموجی، سائٹ کا فیوی کون، اپنی تصویر یا متن۔"
         case .onboardingPermissionsTitle: return "دو اجازتیں"
-        case .onboardingPermissionsBody: return "ایکسیسبیلٹی سے CatGrab کی اسٹروکس بھیجتا، ونڈوز ہلاتا اور ایپ مینو پڑھتا ہے۔ ان پٹ مانیٹرنگ سے یہ ⌘Tab اور اکیلا Fn پکڑتا ہے۔ ڈیفالٹ ⇧1 ان کے بغیر بھی چلتا ہے۔"
+        case .onboardingPermissionsBody: return "ایکسیسبیلٹی سے CatGrab کی اسٹروکس بھیجتا، ونڈوز ہلاتا اور ایپ مینو پڑھتا ہے۔ ان پٹ مانیٹرنگ سے یہ ⌘Tab اور اکیلا Fn پکڑتا ہے۔"
         case .onboardingDoneTitle: return "سب تیار ہے"
         case .onboardingDoneBodyFormat: return "Main مینو کھولنے کے لیے کہیں بھی %@ دبائیں۔ باقی سب سیٹنگز میں ہے، مینو بار کی بلی کے پیچھے۔"
         case .onboardingRelaunchNote: return "ان پٹ مانیٹرنگ لاگو کرنے کے لیے CatGrab ایک بار ری اسٹارٹ ہوگا؛ اس کے فوراً بعد سیٹنگز دوبارہ کھلیں گی۔"
@@ -3474,6 +3672,24 @@ final class LocalizationStore: ObservableObject {
 
     private static func id(_ key: L10nKey) -> String {
         switch key {
+        case .updatesMenuItemFormat: return "Pembaruan %@ Tersedia…"
+        case .updatesSkip: return "Lewati versi ini"
+        case .updatesBannerBody: return "Membuka halaman unduhan di GitHub. Menu dan pengaturan Anda tetap ada."
+        case .updatesCheckFailed: return "Tidak dapat memeriksa. Coba lagi nanti."
+        case .updatesDownload: return "Unduh"
+        case .updatesAvailableFormat: return "Versi %@ tersedia"
+        case .updatesUpToDate: return "Anda memakai versi terbaru"
+        case .updatesChecking: return "Memeriksa…"
+        case .updatesCheckNow: return "Periksa Pembaruan"
+        case .updatesAutoCheckSubtitle: return "Sekali sehari CatGrab menanyakan nomor versi terbaru ke GitHub. Tidak ada data tentang Anda yang dikirim."
+        case .updatesAutoCheckTitle: return "Periksa pembaruan secara otomatis"
+        case .permissionInputMonitoringPurpose: return "Menangkap ⌘Tab dan tombol Fn tunggal."
+        case .permissionAccessibilityPurpose: return "Mengirim penekanan tombol untuk Anda, memindahkan jendela, dan membaca menu aplikasi."
+        case .onboardingPermissionsHotkeyNoteFormat: return "Pintasan %@ bekerja tanpa keduanya."
+        case .defaultMainMenuName: return "Utama"
+        case .hotkeyUnavailable: return "Pintasan ini tidak tersedia. Pilih yang lain atau periksa izin CatGrab."
+        case .settingsSaveFailed: return "File pengaturan tidak dapat dibaca atau disimpan. Ekspor pengaturan sebelum keluar."
+        case .retrySave: return "Coba simpan lagi"
         case .language: return "Bahasa"
         case .delete: return "Hapus"
         case .add: return "Tambah"
@@ -3753,7 +3969,7 @@ final class LocalizationStore: ObservableObject {
         case .onboardingStyleBody: return "Pilih tampilan awal sekarang; 24 palet, gradien, kaca, dan warna per sektor menunggu di Pengaturan."
         case .onboardingIconsNote: return "Setiap sektor menerima ikon apa pun: SF Symbols, emoji, favicon situs, gambar atau teks Anda sendiri."
         case .onboardingPermissionsTitle: return "Dua izin"
-        case .onboardingPermissionsBody: return "Aksesibilitas membuat CatGrab bisa mengirim penekanan tombol, memindahkan jendela, dan membaca menu aplikasi. Pemantauan Input membuatnya bisa menangkap ⌘Tab dan Fn tunggal. ⇧1 bawaan bekerja tanpa keduanya."
+        case .onboardingPermissionsBody: return "Aksesibilitas membuat CatGrab bisa mengirim penekanan tombol, memindahkan jendela, dan membaca menu aplikasi. Pemantauan Input membuatnya bisa menangkap ⌘Tab dan Fn tunggal."
         case .onboardingDoneTitle: return "Semua siap"
         case .onboardingDoneBodyFormat: return "Tekan %@ di mana saja untuk membuka menu Main. Sisanya ada di Pengaturan, di balik kucing di bilah menu."
         case .onboardingRelaunchNote: return "CatGrab mulai ulang sekali agar macOS menerapkan Pemantauan Input; Pengaturan terbuka lagi setelahnya."
@@ -3780,6 +3996,24 @@ final class LocalizationStore: ObservableObject {
 
     private static func de(_ key: L10nKey) -> String {
         switch key {
+        case .updatesMenuItemFormat: return "Update %@ verfügbar…"
+        case .updatesSkip: return "Diese Version überspringen"
+        case .updatesBannerBody: return "Öffnet die Download-Seite auf GitHub. Deine Menüs und Einstellungen bleiben erhalten."
+        case .updatesCheckFailed: return "Prüfung fehlgeschlagen. Versuch es später noch einmal."
+        case .updatesDownload: return "Laden"
+        case .updatesAvailableFormat: return "Version %@ ist verfügbar"
+        case .updatesUpToDate: return "Du hast die neueste Version"
+        case .updatesChecking: return "Suche…"
+        case .updatesCheckNow: return "Nach Updates suchen"
+        case .updatesAutoCheckSubtitle: return "Einmal täglich fragt CatGrab bei GitHub die neueste Versionsnummer ab. Über dich wird nichts gesendet."
+        case .updatesAutoCheckTitle: return "Automatisch nach Updates suchen"
+        case .permissionInputMonitoringPurpose: return "⌘Tab und ein alleiniges Fn abfangen."
+        case .permissionAccessibilityPurpose: return "Tastendrücke für dich senden, Fenster verschieben und App-Menüs lesen."
+        case .onboardingPermissionsHotkeyNoteFormat: return "Das Kürzel %@ funktioniert auch ohne beide."
+        case .defaultMainMenuName: return "Hauptmenü"
+        case .hotkeyUnavailable: return "Dieser Kurzbefehl ist nicht verfügbar. Wähle einen anderen oder prüfe die Berechtigungen von CatGrab."
+        case .settingsSaveFailed: return "Die Einstellungsdatei konnte nicht gelesen oder gespeichert werden. Exportiere die Einstellungen vor dem Beenden."
+        case .retrySave: return "Erneut speichern"
         case .language: return "Sprache"
         case .delete: return "Löschen"
         case .add: return "Hinzufugen"
@@ -4059,7 +4293,7 @@ final class LocalizationStore: ObservableObject {
         case .onboardingStyleBody: return "Wähle jetzt einen Startlook; 24 Paletten, Verläufe, Glas und Farben je Sektor warten in den Einstellungen."
         case .onboardingIconsNote: return "Jeder Sektor nimmt jedes Symbol: SF Symbols, Emoji, das Favicon einer Site, dein eigenes Bild oder Text."
         case .onboardingPermissionsTitle: return "Zwei Berechtigungen"
-        case .onboardingPermissionsBody: return "Bedienungshilfen lässt CatGrab Tastendrücke senden, Fenster verschieben und App-Menüs lesen. Eingabeüberwachung lässt es ⌘Tab und ein alleiniges Fn abfangen. Das voreingestellte ⇧1 funktioniert auch ohne beide."
+        case .onboardingPermissionsBody: return "Bedienungshilfen lässt CatGrab Tastendrücke senden, Fenster verschieben und App-Menüs lesen. Eingabeüberwachung lässt es ⌘Tab und ein alleiniges Fn abfangen."
         case .onboardingDoneTitle: return "Alles bereit"
         case .onboardingDoneBodyFormat: return "Drücke überall %@, um das Menü Main zu öffnen. Alles Weitere steht in den Einstellungen, hinter der Katze in der Menüleiste."
         case .onboardingRelaunchNote: return "CatGrab startet einmal neu, damit macOS die Eingabeüberwachung übernimmt; die Einstellungen öffnen sich danach wieder."
@@ -4086,6 +4320,24 @@ final class LocalizationStore: ObservableObject {
 
     private static func ja(_ key: L10nKey) -> String {
         switch key {
+        case .updatesMenuItemFormat: return "アップデート %@ が利用可能…"
+        case .updatesSkip: return "このバージョンをスキップ"
+        case .updatesBannerBody: return "GitHub のダウンロードページを開きます。メニューと設定はそのまま残ります。"
+        case .updatesCheckFailed: return "確認できませんでした。後でもう一度お試しください。"
+        case .updatesDownload: return "ダウンロード"
+        case .updatesAvailableFormat: return "バージョン %@ が利用できます"
+        case .updatesUpToDate: return "最新バージョンです"
+        case .updatesChecking: return "確認中…"
+        case .updatesCheckNow: return "アップデートを確認"
+        case .updatesAutoCheckSubtitle: return "1日1回、CatGrab が GitHub に最新バージョン番号を問い合わせます。あなたに関する情報は送信されません。"
+        case .updatesAutoCheckTitle: return "アップデートを自動的に確認"
+        case .permissionInputMonitoringPurpose: return "⌘Tab と単独の Fn を捕まえます。"
+        case .permissionAccessibilityPurpose: return "キー入力の送信、ウインドウの移動、アプリのメニューの読み取り。"
+        case .onboardingPermissionsHotkeyNoteFormat: return "ショートカット %@ はどちらがなくても動きます。"
+        case .defaultMainMenuName: return "メイン"
+        case .hotkeyUnavailable: return "このショートカットは使用できません。別のキーを選ぶか、CatGrab の権限を確認してください。"
+        case .settingsSaveFailed: return "設定ファイルを読み込むか保存することができませんでした。終了する前に設定を書き出してください。"
+        case .retrySave: return "保存を再試行"
         case .language: return "言語"
         case .delete: return "削除"
         case .add: return "追加"
@@ -4365,7 +4617,7 @@ final class LocalizationStore: ObservableObject {
         case .onboardingStyleBody: return "まず最初の見た目を選びましょう。24 のパレット、グラデーション、ガラス、セクタごとの色が設定で待っています。"
         case .onboardingIconsNote: return "どのセクタにもどんなアイコンでも：SF Symbols、絵文字、サイトのファビコン、自分の画像や文字。"
         case .onboardingPermissionsTitle: return "2つの権限"
-        case .onboardingPermissionsBody: return "アクセシビリティで CatGrab はキー入力の送信、ウインドウの移動、アプリのメニューの読み取りができます。入力監視で ⌘Tab と単独の Fn を捕まえられます。標準の ⇧1 はどちらがなくても動きます。"
+        case .onboardingPermissionsBody: return "アクセシビリティで CatGrab はキー入力の送信、ウインドウの移動、アプリのメニューの読み取りができます。入力監視で ⌘Tab と単独の Fn を捕まえられます。"
         case .onboardingDoneTitle: return "準備完了"
         case .onboardingDoneBodyFormat: return "どこでも %@ を押すと Main メニューが開きます。ほかはすべてメニューバーの猫の先、設定にあります。"
         case .onboardingRelaunchNote: return "macOS に入力監視を反映させるため CatGrab は一度再起動します。その直後に設定が再び開きます。"

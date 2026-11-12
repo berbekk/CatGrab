@@ -26,15 +26,23 @@ struct SettingsView: View {
     @State private var pendingSaveWorkItem: DispatchWorkItem?
     @State private var pendingConfigForSave: PieConfiguration?
     @State private var skipNextConfigSave = false
+    @ObservedObject private var configStore = ConfigManager.shared
 
     init() {
         let cfg = ConfigManager.shared.configuration
         _config = State(initialValue: cfg)
         _selectedMenuId = State(initialValue: (ScreenshotMode.initialMenu(in: cfg) ?? cfg.menus.first)?.id)
+        switch ScreenshotMode.pane {
+        case .general: _showingSystemPreferencesPane = State(initialValue: true)
+        case .app(let bundleIdentifier): _selectedAppBundleId = State(initialValue: bundleIdentifier)
+        case nil: break
+        }
+        _showAppearancePanel = State(initialValue: ScreenshotMode.panel == .appearance)
     }
 
     var body: some View {
         contentContainer
+            .environment(\.pieKeepsTintWhenInactive, true)
             .onChange(of: config) { newConfig in
                 if skipNextConfigSave {
                     skipNextConfigSave = false
@@ -67,6 +75,8 @@ struct SettingsView: View {
             .onDisappear {
                 flushPendingConfigSave()
             }
+            .onReceive(NotificationCenter.default.publisher(for: .settingsWillHide)) { _ in flushPendingConfigSave() }
+            .onReceive(NotificationCenter.default.publisher(for: NSApplication.willTerminateNotification)) { _ in flushPendingConfigSave() }
             .sheet(item: $backupAlert) { alert in
                 BackupResultSheet(
                     isSuccess: alert.kind == .success,
@@ -78,8 +88,23 @@ struct SettingsView: View {
     }
 
     private var contentContainer: some View {
-        ZStack(alignment: .topLeading) {
-            HStack(spacing: 0) {
+        GeometryReader { geometry in
+            let sidebarWidth = DS.Sizing.sidebarWidth(for: geometry.size.width)
+            ZStack(alignment: .topLeading) {
+                VStack(spacing: 0) {
+                    ReadyBanner(hotkey: PieMenu.mainTemplateMenu(from: config.menus)?.hotkey ?? .empty)
+                    MenuBarIconHiddenBanner()
+                    UpdateAvailableBanner()
+                    if configStore.persistenceError != nil {
+                        SettingsSaveFailureBanner { configStore.save(configStore.configuration) }
+                    }
+                    detail
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .padding(.leading, sidebarWidth)
+
+                // Сайдбар — плавающая панель над страницей, как сайдбары macOS 26.
                 SettingsSidebarView(
                     config: $config,
                     selectedMenuId: $selectedMenuId,
@@ -93,63 +118,42 @@ struct SettingsView: View {
                     onChooseApp: chooseApp,
                     onRemoveApp: removeApp
                 )
-                .frame(width: DS.Sizing.sidebarWidth)
-                Rectangle()
-                    .fill(DS.Colors.stroke)
-                    .frame(width: 1)
-                    .frame(maxHeight: .infinity)
-                    .ignoresSafeArea(edges: .top)
-                VStack(spacing: 0) {
-                    ReadyBanner(hotkey: PieMenu.mainTemplateMenu(from: config.menus)?.hotkey ?? .empty)
-                    MenuBarIconHiddenBanner()
-                    detail
+                .frame(width: sidebarWidth - DS.Sizing.panelInset)
+                .floatingPanel()
+
+                if let drawer = appearanceDrawerTarget {
+                    let drawerW = DS.Sizing.appearanceDrawerWidth
+                    Color.black.opacity(0.001)
+                        .ignoresSafeArea()
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-            }
+                        .contentShape(Rectangle())
+                        .onTapGesture { showAppearancePanel = false }
+                        .allowsHitTesting(showAppearancePanel)
 
-            if let drawer = appearanceDrawerTarget {
-                let drawerW = DS.Sizing.appearanceDrawerWidth
-                Color.black.opacity(0.001)
-                    .ignoresSafeArea()
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .contentShape(Rectangle())
-                    .onTapGesture { showAppearancePanel = false }
+                    MenuAppearanceControlsView(
+                        menu: drawer.menu,
+                        themeLibrary: themeLibrary,
+                        lookScope: drawer.lookScope,
+                        onClose: { showAppearancePanel = false }
+                    )
+                    .frame(width: drawerW)
+                    .frame(maxHeight: .infinity)
+                    .floatingPanel()
+                    .offset(x: showAppearancePanel ? 0 : -(drawerW + DS.Sizing.panelHiddenOffset))
+                    .animation(DS.Motion.respectReducing(DS.Motion.slidePanelSpring, reduce: reduceMotion), value: showAppearancePanel)
                     .allowsHitTesting(showAppearancePanel)
-
-                MenuAppearanceControlsView(
-                    menu: drawer.menu,
-                    themeLibrary: themeLibrary,
-                    lookScope: drawer.lookScope,
-                    onClose: { showAppearancePanel = false }
-                )
-                .frame(width: drawerW)
-                .frame(maxHeight: .infinity)
-                .background(DS.Colors.canvasTop)
-                .overlay(alignment: .trailing) {
-                    Rectangle()
-                        .fill(DS.Colors.stroke)
-                        .frame(width: 1)
-                        .frame(maxHeight: .infinity)
-                        .ignoresSafeArea(edges: .top)
                 }
-                .offset(x: showAppearancePanel ? 0 : -drawerW)
-                .animation(DS.Motion.respectReducing(DS.Motion.slidePanelSpring, reduce: reduceMotion), value: showAppearancePanel)
-                .allowsHitTesting(showAppearancePanel)
             }
+            // Инспектор сектора и список «Добавить сектор» страница отдаёт сюда: они выезжают там же
+            // и так же, как «Параметры».
+            .sideDrawerHost(
+                width: DS.Sizing.appearanceDrawerWidth,
+                animation: DS.Motion.respectReducing(DS.Motion.slidePanelSpring, reduce: reduceMotion)
+            )
+            // Размер ограничивает NSWindow; SwiftUI также может сжаться при смене экрана.
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(DS.Colors.canvasTop)
         }
-        // Инспектор сектора и список «Добавить сектор» страница отдаёт сюда: они выезжают там же
-        // и так же, как «Параметры».
-        .sideDrawerHost(
-            width: DS.Sizing.appearanceDrawerWidth,
-            animation: DS.Motion.respectReducing(DS.Motion.slidePanelSpring, reduce: reduceMotion)
-        )
-        // Окно уже само ограничено до видимой области экрана (`SettingsWindowController.targetContentSize`);
-        // фиксированный размер здесь не давал контенту сжаться вместе с окном на невысоких экранах,
-        // и низ сайдбара обрезался. Тянемся на весь предложенный размер, с тем же нижним порогом.
-        .frame(minWidth: DS.SettingsWindow.minimumContentWidth, minHeight: DS.SettingsWindow.minimumContentHeight)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(DS.Colors.canvasTop)
     }
 
     // MARK: - Detail
@@ -430,6 +434,7 @@ struct SettingsView: View {
     }
 
     private func exportSettingsToFile() {
+        flushPendingConfigSave()
         let panel = NSSavePanel()
         panel.allowedContentTypes = [.json]
         panel.nameFieldStringValue = "pie-menu-settings.json"
@@ -455,6 +460,7 @@ struct SettingsView: View {
     }
 
     private func importSettingsFromFile() {
+        flushPendingConfigSave()
         let panel = NSOpenPanel()
         panel.canChooseFiles = true
         panel.canChooseDirectories = false

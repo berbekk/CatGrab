@@ -11,6 +11,8 @@ enum DS {
         static let l: CGFloat = 10
         static let xl: CGFloat = 12
         static let card: CGFloat = xl
+        /// Плавающие панели окна настроек: сайдбар и выезжающие панели.
+        static let panel: CGFloat = 14
         static let insetPanel: CGFloat = l
 
         /// Радиус внутреннего контура, концентричного внешнему при равном отступе `inset` между дугами.
@@ -99,8 +101,8 @@ enum DS {
         static let subtitle = Font.system(size: 11, weight: .regular)
         /// Подписи полей, подсказки, второстепенные метки
         static let label = Font.system(size: 11, weight: .medium)
-        /// Заголовки секций (в т.ч. uppercase)
-        static let section = Font.system(size: 11, weight: .medium)
+        /// Заголовки секций над карточками и в сайдбаре
+        static let section = Font.system(size: 12, weight: .semibold)
         /// Основной текст
         static let body = Font.system(size: bodySize, weight: .regular)
         /// Строки списков, заголовки панелей, акцент без лишнего веса
@@ -154,20 +156,30 @@ enum DS {
         static let emojiTile: CGFloat = 48
         static let emptyStateHalo: CGFloat = 140
         static let closeButton: CGFloat = 24
-        static let sidebarWidth: CGFloat = 360
+        /// Вместе с отступом панели — ровно ширина выезжающих панелей: в окне обычного размера
+        /// «Параметры» и инспектор ложатся точно на сайдбар.
+        static let sidebarWidth: CGFloat = appearanceDrawerWidth + panelInset
+        static let compactSidebarWidth: CGFloat = 280
+        static func sidebarWidth(for windowWidth: CGFloat) -> CGFloat {
+            min(sidebarWidth, max(compactSidebarWidth, windowWidth * 0.33))
+        }
         /// На сколько панель «Параметры» визуала шире колонки сайдбара.
         static let appearanceDrawerExtraWidth: CGFloat = 2
-        static var appearanceDrawerWidth: CGFloat { sidebarWidth + appearanceDrawerExtraWidth }
+        static let appearanceDrawerWidth: CGFloat = 362
         static let sidebarHeaderIconButton: CGFloat = 24
         static let sidebarFooterIconButton: CGFloat = 28
         static let sidebarIconGlyph: CGFloat = 14
         /// Круглая кнопка «очистить» в поле ввода
         static let fieldClearButton: CGFloat = 18
-        static let sidebarRowMinHeight: CGFloat = 46
+        static let sidebarRowMinHeight: CGFloat = 40
         static let sidebarIconTile: CGFloat = 28
         static let sidebarActionHeight: CGFloat = 42
-        static let sidebarHorizontalPadding: CGFloat = 16
-        static let sidebarRowInnerPadding: CGFloat = 12
+        static let sidebarHorizontalPadding: CGFloat = 10
+        static let sidebarRowInnerPadding: CGFloat = 8
+        /// Отступ плавающей панели от краёв окна.
+        static let panelInset: CGFloat = 8
+        /// На сколько спрятанная панель уезжает за левый край сверх своей ширины — чтобы не торчала тень.
+        static let panelHiddenOffset: CGFloat = 40
         /// Колонка только с `NSSwitch` в строке «Запущенные приложения» (не занимать ширину под хоткей).
         static let sidebarRunningAppsSwitchColumnWidth: CGFloat = 52
         /// Единый вертикальный зазор в нижнем блоке сайдбара: до/после разделителя и снизу панели (= боковой отступ).
@@ -186,14 +198,14 @@ enum DS {
         static let menuEditorSettingsTop: CGFloat = 12
     }
 
-    /// Фиксированный размер контента окна настроек (`NSWindow`, корневой `frame` у `SettingsView`).
+    /// Начальный размер окна; пользователь может изменить его под свой экран.
     enum SettingsWindow {
         static let contentWidth: CGFloat = 1120
         static let contentHeight: CGFloat = 760
         /// Нижний порог размера окна на маленьких экранах (см. `SettingsWindowController.targetContentSize`).
         /// `SettingsView` держит тот же порог как `minWidth`/`minHeight`, чтобы контент не требовал
         /// больше места, чем окно способно выделить, и не обрезался снизу.
-        static let minimumContentWidth: CGFloat = 640
+        static let minimumContentWidth: CGFloat = 880
         static let minimumContentHeight: CGFloat = 520
         /// Запас под title bar при `fullSizeContentView`, если `safeAreaInsets.top` приходит 0.
         static let minimumTitlebarContentInset: CGFloat = 28
@@ -261,10 +273,10 @@ enum DS {
         /// Семантическая линия-разделитель: сама адаптируется к Dark Mode и режиму Increased Contrast.
         static let stroke = Color(nsColor: .separatorColor)
         static let blueAccent = Color.accentColor
-        /// Рамка выбранной строки сайдбара (согласована с акцентом иконки).
-        static let sidebarMenuSelectedStroke = blueAccent.opacity(0.55)
-        /// Заливка выбранной строки сайдбара: выбор виден сразу, а не только по рамке.
-        static let sidebarRowSelectedFill = blueAccent.opacity(0.12)
+        /// Заливка выбранной строки сайдбара — нейтральная, как в сайдбарах macOS: цвет остаётся
+        /// за плитками-иконками и переключателями.
+        static let sidebarRowSelectedFill = Color.primary.opacity(0.1)
+        static let sidebarRowHoverFill = Color.primary.opacity(0.05)
         /// Рамка поля под курсором: `primary`, а не белый — иначе в светлой теме наведения не видно.
         static let fieldHoverStroke = Color.primary.opacity(0.22)
     }
@@ -282,6 +294,56 @@ struct HotkeyCaption: View {
             .foregroundStyle(.secondary)
             .lineLimit(1)
             .fixedSize()
+    }
+}
+
+// MARK: - Keycaps
+
+/// Сочетание клавиш колпачками, как на клавиатуре: каждый модификатор и клавиша — своя плашка.
+/// Читается с одного взгляда и занимает меньше места, чем «Ctrl + Alt + Cmd + Space».
+struct HotkeyKeycaps: View {
+    let parts: [String]
+
+    var body: some View {
+        HStack(spacing: 3) {
+            ForEach(parts.indices, id: \.self) { index in
+                Text(parts[index])
+                    .font(.system(size: 11, weight: .medium, design: .rounded))
+                    .foregroundStyle(.primary)
+                    .lineLimit(1)
+                    .padding(.horizontal, 5)
+                    .frame(minWidth: 20, minHeight: 20)
+                    .background(
+                        RoundedRectangle(cornerRadius: 5, style: .continuous)
+                            .fill(Color.primary.opacity(0.08))
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 5, style: .continuous)
+                            .strokeBorder(Color.primary.opacity(0.1), lineWidth: 0.5)
+                    )
+            }
+        }
+        .fixedSize()
+    }
+}
+
+/// Колпачки, а если поле узкое — то же сочетание одной строкой значков, с многоточием.
+struct HotkeyKeycapsLabel: View {
+    let parts: [String]
+    let fallback: String
+    let accessibilityText: String
+
+    var body: some View {
+        ViewThatFits(in: .horizontal) {
+            HotkeyKeycaps(parts: parts)
+            Text(fallback)
+                .font(DS.Typography.hotkeyDisplay())
+                .foregroundStyle(.primary)
+                .lineLimit(1)
+        }
+        .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(Text(accessibilityText))
     }
 }
 
@@ -441,9 +503,7 @@ struct DSSectionHeader: View {
     var body: some View {
         Text(title)
             .font(DS.Typography.section)
-            .foregroundStyle(.secondary.opacity(0.7))
-            .textCase(.uppercase)
-            .tracking(0.5)
+            .foregroundStyle(.secondary)
             .lineLimit(1)
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.top, topInset)
@@ -533,6 +593,8 @@ struct PanelHeader: View {
 }
 
 struct PanelCloseButton: View {
+    /// Подсказка и метка VoiceOver; `nil` — «Закрыть».
+    var help: String?
     let action: () -> Void
     @State private var isHovered = false
     @EnvironmentObject private var localizer: LocalizationStore
@@ -549,7 +611,7 @@ struct PanelCloseButton: View {
         .buttonStyle(DSPlainButtonStyle())
         .onHover { isHovered = $0 }
         .animation(.easeInOut(duration: 0.1), value: isHovered)
-        .iconOnlyHelp(localizer.text(.close))
+        .iconOnlyHelp(help ?? localizer.text(.close))
     }
 }
 
@@ -557,19 +619,61 @@ struct PanelCloseButton: View {
 
 extension View {
     /// Фон строки сайдбара: покой, наведение и выбор одинаковы у меню, приложений и системных параметров.
-    /// Выбранная строка ярче наведённой — иначе при наведении на соседнюю выбор «теряется».
+    /// В покое строка без фона, как в сайдбарах macOS; выбранная заметно плотнее наведённой —
+    /// иначе при наведении на соседнюю выбор «теряется».
     func sidebarRowChrome(isSelected: Bool, isHovered: Bool) -> some View {
         let shape = RoundedRectangle(cornerRadius: DS.Radius.m, style: .continuous)
         let fill: Color = isSelected
             ? DS.Colors.sidebarRowSelectedFill
-            : Color.primary.opacity(isHovered ? 0.07 : 0.04)
+            : isHovered ? DS.Colors.sidebarRowHoverFill : Color.clear
         return background(shape.fill(fill))
-            .overlay(
-                shape.strokeBorder(
-                    isSelected ? DS.Colors.sidebarMenuSelectedStroke : Color.clear,
-                    lineWidth: DS.Border.focus
+    }
+}
+
+// MARK: - Floating panel
+
+/// Фон плавающей панели: сайдбар и выезжающие панели лежат над страницей отдельным слоем, как
+/// сайдбары в macOS 26. На новых системах — Liquid Glass поверх плотной подложки (панель не
+/// просвечивает то, что под ней), на прежних и с «Уменьшить прозрачность» — подложка с кантом и тенью.
+struct FloatingPanelBackground: View {
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        let shape = RoundedRectangle(cornerRadius: DS.Radius.panel, style: .continuous)
+        if #available(macOS 26.0, *), !reduceTransparency {
+            shape
+                .fill(DS.Colors.panelTop)
+                .glassEffect(.regular, in: shape)
+        } else {
+            shape
+                .fill(DS.Colors.panelTop)
+                .overlay(
+                    shape.strokeBorder(
+                        LinearGradient(
+                            colors: [DS.Colors.frostedStrokeTop, DS.Colors.frostedStrokeBottom],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        ),
+                        lineWidth: DS.Border.hairline
+                    )
                 )
-            )
+                .shadow(color: Color.black.opacity(colorScheme == .dark ? 0.4 : 0.14), radius: 12, y: 4)
+        }
+    }
+}
+
+extension View {
+    /// Содержимое на плавающей панели. Фон панели заходит под заголовок окна (там, внутри панели,
+    /// стоят кнопки окна), а содержимое остаётся ниже него.
+    func floatingPanel() -> some View {
+        background {
+            FloatingPanelBackground()
+                .padding(.top, DS.Sizing.panelInset)
+                .ignoresSafeArea(edges: .top)
+        }
+        .padding(.leading, DS.Sizing.panelInset)
+        .padding(.bottom, DS.Sizing.panelInset)
     }
 }
 

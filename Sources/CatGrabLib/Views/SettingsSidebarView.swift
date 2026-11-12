@@ -74,6 +74,7 @@ struct SettingsSidebarView: View {
                         .fill(DS.Colors.stroke)
                         .frame(height: DS.Sizing.sidebarDividerLineHeight)
                         .frame(maxWidth: .infinity)
+                        .padding(.horizontal, DS.Sizing.sidebarHorizontalPadding + DS.Sizing.sidebarRowInnerPadding)
 
                     Color.clear
                         .frame(height: DS.Sizing.sidebarFooterVerticalGutter)
@@ -95,7 +96,6 @@ struct SettingsSidebarView: View {
     /// «Новое меню» во всю ширину. Удаляют меню на его странице справа (и правым кликом в списке).
     private var sidebarAddMenuBar: some View {
         let rowShape = RoundedRectangle(cornerRadius: DS.Radius.m, style: .continuous)
-        let baseFill = Color.primary.opacity(0.04)
 
         return HStack(alignment: .top, spacing: DS.Spacing.s) {
             Button(action: onAddMenu) {
@@ -119,12 +119,7 @@ struct SettingsSidebarView: View {
                 .padding(.horizontal, DS.Sizing.sidebarRowInnerPadding)
                 .frame(minHeight: DS.Sizing.sidebarRowMinHeight)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(
-                    rowShape.fill(isAddMenuRowHovered ? Color.primary.opacity(0.07) : baseFill)
-                )
-                .overlay(
-                    rowShape.strokeBorder(DS.Colors.stroke, lineWidth: DS.Border.hairline)
-                )
+                .sidebarRowChrome(isSelected: false, isHovered: isAddMenuRowHovered)
                 .contentShape(rowShape)
             }
             .buttonStyle(DSPlainButtonStyle())
@@ -203,9 +198,11 @@ struct SettingsSidebarView: View {
     }
 
     private func sidebarSection<Rows: View>(_ title: String, @ViewBuilder rows: () -> Rows) -> some View {
-        VStack(alignment: .leading, spacing: DS.Spacing.s) {
+        VStack(alignment: .leading, spacing: DS.Spacing.xs) {
+            // Подпись стоит над текстом строк, а не над краем их подсветки.
             DSSectionHeader(title: title)
-            VStack(spacing: DS.Spacing.xs) {
+                .padding(.leading, DS.Sizing.sidebarRowInnerPadding)
+            VStack(spacing: 2) {
                 rows()
             }
         }
@@ -290,13 +287,8 @@ struct SettingsSidebarView: View {
             .frame(maxWidth: .infinity)
             .frame(minHeight: DS.Sizing.sidebarRowMinHeight)
         }
-        .background(rowShape.fill(Color.primary.opacity(isAddAppRowHovered ? 0.07 : 0)))
-        .overlay(
-            rowShape.strokeBorder(
-                DS.Colors.stroke,
-                style: StrokeStyle(lineWidth: DS.Border.hairline, dash: [4, 3])
-            )
-        )
+        .sidebarRowChrome(isSelected: false, isHovered: isAddAppRowHovered)
+        .contentShape(rowShape)
         .animation(.easeInOut(duration: 0.15), value: isAddAppRowHovered)
     }
 
@@ -395,7 +387,8 @@ struct SettingsSidebarView: View {
                     Text(title)
                         .font(DS.Typography.body)
                         .foregroundStyle(.primary)
-                        .lineLimit(1)
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
                         .truncationMode(.tail)
                         .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
                         .contentShape(Rectangle())
@@ -450,6 +443,8 @@ struct SettingsSidebarView: View {
                             .contentShape(Rectangle())
                     }
                     .buttonStyle(DSPlainButtonStyle())
+                    .accessibilityLabel(menu.displayName(localizer))
+                    .accessibilityAddTraits(isSelected ? [.isSelected] : [])
 
                     HStack(alignment: .center, spacing: DS.Spacing.s) {
                         sidebarIcon(menu)
@@ -465,8 +460,8 @@ struct SettingsSidebarView: View {
                         RunningAppsMenuEnabledSwitch(isOn: bindingForRunningAppsEnabled(menuId: menu.id))
                             .fixedSize(horizontal: true, vertical: true)
                     }
-                    .accessibilityLabel(localizer.text(.activeAppsMenuEnabled))
-                    .help(localizer.text(.activeAppsMenuEnabledHelp))
+                    .accessibilityLabel(menu.displayName(localizer))
+                    .help(menu.displayName(localizer))
                     .frame(width: DS.Sizing.sidebarRunningAppsSwitchColumnWidth, height: DS.Sizing.fieldHeight)
                 }
             } else {

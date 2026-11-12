@@ -8,9 +8,57 @@ All notable changes to CatGrab are documented here. The format follows
 
 ### Added
 
+- Update check. Settings → General → About shows **Check for Updates**; when a newer release exists,
+  Settings and the menu bar menu say so and open its download page. Automatic daily checks are off
+  until you turn them on, and "skip this version" silences the reminder. The request to GitHub
+  carries nothing about you.
+- On first launch CatGrab starts in your Mac's language, names the main menu in it and labels the
+  default sectors the way Finder names those apps.
 - When a menu opens with a trackpad tap and macOS still has its own three-finger tap for Look Up,
   the menu's settings warn that the dictionary will pop up together with the menu and offer a
   button that opens Trackpad settings.
+- Settings show when a shortcut could not be registered and when the settings file could not be
+  read or saved, with a retry button for saving. New messages are available in all 13 languages.
+
+### Changed
+
+- Settings have a new look: the sidebar and the slide-out panels float above the page as glass
+  panels, sidebar rows are lighter, and section titles are no longer upper-case.
+- Hotkeys are shown as keycaps (⌃ ⌥ ⌘ Space) instead of "Ctrl + Alt + Cmd + Space", which no longer
+  fit the field.
+- New app icon: the cat in front of a ring of coloured sectors.
+- A granted permission is one short line saying what it is for; the step-by-step instructions appear
+  only while access is still missing.
+- New installations use ⌃⌥⌘Space for Main instead of ⇧1, so CatGrab no longer takes the `!` character
+  by default. Existing shortcuts are preserved.
+- Settings can be resized and fit fully inside the current display after a screen is disconnected
+  or its resolution changes. The sidebar adapts to the window width; long menu settings scroll
+  without pushing the ring preview out of view.
+
+### Fixed
+
+- The ring preview in Settings and in the welcome tour keeps its colours when the window is not
+  active; it used to turn grey.
+- The welcome tour names the hotkey your main menu actually has instead of ⇧1.
+- Trackpad recognition is synchronized across device callbacks and reconnects. Stopping or restarting
+  a device invalidates queued taps; gestures from separate trackpads stay independent.
+- Global keyboard hooks pause while recording a shortcut. Escape cancels recording without clearing
+  the previous shortcut, and leaving the app or hiding Settings ends recording.
+- HID shortcuts match releases to their original presses even when modifiers change. Held-key repeats
+  no longer reopen the menu, and Fn with other modifiers does not trigger the standalone Fn binding.
+- ⌘Tab and ⌘⇧Tab track their Carbon backups separately during Secure Input. CatGrab only restores
+  system shortcuts it successfully disabled itself, preserving shortcuts already disabled by another utility.
+- Sleep dismisses pending menus and releases keyboard hooks; wake reconnects them.
+- Corrupt settings remain untouched until a backup succeeds. Failed writes keep changes in memory
+  for export and retry. Pending edits are saved before hiding Settings, quitting, exporting or importing.
+- Invalid imported key codes and modifier values no longer cause integer-conversion crashes.
+
+### Performance
+
+- Unchanged settings no longer rewrite the file or update its timestamp. Appearance changes no longer
+  re-register hotkeys, and unchanged permissions no longer notify the settings views.
+- Cancelled app-command requests and superseded prefetches stop doing additional work. Menu searches
+  share one monotonic time budget across path lookup and shortcut fallback, including top-level menu reads.
 
 ## [1.4.0] - 2026-09-28
 

@@ -45,15 +45,9 @@ extension View {
                         .id(content.id)
                         .frame(width: width)
                         .frame(maxHeight: .infinity)
-                        .background(DS.Colors.canvasTop)
-                        .overlay(alignment: .trailing) {
-                            Rectangle()
-                                .fill(DS.Colors.stroke)
-                                .frame(width: 1)
-                                .frame(maxHeight: .infinity)
-                                .ignoresSafeArea(edges: .top)
-                        }
-                        .transition(.move(edge: .leading))
+                        .floatingPanel()
+                        // Уезжает за край окна целиком, вместе с тенью панели.
+                        .transition(.offset(x: -(width + DS.Sizing.panelHiddenOffset)))
                 }
             }
             .animation(animation, value: content?.id)

@@ -11,10 +11,11 @@ private enum TooltipTiming {
 public final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem!
     private var statusAboutItem: NSMenuItem?
+    private var statusUpdateItem: NSMenuItem?
+    private var statusUpdateSeparator: NSMenuItem?
+    private var updateSubscription: AnyCancellable?
     private var statusSettingsItem: NSMenuItem?
     private var statusQuitItem: NSMenuItem?
-    private var settingsMenuItem: NSMenuItem?
-    private var quitMenuItem: NSMenuItem?
     private var hotkeyManager: HotkeyManager!
     private let trackpadGestureMonitor = TrackpadGestureMonitor()
     /// Какой жест сейчас слушаем — чтобы не переподключаться к трекпадам на каждое сохранение настроек.
@@ -25,7 +26,15 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
     private var onboardingRequestObserver: NSObjectProtocol?
     private var previousApp: NSRunningApplication?
     /// Меню команд ждёт, пока команды активного приложения соберутся; `nil` — не ждёт.
-    private var pendingAppCommandsToken: UUID?
+    private var pendingAppCommandsToken: UUID? {
+        didSet {
+            if pendingAppCommandsToken != oldValue {
+                pendingAppCommandsTicket?.cancel()
+                pendingAppCommandsTicket = nil
+            }
+        }
+    }
+    private var pendingAppCommandsTicket: PieSubActionResolver.Ticket?
     private var appActivationObserver: NSObjectProtocol?
     private var appLaunchObserver: NSObjectProtocol?
     private var configurationObserver: NSObjectProtocol?
@@ -34,6 +43,11 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
     private var languageSubscription: AnyCancellable?
     private var appearanceSubscription: AnyCancellable?
     private var permissionsSubscription: AnyCancellable?
+    private var captureSubscription: AnyCancellable?
+    private var menuLanguage: AppLanguage?
+    private var inputLifecycleObservers: [NSObjectProtocol] = []
+    private var isTerminating = false
+    private var isSleeping = false
 
     deinit {
         if let token = configurationObserver { NotificationCenter.default.removeObserver(token) }
@@ -42,6 +56,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         if let token = appActivationObserver { NSWorkspace.shared.notificationCenter.removeObserver(token) }
         if let token = appLaunchObserver { NSWorkspace.shared.notificationCenter.removeObserver(token) }
         if let token = onboardingRequestObserver { NotificationCenter.default.removeObserver(token) }
+        for token in inputLifecycleObservers { NSWorkspace.shared.notificationCenter.removeObserver(token) }
     }
 
     public override init() {
@@ -53,6 +68,8 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     public func applicationWillTerminate(_ notification: Notification) {
+        isTerminating = true
+        pendingAppCommandsToken = nil
         hotkeyManager?.unregisterAll()
         trackpadGestureMonitor.stop()
         NativeAppSwitcher.restore()
@@ -88,6 +105,20 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         setupStatusBar()
         setupPieMenu()
         setupHotkeys()
+        observeInputLifecycle()
+        captureSubscription = HotkeyCaptureSession.shared.$isRecording.dropFirst().sink { [weak self] recording in
+            guard let self else { return }
+            if recording {
+                self.pendingAppCommandsToken = nil
+                self.pieMenuWindow.hide()
+                self.hotkeyManager.unregisterAll()
+                self.trackpadGestureMonitor.stop()
+                self.activeTrackpadFingerCounts = []
+            } else {
+                // @Published публикует до записи нового значения; guard должен увидеть уже false.
+                DispatchQueue.main.async { [weak self] in self?.setupHotkeys(force: true) }
+            }
+        }
 
         configurationObserver = NotificationCenter.default.addObserver(
             forName: .configurationDidChange,
@@ -108,6 +139,9 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         ) { [weak self] _ in
             Task { @MainActor [weak self] in
                 self?.evaluateStatusItemVisibility(openSettingsIfHidden: false)
+                if self?.hotkeyManager?.failedRegistrationMenuIndices.isEmpty == false {
+                    self?.setupHotkeys(force: true)
+                }
             }
         }
 
@@ -125,7 +159,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
             .dropFirst()
             .sink { [weak self] snapshot in
                 guard let self else { return }
-                self.setupHotkeys()
+                self.setupHotkeys(force: true)
                 guard snapshot.allRequiredGranted else {
                     // Универсальный доступ уже дали — следующим шагом сразу запрашиваем Мониторинг ввода.
                     if snapshot.accessibilityTrusted, self.onboardingController?.isVisible == true {
@@ -181,6 +215,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
             runScreenshotMode()
             return
         }
+        UpdateChecker.shared.startAutomaticChecks()
         DispatchQueue.main.async { [weak self] in
             self?.resumeAfterRelaunchOrPresentOnboarding()
         }
@@ -196,13 +231,47 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
             switch ScreenshotMode.target {
             case .settings: self.openSettings()
             case .onboarding: self.showOnboarding(startPage: ScreenshotMode.onboardingPage)
+            case .pie:
+                self.runPieScreenshot()
+                return
             }
             DispatchQueue.main.asyncAfter(deadline: .now() + ScreenshotMode.settleDelay) {
-                if let window = NSApp.keyWindow ?? NSApp.windows.first(where: \.isVisible) {
+                // Не `keyWindow`: без активации ключевого окна нет, а первым видимым бывает окно значка.
+                if let window = NSApp.windows.first(where: { $0.isVisible && $0.styleMask.contains(.titled) }) {
                     ScreenshotMode.capture(window: window)
                 }
                 NSApp.terminate(nil)
             }
+        }
+    }
+
+    /// Снимок самого кольца: своё окно-фон, над ним кольцо с выделенным сектором.
+    private func runPieScreenshot() {
+        let configuration = ConfigManager.shared.configuration
+        guard let screen = NSScreen.main,
+              let menu = ScreenshotMode.initialMenu(in: configuration) ?? PieMenu.mainTemplateMenu(from: configuration.menus)
+        else { return NSApp.terminate(nil) }
+        let size = ScreenshotMode.windowSize ?? NSSize(width: 900, height: 600)
+        let visible = screen.visibleFrame
+        let frame = NSRect(
+            x: visible.midX - size.width / 2,
+            y: visible.midY - size.height / 2,
+            width: size.width,
+            height: size.height
+        )
+        let backdrop = ScreenshotBackdrop.makeWindow(frame: frame, image: ScreenshotMode.backdropImage)
+        backdrop.orderFrontRegardless()
+        let pie = pieMenuWindow.showForScreenshot(
+            menu: menu,
+            items: resolvedItems(for: menu) ?? menu.items,
+            centeredAt: NSPoint(x: frame.midX, y: frame.midY),
+            highlightedIndex: ScreenshotMode.highlightedSector
+        )
+        DispatchQueue.main.asyncAfter(deadline: .now() + ScreenshotMode.settleDelay) {
+            if let pie {
+                ScreenshotMode.capture(windows: [pie, backdrop], frame: frame)
+            }
+            NSApp.terminate(nil)
         }
     }
 
@@ -269,130 +338,14 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func setupMainMenu() {
-        let mainMenu = NSMenu()
         let localizer = LocalizationStore.shared
-
-        // App menu
-        let appMenuItem = NSMenuItem()
-        let appMenu = NSMenu()
-        let appName = Bundle.main.object(forInfoDictionaryKey: "CFBundleDisplayName") as? String
-            ?? Bundle.main.object(forInfoDictionaryKey: "CFBundleName") as? String
-            ?? "CatGrab"
-
-        let aboutItem = NSMenuItem(
-            title: MenuTitles.about(appName: appName, language: localizer.language),
-            action: #selector(showAbout),
-            keyEquivalent: ""
+        menuLanguage = localizer.language
+        NSApp.mainMenu = MainMenuFactory.make(
+            localizer: localizer,
+            target: self,
+            about: #selector(showAbout),
+            settings: #selector(openSettings)
         )
-        aboutItem.target = self
-        appMenu.addItem(aboutItem)
-        appMenu.addItem(NSMenuItem.separator())
-
-        // Cmd+, — стандарт HIG для открытия настроек.
-        let preferencesItem = NSMenuItem(
-            title: localizer.text(.statusSettings) + "…",
-            action: #selector(openSettings),
-            keyEquivalent: ","
-        )
-        preferencesItem.keyEquivalentModifierMask = [.command]
-        preferencesItem.target = self
-        appMenu.addItem(preferencesItem)
-        settingsMenuItem = preferencesItem
-
-        appMenu.addItem(NSMenuItem.separator())
-
-        // Services submenu — стандартный для любого macOS-приложения.
-        let servicesMenuItem = NSMenuItem(
-            title: MenuTitles.services(language: localizer.language),
-            action: nil,
-            keyEquivalent: ""
-        )
-        let servicesMenu = NSMenu(title: "Services")
-        servicesMenuItem.submenu = servicesMenu
-        NSApp.servicesMenu = servicesMenu
-        appMenu.addItem(servicesMenuItem)
-
-        appMenu.addItem(NSMenuItem.separator())
-
-        let hideItem = NSMenuItem(
-            title: MenuTitles.hide(appName: appName, language: localizer.language),
-            action: #selector(NSApplication.hide(_:)),
-            keyEquivalent: "h"
-        )
-        appMenu.addItem(hideItem)
-
-        let hideOthersItem = NSMenuItem(
-            title: MenuTitles.hideOthers(language: localizer.language),
-            action: #selector(NSApplication.hideOtherApplications(_:)),
-            keyEquivalent: "h"
-        )
-        hideOthersItem.keyEquivalentModifierMask = [.command, .option]
-        appMenu.addItem(hideOthersItem)
-
-        let showAllItem = NSMenuItem(
-            title: MenuTitles.showAll(language: localizer.language),
-            action: #selector(NSApplication.unhideAllApplications(_:)),
-            keyEquivalent: ""
-        )
-        appMenu.addItem(showAllItem)
-
-        appMenu.addItem(NSMenuItem.separator())
-
-        let quitItem = NSMenuItem(
-            title: MenuTitles.quit(appName: appName, language: localizer.language),
-            action: #selector(NSApplication.terminate(_:)),
-            keyEquivalent: "q"
-        )
-        appMenu.addItem(quitItem)
-        quitMenuItem = quitItem
-
-        appMenuItem.submenu = appMenu
-        mainMenu.addItem(appMenuItem)
-
-        // Edit menu (responder chain делает Undo/Redo рабочими в текстовых полях).
-        let editMenuItem = NSMenuItem()
-        let editMenu = NSMenu(title: MenuTitles.edit(language: localizer.language))
-        editMenu.addItem(withTitle: MenuTitles.undo(language: localizer.language),
-                         action: Selector(("undo:")), keyEquivalent: "z")
-        let redoItem = NSMenuItem(
-            title: MenuTitles.redo(language: localizer.language),
-            action: Selector(("redo:")),
-            keyEquivalent: "z"
-        )
-        redoItem.keyEquivalentModifierMask = [.command, .shift]
-        editMenu.addItem(redoItem)
-        editMenu.addItem(NSMenuItem.separator())
-        editMenu.addItem(withTitle: MenuTitles.cut(language: localizer.language),
-                         action: #selector(NSText.cut(_:)), keyEquivalent: "x")
-        editMenu.addItem(withTitle: MenuTitles.copy(language: localizer.language),
-                         action: #selector(NSText.copy(_:)), keyEquivalent: "c")
-        editMenu.addItem(withTitle: MenuTitles.paste(language: localizer.language),
-                         action: #selector(NSText.paste(_:)), keyEquivalent: "v")
-        editMenu.addItem(withTitle: MenuTitles.delete(language: localizer.language),
-                         action: #selector(NSText.delete(_:)), keyEquivalent: "")
-        editMenu.addItem(withTitle: MenuTitles.selectAll(language: localizer.language),
-                         action: #selector(NSText.selectAll(_:)), keyEquivalent: "a")
-        editMenuItem.submenu = editMenu
-        mainMenu.addItem(editMenuItem)
-
-        // Window menu (Minimize/Zoom — `SettingsWindowController` скрывает стандартный заголовок, но AppKit-способы всё равно работают).
-        let windowMenuItem = NSMenuItem()
-        let windowMenu = NSMenu(title: MenuTitles.window(language: localizer.language))
-        windowMenu.addItem(withTitle: MenuTitles.minimize(language: localizer.language),
-                           action: #selector(NSWindow.performMiniaturize(_:)),
-                           keyEquivalent: "m")
-        windowMenu.addItem(withTitle: MenuTitles.zoom(language: localizer.language),
-                           action: #selector(NSWindow.performZoom(_:)),
-                           keyEquivalent: "")
-        windowMenu.addItem(NSMenuItem.separator())
-        windowMenu.addItem(withTitle: MenuTitles.bringAllToFront(language: localizer.language),
-                           action: #selector(NSApplication.arrangeInFront(_:)),
-                           keyEquivalent: "")
-        windowMenuItem.submenu = windowMenu
-        mainMenu.addItem(windowMenuItem)
-        NSApp.windowsMenu = windowMenu
-
-        NSApp.mainMenu = mainMenu
     }
 
     private func setupStatusBar() {
@@ -411,6 +364,17 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
 
         let menu = NSMenu()
         let localizer = LocalizationStore.shared
+        // Видны, только когда вышла новая версия (`refreshUpdateMenuItem`).
+        let updateItem = NSMenuItem(title: "", action: #selector(openUpdatePage), keyEquivalent: "")
+        updateItem.target = self
+        updateItem.setAlwaysVisibleImage(Self.statusMenuItemIcon("arrow.down.circle"))
+        updateItem.isHidden = true
+        statusUpdateItem = updateItem
+        menu.addItem(updateItem)
+        let updateSeparator = NSMenuItem.separator()
+        updateSeparator.isHidden = true
+        statusUpdateSeparator = updateSeparator
+        menu.addItem(updateSeparator)
         let aboutItem = NSMenuItem(
             title: MenuTitles.about(appName: "CatGrab", language: localizer.language),
             action: #selector(showAbout),
@@ -432,10 +396,33 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         statusQuitItem = quitItem
         menu.addItem(quitItem)
         statusItem.menu = menu
+        updateSubscription = UpdateChecker.shared.$state
+            .combineLatest(UpdateChecker.shared.$skippedVersion)
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in self?.refreshUpdateMenuItem() }
+    }
+
+    /// «Доступно обновление …» над остальными пунктами — пока новая версия не установлена и не пропущена.
+    private func refreshUpdateMenuItem() {
+        let update = UpdateChecker.shared.updateToAnnounce
+        statusUpdateItem?.isHidden = update == nil
+        statusUpdateSeparator?.isHidden = update == nil
+        if let update {
+            statusUpdateItem?.title = String(
+                format: LocalizationStore.shared.text(.updatesMenuItemFormat), update.version
+            )
+        }
+    }
+
+    @objc private func openUpdatePage() {
+        guard let update = UpdateChecker.shared.updateToAnnounce else { return }
+        UpdateChecker.shared.openDownloadPage(for: update)
     }
 
     private func refreshLocalizedTitles() {
         let localizer = LocalizationStore.shared
+        guard menuLanguage != localizer.language else { return }
+        refreshUpdateMenuItem()
         statusAboutItem?.title = MenuTitles.about(appName: "CatGrab", language: localizer.language)
         statusSettingsItem?.title = localizer.text(.statusSettings)
         statusQuitItem?.title = localizer.text(.statusQuit)
@@ -484,26 +471,30 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         FileIconCache.shared.prewarm(paths: filePaths)
     }
 
-    private func setupHotkeys() {
+    private func setupHotkeys(force: Bool = false) {
+        guard !isTerminating, !isSleeping, !HotkeyCaptureSession.shared.isRecording else { return }
         if hotkeyManager == nil {
             hotkeyManager = HotkeyManager()
-        } else {
-            hotkeyManager.unregisterAll()
         }
 
         hotkeyManager.onHotkeyPressed = { [weak self] candidateIndices in
-            DispatchQueue.main.async {
-                self?.handleHotkeyPressed(candidateIndices: candidateIndices)
-            }
+            self?.handleHotkeyPressed(candidateIndices: candidateIndices)
         }
         hotkeyManager.onHotkeyReleased = { [weak self] candidateIndices in
-            DispatchQueue.main.async {
-                self?.handleHotkeyReleased(candidateIndices: candidateIndices)
-            }
+            self?.handleHotkeyReleased(candidateIndices: candidateIndices)
         }
 
+        // Снимки для README делаются рядом с установленным CatGrab: его сочетания и ⌘Tab не трогаем.
+        guard !ScreenshotMode.isEnabled else { return }
+
         let configuration = ConfigManager.shared.configuration
-        hotkeyManager.registerAll(menus: configuration.menus)
+        hotkeyManager.registerAll(menus: configuration.menus, force: force)
+        let unavailable = Set(hotkeyManager.failedRegistrationMenuIndices.compactMap { index in
+            configuration.menus.indices.contains(index) ? configuration.menus[index].id : nil
+        })
+        if HotkeyAvailability.shared.unavailableMenuIDs != unavailable {
+            HotkeyAvailability.shared.unavailableMenuIDs = unavailable
+        }
         setupTrackpadGesture(configuration)
         dismissRunningAppsMenuIfDisabled(configuration: configuration)
     }
@@ -649,6 +640,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func togglePieMenu(menu: PieMenu, triggerHotkey: HotkeyConfig) {
+        pendingAppCommandsToken = nil
         if pieMenuWindow.isVisible {
             if triggerHotkey.supportsRunningAppsRepeatKeyCycle,
                pieMenuWindow.displayedMenuId == menu.id {
@@ -691,10 +683,14 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         let token = UUID()
         pendingAppCommandsToken = token
-        PieSubActionResolver.resolve(app: app) { [weak self] actions in
+        pendingAppCommandsTicket = PieSubActionResolver.resolve(app: app) { [weak self] actions in
             guard let self, self.pendingAppCommandsToken == token else { return }
             self.pendingAppCommandsToken = nil
             guard !actions.isEmpty, !self.pieMenuWindow.isVisible else { return }
+            guard PieSubActionResolver.targetApp()?.processIdentifier == app.processIdentifier else {
+                self.previousApp = nil
+                return
+            }
             // Сочетание с модификаторами отпустили, пока собирались команды, — показывать уже поздно.
             if triggerHotkey.carbonModifiers != 0 {
                 let held = NSEvent.modifierFlags.intersection(.deviceIndependentFlagsMask)
@@ -743,6 +739,9 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func openSettings() {
+        pendingAppCommandsToken = nil
+        pieMenuWindow?.hide()
+        previousApp = nil
         if settingsWindow == nil {
             settingsWindow = SettingsWindowController()
         }
@@ -789,6 +788,27 @@ extension AppAppearance {
         case .system: return nil
         case .light: return NSAppearance(named: .aqua)
         case .dark: return NSAppearance(named: .darkAqua)
+        }
+    }
+}
+
+private extension AppDelegate {
+    func observeInputLifecycle() {
+        inputLifecycleObservers = [NSWorkspace.willSleepNotification, NSWorkspace.didWakeNotification].map { name in
+            NSWorkspace.shared.notificationCenter.addObserver(forName: name, object: nil, queue: .main) { [weak self] notification in
+                Task { @MainActor [weak self] in
+                    guard let self else { return }
+                    self.pendingAppCommandsToken = nil
+                    self.pieMenuWindow.hide()
+                    self.previousApp = nil
+                    self.isSleeping = notification.name == NSWorkspace.willSleepNotification
+                    if self.isSleeping {
+                        self.hotkeyManager.unregisterAll()
+                    } else {
+                        self.setupHotkeys(force: true)
+                    }
+                }
+            }
         }
     }
 }

@@ -375,6 +375,42 @@ final class PieMenuWindowController {
         PieLog.window.debug("show: \(Int((CACurrentMediaTime() - showStart) * 1000))ms, \(sortedItems.count) sectors")
     }
 
+    /// Кольцо для снимка в README (`ScreenshotMode`): в заданной точке экрана, с выделенным сектором
+    /// и без реакции на мышь и клавиши. Окно делается ключевым — в неключевом система гасит цвет стекла.
+    func showForScreenshot(menu: PieMenu, items: [PieMenuItem], centeredAt screenPoint: NSPoint, highlightedIndex: Int?) -> NSWindow? {
+        guard let screen = NSScreen.screens.first(where: { $0.frame.contains(screenPoint) }) ?? NSScreen.main else { return nil }
+        let sortedItems = menu.themed(items).sorted { $0.sectorIndex < $1.sectorIndex }
+        guard !sortedItems.isEmpty else { return nil }
+        let frame = screen.visibleFrame
+        let (window, hostingView) = ensureWindow()
+        window.setFrame(frame, display: false)
+        let center = CGPoint(x: screenPoint.x - frame.origin.x, y: frame.height - (screenPoint.y - frame.origin.y))
+        let configuration = ConfigManager.shared.configuration
+        withoutAnimation {
+            highlightState.highlightedIndex = highlightedIndex.map { min(max(0, $0), sortedItems.count - 1) }
+            presentation.pointer = center
+            presentation.appeared = true
+            hostingView.rootView = PieMenuRootView(
+                menu: makeMenuView(
+                    menu: menu,
+                    items: sortedItems,
+                    center: center,
+                    appCommands: nil,
+                    options: ViewOptions(
+                        disabledIndices: [],
+                        hapticFeedbackEnabled: false,
+                        language: configuration.language,
+                        interactive: false
+                    )
+                )
+            )
+        }
+        window.alphaValue = 1
+        window.orderFrontRegardless()
+        window.makeKey()
+        return window
+    }
+
     /// Что у кольца кроме самого меню: недоступные секторы, отдача, язык подписей и принимает ли оно
     /// выбор (прогрев при запуске — не принимает).
     private struct ViewOptions {

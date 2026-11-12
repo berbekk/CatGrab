@@ -3,7 +3,7 @@ import Foundation
 
 /// Глобальные горячие клавиши через Carbon `RegisterEventHotKey` (совместимо с App Sandbox).
 final class HotkeyManager {
-    static var shared: HotkeyManager?
+    static weak var shared: HotkeyManager?
 
     /// Индексы меню (`menus[i]`), у которых совпало одно и то же физическое сочетание клавиш.
     var onHotkeyPressed: (([UInt32]) -> Void)?
@@ -17,6 +17,7 @@ final class HotkeyManager {
     private var handlerRef: EventHandlerRef?
 
     private var hidTap: HotkeyHIDTap?
+    private var registeredBindings: [HotkeyRegistration]?
 
     /// HID-tap поднят, но система не передаёт в него клавиши — права выданы не полностью
     /// или WindowServer ещё держит старое состояние процесса (нужен перезапуск).
@@ -25,8 +26,11 @@ final class HotkeyManager {
         return !hidTap.deliversKeyEvents
     }
 
-    func registerAll(menus: [PieMenu]) {
+    func registerAll(menus: [PieMenu], force: Bool = false) {
+        let bindings = HotkeyRegistration.bindings(for: menus)
+        guard force || bindings != registeredBindings else { return }
         unregisterAll()
+        registeredBindings = bindings
         HotkeyManager.shared = self
         failedRegistrationMenuIndices = []
 
@@ -40,6 +44,12 @@ final class HotkeyManager {
             self?.onHotkeyReleased?(indices)
         }
         hidTap?.start(menus: menus)
+        if hidTap?.isRunning != true {
+            failedRegistrationMenuIndices = menus.indices.filter {
+                let hotkey = bindings[$0].hotkey
+                return hotkey.prefersHIDEventTap && !hotkey.canUseCarbonBackup
+            }
+        }
 
         var eventTypes = [
             EventTypeSpec(eventClass: OSType(kEventClassKeyboard), eventKind: UInt32(kEventHotKeyPressed)),
@@ -89,7 +99,7 @@ final class HotkeyManager {
             if menu.isDynamicMenu && !menu.runningAppsMenuEnabled { continue }
             // Fn нельзя выразить через Carbon. ⌘Tab регистрируем и там: tap его поглощает, поэтому
             // дважды не сработает, а при «безопасном вводе» tap не получает клавиш, и тогда
-            // срабатывает Carbon — он в этом режиме работает (см. `HotkeyHIDTap.carbonBacksUpCommandTab`).
+            // срабатывает Carbon — он в этом режиме работает (см. `HotkeyHIDTap.addCarbonBackup`).
             if menu.hotkey.prefersHIDEventTap && !menu.hotkey.canUseCarbonBackup { continue }
             entries.append(HotkeyEntry(
                 index: index,
@@ -136,7 +146,10 @@ final class HotkeyManager {
         }
         if hotkey.canUseCarbonBackup {
             PieLog.hotkey.notice("carbon backup for ⌘Tab-style hotkey registered=\(ok)")
-            if ok { hidTap?.carbonBacksUpCommandTab = true }
+            if ok { hidTap?.addCarbonBackup(hotkey) }
+            if !ok, hidTap?.isRunning != true {
+                failedRegistrationMenuIndices.append(contentsOf: menuIndices.map(Int.init))
+            }
         } else if !ok {
             failedRegistrationMenuIndices.append(contentsOf: menuIndices.map(Int.init))
         }
@@ -162,6 +175,7 @@ final class HotkeyManager {
     }
 
     func unregisterAll() {
+        registeredBindings = nil
         for (_, ref) in hotKeyRefs {
             UnregisterEventHotKey(ref)
         }

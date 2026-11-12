@@ -23,8 +23,9 @@ Worth knowing when judging impact:
 - Configuration lives in `~/Library/Application Support/CatGrab/config.json` with your normal file
   permissions. It holds the actions you configured, including text snippets — do not put secrets in
   a snippet. Choosing a snippet also puts its text on the general clipboard.
-- The only network traffic is favicon lookups when you choose a website icon, described in the
-  [README](README.md#privacy).
+- The only network traffic is favicon lookups when you choose a website icon and the update check
+  (a request to GitHub for the latest release number — manual, or daily if you turn it on), both
+  described in the [README](README.md#privacy).
 
 ## Verifying a download
 

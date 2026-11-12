@@ -235,14 +235,6 @@ struct MenuAppearanceControlsView: View {
         }
         .frame(maxWidth: .infinity)
         .frame(maxHeight: .infinity)
-        .background(DS.Colors.canvasTop)
-        .overlay(alignment: .leading) {
-            Rectangle()
-                .fill(DS.Colors.stroke)
-                .frame(width: 1)
-                .frame(maxHeight: .infinity)
-                .ignoresSafeArea(edges: .top)
-        }
     }
 
     /// Общий вид меняется вместе с меню «Команды приложения» у всех приложений без своего вида.

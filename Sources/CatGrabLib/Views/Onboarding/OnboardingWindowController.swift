@@ -52,6 +52,10 @@ final class OnboardingWindowController: NSObject, NSWindowDelegate {
     }
 
     private func showFront() {
+        if ScreenshotMode.showsWithoutActivating {
+            window?.orderFrontRegardless()
+            return
+        }
         NSApp.setActivationPolicy(.regular)
         NSApp.activate(ignoringOtherApps: true)
         window?.makeKeyAndOrderFront(nil)

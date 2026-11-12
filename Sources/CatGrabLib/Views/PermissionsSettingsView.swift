@@ -12,13 +12,14 @@ struct PermissionsSettingsView: View {
 
     private static let pairedButtonMinWidth = (DS.Sizing.settingsControlWidth - DS.Spacing.s) / 2
 
+    @ObservedObject private var updates = UpdateChecker.shared
     @State private var openAtLoginOn = false
     @State private var openAtLoginNeedsApproval = false
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: DS.Spacing.s) {
-                DSSectionHeader(title: localizer.text(.permissionsSectionPrivacy))
+                DSSectionHeader(title: localizer.text(.permissionsSectionPrivacy), topInset: DS.Spacing.xs)
                 PermissionAccessCard()
 
                 DSSectionHeader(title: localizer.text(.permissionsSectionGeneral), topInset: DS.Spacing.xl)
@@ -41,6 +42,13 @@ struct PermissionsSettingsView: View {
                         }
                         SettingsRowDivider()
                         openAtLoginRow
+                        SettingsRowDivider()
+                        SettingsRow(
+                            localizer.text(.updatesAutoCheckTitle),
+                            subtitle: localizer.text(.updatesAutoCheckSubtitle)
+                        ) {
+                            SettingsSwitch(isOn: $updates.automaticChecksEnabled)
+                        }
                         SettingsRowDivider()
                         SettingsRow(localizer.text(.welcomeTourRow)) {
                             Button(localizer.text(.welcomeTourShow)) {
