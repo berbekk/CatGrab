@@ -1,6 +1,7 @@
 import SwiftUI
 
-/// Заливка сектора: Liquid Glass (macOS 26+) или непрозрачный фон на более старых системах.
+/// Заливка сектора: Liquid Glass (macOS 26+), материал на более старых системах или сплошная
+/// заливка, если стекло выключено («Без стекла»).
 ///
 /// Стекло при наведении не меняется вовсе — ни форма, ни тон. Любая перемена у элемента внутри
 /// `GlassEffectContainer` (особенно у первого) заставляет контейнер перерисовать и заново оценить
@@ -22,6 +23,7 @@ struct PieSectorFillView: View {
     var interactiveGlass: Bool = true
 
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.ringPalette) private var palette
     @Environment(\.controlActiveState) private var controlActiveState
     @Environment(\.pieKeepsTintWhenInactive) private var keepsTintWhenInactive
 
@@ -49,12 +51,20 @@ struct PieSectorFillView: View {
 
     var body: some View {
         Group {
-            if reduceTransparency {
+            if glassSettings.isSolid {
+                // «Без стекла»: подложка своей стороны и цвет темы с той же насыщенностью, что у стекла, —
+                // ползунок насыщенности работает одинаково. Рабочий стол не просвечивает.
+                ZStack {
+                    // Приглушённый сектор теряет цвет, но не подложку; призрак в превью тает целиком.
+                    shape.fill(palette.baseColor.opacity(min(1, clampedFactor * 2)))
+                    shape.fill(tintColor.opacity(tintAlpha))
+                }
+            } else if reduceTransparency {
                 // Материалы и `Glass` продолжают просвечивать рабочий стол даже с этой настройкой —
                 // системная реакция на неё убирает блюр/вибранси, но не гарантирует непрозрачность.
                 // Секторы держатся только на цвете, поэтому здесь заливка полностью сплошная.
                 ZStack {
-                    shape.fill(DS.Colors.field)
+                    shape.fill(palette.baseColor)
                     shape.fill(tintColor.opacity(min(1, DS.Pie.reduceTransparencyTintAlpha * clampedFactor)))
                 }
             } else if #available(macOS 26.0, *), !(keepsTintWhenInactive && controlActiveState == .inactive) {

@@ -204,8 +204,8 @@ final class PieMenuWindowController {
         window.hidesOnDeactivate = false
         window.isFloatingPanel = true
         window.isReleasedWhenClosed = false
-        // Пункты меню должны всегда выглядеть одинаково, независимо от темы macOS: фиксируем тёмный appearance,
-        // чтобы Liquid Glass / .ultraThinMaterial и системные тонировки не переключались вслед за системой.
+        // Кольцо не должно переключаться вслед за темой macOS само по себе: сторону задаёт меню
+        // (`LiquidGlassSettings.appearance`), и перед каждым показом она ставится в `makeMenuView`.
         window.appearance = NSAppearance(named: .darkAqua)
         window.collectionBehavior = [
             .moveToActiveSpace,
@@ -428,6 +428,9 @@ final class PieMenuWindowController {
         options: ViewOptions
     ) -> PieMenuView {
         let interactive = options.interactive
+        // Стекло и материалы берут сторону и у окна, а не только у SwiftUI: ставим её у окна тоже.
+        let palette = RingPalette(settings: menu.liquidGlass, systemIsDark: SystemAppearanceObserver.shared.isDark)
+        window?.appearance = palette.nsAppearance
         return PieMenuView(
             items: items,
             radius: menu.effectiveMenuRadius,

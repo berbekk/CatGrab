@@ -265,11 +265,13 @@ struct MenuAppearanceControlsView: View {
         CustomThemesGrid(library: themeLibrary, menu: menu, onApply: applyTheme)
     }
 
-    /// Цвета: сначала готовые палитры — быстро перебрать, ниже — тонкая настройка.
+    /// Цвета: сначала светлое или тёмное кольцо и стекло, потом готовые палитры — быстро перебрать,
+    /// ниже — тонкая настройка.
     @ViewBuilder
     private var colorTab: some View {
         customColorsNotice
-        themesHeader(localizer.text(.builtInThemesSection), caption: localizer.text(.builtInThemesCaption), topInset: 0)
+        ringLookControls
+        themesHeader(localizer.text(.builtInThemesSection), caption: localizer.text(.builtInThemesCaption), topInset: DS.Spacing.s)
         ThemeGalleryView(selectedID: menu.colorScheme.presetID) { preset in
             var m = menu
             m.applyPalette(preset)
@@ -302,19 +304,6 @@ struct MenuAppearanceControlsView: View {
             unitSuffix: "%"
         )
 
-        labeled(localizer.text(.glassStyle), icon: "cube.transparent") {
-            VStack(alignment: .leading, spacing: DS.Spacing.xs) {
-                DSSegmented(selection: glassBinding, options: [
-                    (.regular, localizer.text(.glassRegular)),
-                    (.clear, localizer.text(.glassClear))
-                ])
-                Text(localizer.text(.glassStyleHint))
-                    .font(DS.Typography.caption)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-        }
-
         labeled(localizer.text(.iconStyleTitle), icon: "square.grid.2x2") {
             DSSegmented(selection: iconStyleBinding, options: [
                 (.white, localizer.text(.iconStyleWhite)),
@@ -336,6 +325,54 @@ struct MenuAppearanceControlsView: View {
                 onPick: setColor(\.shortcutDigitColorHex)
             )
         }
+    }
+
+    /// Светлое или тёмное кольцо и материал секторов: от них зависит, как лягут все цвета ниже.
+    @ViewBuilder
+    private var ringLookControls: some View {
+        DSSectionHeader(title: localizer.text(.interfaceAppearance), topInset: 0)
+
+        VStack(alignment: .leading, spacing: DS.Spacing.xs) {
+            DSSegmented(
+                selection: ringAppearanceBinding,
+                options: [
+                    (.dark, localizer.text(.interfaceAppearanceDark)),
+                    (.light, localizer.text(.interfaceAppearanceLight)),
+                    (.system, localizer.text(.interfaceAppearanceSystem))
+                ],
+                accessibilityLabel: localizer.text(.interfaceAppearance)
+            )
+            hint(localizer.text(.ringAppearanceHint))
+        }
+
+        labeled(localizer.text(.glassStyle), icon: "cube.transparent") {
+            VStack(alignment: .leading, spacing: DS.Spacing.xs) {
+                DSSegmented(selection: glassBinding, options: [
+                    (.regular, localizer.text(.glassRegular)),
+                    (.clear, localizer.text(.glassClear)),
+                    (.solid, localizer.text(.glassSolid))
+                ])
+                hint(localizer.text(.glassStyleHint))
+            }
+        }
+    }
+
+    private func hint(_ text: String) -> some View {
+        Text(text)
+            .font(DS.Typography.caption)
+            .foregroundStyle(.secondary)
+            .fixedSize(horizontal: false, vertical: true)
+    }
+
+    private var ringAppearanceBinding: Binding<RingAppearance> {
+        Binding(
+            get: { menu.liquidGlass.appearance },
+            set: { appearance in
+                var m = menu
+                m.liquidGlass.appearance = appearance
+                menu = m
+            }
+        )
     }
 
     /// Подпись над цветами схемы — по режиму: один цвет, цвета палитры или градиента.

@@ -349,6 +349,8 @@ struct ThemeMiniRing: View {
     var innerRatio = 0.44
     /// Цвет кота в центре; `nil` — как у нового меню (чёрный).
     var catColor: Color?
+    /// Своя тема светлого кольца или без стекла: секторы на её подложке, с обводкой, а не на фоне карточки.
+    var palette: RingPalette?
 
     /// Высота головы кота относительно её ширины (`design/cat.svg`, 99×93).
     private static let catHeadAspectRatio = 93.0 / 99.0
@@ -385,7 +387,14 @@ struct ThemeMiniRing: View {
                     path.addArc(center: center, radius: inner, startAngle: .radians(end), endAngle: .radians(start), clockwise: true)
                     path.closeSubpath()
                     let color = Color(hex: scheme.color(at: index, count: sectorCount)) ?? .gray
-                    context.fill(path, with: .color(color.opacity(alpha)))
+                    if let palette, palette.isSolid || !palette.isDark {
+                        context.fill(path, with: .color(palette.baseColor))
+                        context.fill(path, with: .color(color.opacity(min(1, 0.15 + intensity * 1.2))))
+                        let stroke = palette.sectorStroke(emphasized: false)
+                        context.stroke(path, with: .color(palette.isDark ? stroke.light : stroke.dark), lineWidth: 0.6)
+                    } else {
+                        context.fill(path, with: .color(color.opacity(alpha)))
+                    }
                 }
             }
             // Голова кота вместо простого кружка в центре — узнаваемый силуэт, как в самом меню.
@@ -407,7 +416,8 @@ extension ThemeMiniRing {
             intensity: look.liquidGlass.tintOpacity,
             clearGlass: look.liquidGlass.variant == .clear,
             innerRatio: min(0.8, max(0.2, look.innerRadius / max(1, look.menuRadius))),
-            catColor: Color(hex: look.catColorHex)
+            catColor: Color(hex: look.catColorHex),
+            palette: RingPalette(settings: look.liquidGlass, systemIsDark: SystemAppearanceObserver.readIsDark())
         )
     }
 }

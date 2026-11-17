@@ -43,6 +43,12 @@ struct PieMenuView: View {
     var onDismiss: (() -> Void)?
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @ObservedObject private var systemAppearance = SystemAppearanceObserver.shared
+
+    /// Светлое или тёмное кольцо и есть ли стекло — для секторов, подписи и подложки.
+    private var palette: RingPalette {
+        RingPalette(settings: liquidGlass, systemIsDark: systemAppearance.isDark)
+    }
 
     private var appeared: Bool { presentation.appeared }
     private var pointerForEyes: CGPoint { presentation.pointer }
@@ -293,6 +299,7 @@ struct PieMenuView: View {
                 )
             }
         }
+        .ringPalette(palette)
         .ignoresSafeArea()
     }
 }

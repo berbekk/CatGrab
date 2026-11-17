@@ -38,6 +38,8 @@ struct PieSegmentView: View {
     var appearsDisabled: Bool?
     var layer: Layer = .all
 
+    @Environment(\.ringPalette) private var palette
+
     private var drawsGlass: Bool { layer != .content }
     private var drawsContent: Bool { layer != .glass }
 
@@ -57,9 +59,15 @@ struct PieSegmentView: View {
         Color(hex: item.color) ?? .accentColor
     }
 
+    /// Насыщенность, с которой цвет сектора ложится на подложку, — по ней видно, на каком фоне значок.
+    private var sectorTintAlpha: Double {
+        min(1, max(0, liquidGlass.tintOpacity) * sectorFillOpacityFactor)
+    }
+
+    /// Цвет значка — свой или сектора, подправленный, если он на этом секторе не читается
+    /// (белый на светлом кольце, тёмно-синий на тёмном).
     private var resolvedIconColor: Color {
-        if let hex = item.iconColor, let c = Color(hex: hex) { return c }
-        return segmentColor
+        palette.readableColor(item.iconColor ?? item.color, sectorHex: item.color, alpha: sectorTintAlpha)
     }
 
     private var isUnassignedAction: Bool {
@@ -149,7 +157,7 @@ struct PieSegmentView: View {
     }
 
     private var shortcutBadgeColor: Color {
-        Color(hex: shortcutDigitColorHex) ?? .white
+        palette.readableColor(shortcutDigitColorHex, sectorHex: item.color, alpha: sectorTintAlpha)
     }
 
     private var pawColor: Color {
@@ -279,7 +287,7 @@ struct PieSegmentView: View {
         .fill(
             RadialGradient(
                 colors: isHovered
-                    ? [Color.white.opacity(DS.Pie.highlightInnerGlowOpacity), .clear]
+                    ? [palette.highlightGlow, .clear]
                     : [.clear, .clear],
                 center: .center,
                 startRadius: innerRadius,
@@ -289,26 +297,17 @@ struct PieSegmentView: View {
     }
 
     private var sectorBorder: some View {
-        let lineWidth = isHovered ? DS.Pie.highlightBorderWidth : 0.7
-        let m = sectorBorderOpacityMultiplier
-        return PieSectorShape(
+        let stroke = palette.sectorStroke(emphasized: isHovered, dimming: sectorBorderOpacityMultiplier)
+        let shape = PieSectorShape(
             startAngle: startAngle,
             endAngle: endAngle,
             innerRadius: innerRadius,
             outerRadius: radius,
             cornerRadius: sectorCornerRadius
         )
-        .stroke(Color.white.opacity((isHovered ? DS.Pie.highlightBorderOpacity : 0.24) * m), lineWidth: lineWidth)
-        .overlay(
-            PieSectorShape(
-                startAngle: startAngle,
-                endAngle: endAngle,
-                innerRadius: innerRadius,
-                outerRadius: radius,
-                cornerRadius: sectorCornerRadius
-            )
-            .stroke(Color.black.opacity((isHovered ? 0.26 : 0.16) * m), lineWidth: lineWidth)
-        )
+        return shape
+            .stroke(stroke.light, lineWidth: stroke.width)
+            .overlay(shape.stroke(stroke.dark, lineWidth: stroke.width))
     }
 }
 

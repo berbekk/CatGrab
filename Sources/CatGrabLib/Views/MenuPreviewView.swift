@@ -21,6 +21,12 @@ struct MenuPreviewView: View {
     /// и новый сектор вырос на `growth` от полной ширины. Конфиг не меняется.
     var demoAdd: DemoAdd?
     @EnvironmentObject private var localizer: LocalizationStore
+    @ObservedObject private var systemAppearance = SystemAppearanceObserver.shared
+
+    /// Светлое или тёмное кольцо и есть ли стекло — как в самом меню.
+    private var palette: RingPalette {
+        RingPalette(settings: menu.liquidGlass, systemIsDark: systemAppearance.isDark)
+    }
 
     struct DemoAdd: Equatable {
         let growth: Double
@@ -300,10 +306,8 @@ struct MenuPreviewView: View {
                 Group {
                     ForEach(Array(itemsToShow.enumerated()), id: \.element.id) { index, item in
                         let segmentColor = Color(hex: item.color) ?? .accentColor
-                        let iconTint: Color = {
-                            if let hex = item.iconColor, let c = Color(hex: hex) { return c }
-                            return segmentColor
-                        }()
+                        let sectorTintAlpha = min(1, max(0, menu.liquidGlass.tintOpacity) * fillFactor(for: item))
+                        let iconTint = palette.readableColor(item.iconColor ?? item.color, sectorHex: item.color, alpha: sectorTintAlpha)
                         let isDraggingThis = activeDrag?.itemId == item.id
                         let dragAngleNow = activeDrag?.angle ?? 0
                         let isSelected = !isGhost && selectedItemId == item.id
@@ -359,7 +363,7 @@ struct MenuPreviewView: View {
                             x: shortcutCorner.x - shortcutRadial.dx * shortcutRadialInset + shortcutTangent.dx * shortcutTangentialInset,
                             y: shortcutCorner.y - shortcutRadial.dy * shortcutRadialInset + shortcutTangent.dy * shortcutTangentialInset
                         )
-                        let shortcutColor = Color(hex: menu.shortcutDigitColorHex) ?? .white
+                        let shortcutColor = palette.readableColor(menu.shortcutDigitColorHex, sectorHex: item.color, alpha: sectorTintAlpha)
                         let isUnassignedSlot = !isGhost && item.action == .unassigned
                         let borderDim = isUnassignedSlot ? DS.Pie.unassignedSectorBorderOpacityMultiplier : 1.0
                         let iconRender = CGFloat(menu.fittedIconSize(sectorCount: previewSectorCount)) * scale
@@ -374,29 +378,19 @@ struct MenuPreviewView: View {
                                 sectorShape.fill(
                                     RadialGradient(
                                         colors: isHovered
-                                            ? [Color.white.opacity(DS.Pie.highlightInnerGlowOpacity), .clear]
+                                            ? [palette.highlightGlow, .clear]
                                             : [.clear, .clear],
                                         center: .center,
                                         startRadius: drawInnerRadius,
                                         endRadius: drawRadius
                                     )
                                 )
-                                sectorShape.stroke(
-                                    Color.white.opacity(
-                                        (isSelected ? DS.Pie.highlightBorderOpacity :
-                                            isHovered ? DS.Pie.highlightBorderOpacity :
-                                            isGhost ? 0.2 : 0.26) * borderDim
-                                    ),
-                                    lineWidth: (isSelected || isHovered) ? DS.Pie.highlightBorderWidth : 0.7
+                                let stroke = palette.sectorStroke(
+                                    emphasized: isSelected || isHovered,
+                                    dimming: borderDim * (isGhost ? 0.8 : 1)
                                 )
-                                sectorShape.stroke(
-                                    Color.black.opacity(
-                                        (isSelected ? 0.34 :
-                                            isHovered ? 0.28 :
-                                            isGhost ? 0.16 : 0.18) * borderDim
-                                    ),
-                                    lineWidth: (isSelected || isHovered) ? DS.Pie.highlightBorderWidth : 0.7
-                                )
+                                sectorShape.stroke(stroke.light, lineWidth: stroke.width)
+                                sectorShape.stroke(stroke.dark, lineWidth: stroke.width)
                             }
 
                             Group {
@@ -461,14 +455,15 @@ struct MenuPreviewView: View {
                         cornerRadius: drawCornerRadius
                     )
                     let mid = (angles.start + angles.end) / 2
+                    let ghostInk = palette.isDark ? Color.white : Color.black
                     ghostShape
                         .stroke(
-                            Color.white.opacity(0.5 * demoGrowth),
+                            ghostInk.opacity(0.5 * demoGrowth),
                             style: StrokeStyle(lineWidth: 1.2, dash: [5, 4])
                         )
                     Image(systemName: "plus")
                         .font(.system(size: max(9, menu.fittedIconSize(sectorCount: previewSectorCount + 1) * scale * 0.6), weight: .semibold))
-                        .foregroundStyle(Color.white.opacity(0.85))
+                        .foregroundStyle(ghostInk.opacity(0.85))
                         .opacity(demoGrowth)
                         .position(x: cx + cos(mid) * drawIconDist, y: cy + sin(mid) * drawIconDist)
                         .allowsHitTesting(false)
@@ -566,7 +561,7 @@ struct MenuPreviewView: View {
 
             }
             .compositingGroup()
-            .environment(\.colorScheme, .dark)
+            .ringPalette(palette)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .contentShape(Rectangle())
             .onContinuousHover { phase in

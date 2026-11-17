@@ -6,6 +6,18 @@ All notable changes to CatGrab are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- Light ring. Menu settings → Color → Appearance: Dark, Light or System (follows macOS). Icons,
+  sector digits and the label under the pointer change color by themselves when they would not
+  read on the chosen side, so a palette made for the dark ring stays readable on the light one.
+- **No glass** next to Regular and Clear: solid sectors with a crisp outline, nothing of the
+  desktop shows through. Picking a ready-made palette keeps it.
+
+### Changed
+
+- The **White** icon style is now called **Contrast**: white on the dark ring, near-black on the light one.
+
 ## [1.5.0] - 2026-11-12
 
 ### Added

@@ -994,12 +994,15 @@ struct PieMenu: Codable, Identifiable, Equatable {
         }
     }
 
-    /// Готовая палитра: раскраска, насыщенность, стекло и иконки. Форма, детали, свои цвета секторов
+    /// Готовая палитра: раскраска, насыщенность, стекло и иконки; светлое или тёмное кольцо остаётся. Форма, детали, свои цвета секторов
     /// и привязка к теме остаются — у меню с темой палитра становится несохранённой правкой темы.
     mutating func applyPalette(_ preset: MenuThemePreset) {
         colorScheme = preset.scheme
         liquidGlass.tintOpacity = preset.intensity
-        liquidGlass.variant = preset.glass
+        // «Без стекла» — выбор материала, а не цвета: палитра его не отменяет.
+        if !liquidGlass.isSolid {
+            liquidGlass.variant = preset.glass
+        }
         iconStyle = preset.icons
     }
 

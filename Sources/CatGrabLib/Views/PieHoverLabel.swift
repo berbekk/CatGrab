@@ -19,6 +19,8 @@ struct PieHoverLabel: View {
     private static let distanceFromRing: CGFloat = 10
     private static let screenMargin: CGFloat = 6
 
+    @Environment(\.ringPalette) private var palette
+
     init(title: String, detail: String? = nil, isDestructive: Bool = false, isEnabled: Bool = true) {
         self.title = title
         self.detail = detail
@@ -43,12 +45,12 @@ struct PieHoverLabel: View {
         HStack(spacing: Self.spacing) {
             Text(title)
                 .font(Font(Self.titleFont as CTFont))
-                .foregroundStyle(isDestructive ? DS.Pie.destructiveSubSectorIcon : .white)
+                .foregroundStyle(isDestructive ? palette.destructiveText : palette.hoverLabelTitle)
                 .opacity(isEnabled ? 1 : 0.5)
             if let detail {
                 Text(detail)
                     .font(Font(Self.detailFont as CTFont))
-                    .foregroundStyle(.white.opacity(0.55))
+                    .foregroundStyle(palette.hoverLabelDetail)
             }
         }
         .lineLimit(1)
@@ -57,8 +59,8 @@ struct PieHoverLabel: View {
         .padding(.vertical, Self.verticalPadding)
         // Сплошная плашка, без материала: слой с блюром рядом со стеклом заставлял все секторы
         // пересэмплировать фон при каждой смене подписи — кольцо тёмно моргало.
-        .background(Capsule().fill(Color.black.opacity(0.66)))
-        .overlay(Capsule().stroke(Color.white.opacity(0.18), lineWidth: 0.7))
+        .background(Capsule().fill(palette.hoverLabelFill))
+        .overlay(Capsule().stroke(palette.hoverLabelStroke, lineWidth: 0.7))
         .accessibilityElement(children: .combine)
     }
 
